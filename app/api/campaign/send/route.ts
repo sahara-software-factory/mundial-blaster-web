@@ -1,5 +1,5 @@
 export const dynamic = 'force-dynamic'  // ← AGREGAR ESTO AL INICIO
-s
+
 import { NextRequest, NextResponse } from "next/server"
 
 const BACKEND_URL = (process.env.NEXT_PUBLIC_WHATSAPP_SERVER_URL || "").replace(/\/$/, "")

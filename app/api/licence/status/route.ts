@@ -13,7 +13,7 @@ function getBackendUrl(): string {
 
 export async function GET(req: NextRequest) {
   try {
-    const url = `${getBackendUrl()}/api/license/status`
+     const url = `${getBackendUrl()}/api/license/status`
     const res = await fetch(url, {
       headers: { "x-api-secret": SECRET }
     })

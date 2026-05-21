@@ -15,7 +15,7 @@ interface LicenseData {
 }
 
 export function useLicense() {
-  const [license, setLicense] = useState<<LicenseData | null>(null)
+  const [license, setLicense] = useState<LicenseData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {

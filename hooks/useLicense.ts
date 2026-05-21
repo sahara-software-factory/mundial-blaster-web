@@ -11,25 +11,32 @@ interface LicenseData {
   templates?: boolean
   whitelabel?: boolean
   api?: boolean
-  invalid?: boolean
 }
 
 export function useLicense() {
   const [license, setLicense] = useState<LicenseData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [checked, setChecked] = useState(false)
 
   useEffect(() => {
     fetch("/api/license/status")
       .then(r => r.json())
       .then((data: LicenseData) => {
         setLicense(data)
-        setLoading(false)
       })
       .catch(() => {
         setLicense({ active: false })
+      })
+      .finally(() => {
         setLoading(false)
+        setChecked(true)
       })
   }, [])
 
-  return { license, loading, isActive: license?.active === true }
+  return { 
+    license, 
+    loading, 
+    checked,
+    isActive: license?.active === true 
+  }
 }

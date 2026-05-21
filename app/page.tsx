@@ -37,18 +37,17 @@ export default function Dashboard() {
   const [newName, setNewName] = useState("")
 
    const router = useRouter()
-  const { license, loading, isActive } = useLicense()
+  const { license, loading, checked, isActive } = useLicense()
 
-
-  // 🔥 REDIRECCIÓN AUTOMÁTICA A SETUP SI NO HAY LICENCIA
+  // 🔥 SOLO redirigimos cuando YA terminó de chequear
   useEffect(() => {
-    if (!loading && !isActive) {
+    if (checked && !isActive) {
       router.push("/setup")
     }
-  }, [loading, isActive, router])
+  }, [checked, isActive, router])
 
-  // Mientras carga la licencia, mostramos spinner
-  if (loading) {
+  // Mientras carga o no chequeó todavía, mostramos spinner
+  if (loading || !checked) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />

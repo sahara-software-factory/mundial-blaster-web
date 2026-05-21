@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { io } from "socket.io-client"
 import { QRModal } from "./components/qr-modal"
-
 import { useRouter } from "next/navigation"
 import { useLicense } from "@/hooks/useLicense"
 
@@ -17,11 +16,41 @@ interface LineaWhatsApp {
 }
 
 export default function Dashboard() {
+  const router = useRouter()
+  const { license, loading, checked, isActive } = useLicense()
+
+  // 🔥 TODOS los useEffect VAN PRIMERO, antes de cualquier return condicional
+  useEffect(() => {
+    console.log("[Dashboard] checked:", checked, "isActive:", isActive)
+    if (checked && !isActive) {
+      console.log("[Dashboard] No license, redirecting to /setup")
+      router.push("/setup")
+    }
+  }, [checked, isActive, router])
+
+  useEffect(() => {
+    if (checked && isActive) {
+      console.log("[Dashboard] Fetching lines...")
+      fetchLines()
+    }
+  }, [checked, isActive])
+
+  useEffect(() => {
+    if (!SOCKET_URL || !checked || !isActive) return
+    const socket = io(SOCKET_URL, { transports: ["websocket"] })
+    socket.on("connect", () => setSocketConnected(true))
+    socket.on("disconnect", () => setSocketConnected(false))
+    socket.on("status", (payload: any) => {
+      if (payload.status === "CONECTADA") fetchLines()
+    })
+    return () => { socket.disconnect() }
+  }, [checked, isActive])
+
+  // Estados del dashboard
   const [lines, setLines] = useState<LineaWhatsApp[]>([])
   const [selectedLine, setSelectedLine] = useState<LineaWhatsApp | null>(null)
   const [qrModalOpen, setQrModalOpen] = useState(false)
   const [qrTargetLine, setQrTargetLine] = useState<LineaWhatsApp | null>(null)
-
   const [numbersText, setNumbersText] = useState("")
   const [message, setMessage] = useState("")
   const [imageUrl, setImageUrl] = useState("")
@@ -30,21 +59,9 @@ export default function Dashboard() {
   const [isSending, setIsSending] = useState(false)
   const [logs, setLogs] = useState<string[]>([])
   const [socketConnected, setSocketConnected] = useState(false)
-
-  // Modal agregar línea
   const [showAddModal, setShowAddModal] = useState(false)
   const [newPhone, setNewPhone] = useState("")
   const [newName, setNewName] = useState("")
-
-   const router = useRouter()
-  const { license, loading, checked, isActive } = useLicense()
-
-  // 🔥 SOLO redirigimos cuando YA terminó de chequear
-  useEffect(() => {
-    if (checked && !isActive) {
-      router.push("/setup")
-    }
-  }, [checked, isActive, router])
 
   // Mientras carga o no chequeó todavía, mostramos spinner
   if (loading || !checked) {
@@ -58,21 +75,7 @@ export default function Dashboard() {
   // Si no hay licencia, no renderizamos nada (ya se redirigió)
   if (!isActive) return null
 
-  useEffect(() => {
-    fetchLines()
-  }, [])
-
-  useEffect(() => {
-    if (!SOCKET_URL) return
-    const socket = io(SOCKET_URL, { transports: ["websocket"] })
-    socket.on("connect", () => setSocketConnected(true))
-    socket.on("disconnect", () => setSocketConnected(false))
-    socket.on("status", (payload: any) => {
-      if (payload.status === "CONECTADA") fetchLines()
-    })
-    return () => { socket.disconnect() }
-  }, [])
-
+  // Funciones
   const fetchLines = async () => {
     try {
       const res = await fetch("/api/lineas")
@@ -240,7 +243,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Modal Agregar Línea (overlay correcto) */}
+        {/* Modal Agregar Línea */}
         {showAddModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="bg-slate-900 border border-blue-500 rounded-2xl p-6 space-y-4 w-full max-w-md">
@@ -281,7 +284,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* QR Modal (Componente fusionado de Sahara) */}
+        {/* QR Modal */}
         <QRModal 
           open={qrModalOpen} 
           onOpenChange={(v) => {

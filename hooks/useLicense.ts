@@ -19,7 +19,7 @@ export function useLicense() {
   const [checked, setChecked] = useState(false)
 
   useEffect(() => {
-    fetch("/api/license/status")
+    fetch("/api/licence/status")
       .then(r => r.json())
       .then((data: LicenseData) => {
         setLicense(data)

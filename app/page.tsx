@@ -4,6 +4,8 @@ import { useState, useEffect } from "react"
 import { io } from "socket.io-client"
 import { QRModal } from "./components/qr-modal"
 
+import { useRouter } from "next/navigation"
+import { useLicense } from "@/hooks/useLicense"
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || ""
 
@@ -33,6 +35,29 @@ export default function Dashboard() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [newPhone, setNewPhone] = useState("")
   const [newName, setNewName] = useState("")
+
+   const router = useRouter()
+  const { license, loading, isActive } = useLicense()
+
+
+  // 🔥 REDIRECCIÓN AUTOMÁTICA A SETUP SI NO HAY LICENCIA
+  useEffect(() => {
+    if (!loading && !isActive) {
+      router.push("/setup")
+    }
+  }, [loading, isActive, router])
+
+  // Mientras carga la licencia, mostramos spinner
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  // Si no hay licencia, no renderizamos nada (ya se redirigió)
+  if (!isActive) return null
 
   useEffect(() => {
     fetchLines()

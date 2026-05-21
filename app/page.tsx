@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { io } from "socket.io-client"
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || ""
-const API_URL = process.env.NEXT_PUBLIC_WHATSAPP_SERVER_URL || ""
 
 export default function Dashboard() {
   const [lines, setLines] = useState<any[]>([])
@@ -22,21 +21,14 @@ export default function Dashboard() {
   const [logs, setLogs] = useState<string[]>([])
   const [socketConnected, setSocketConnected] = useState(false)
 
-   useEffect(() => {
+  // Modal agregar línea
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [newPhone, setNewPhone] = useState("")
+  const [newName, setNewName] = useState("")
+
+  useEffect(() => {
     fetchLines()
   }, [])
-
-  const fetchLines = async () => {
-    try {
-      const res = await fetch("/api/lineas")
-      const data = await res.json()
-      if (data.lines) {
-        setLines(data.lines)
-      }
-    } catch (e) {
-      console.error("Error cargando líneas:", e)
-    }
-  }
 
   useEffect(() => {
     if (!SOCKET_URL) return
@@ -55,13 +47,49 @@ export default function Dashboard() {
         if (payload.status === "CONECTADA") {
           setTimeout(() => {
             setQrModalOpen(false)
-            setLines(prev => prev.map(l => l.id === selectedLine.id ? { ...l, status: "CONECTADA" } : l))
+            fetchLines()
           }, 2000)
         }
       }
     })
     return () => { socket.disconnect() }
   }, [selectedLine])
+
+  const fetchLines = async () => {
+    try {
+      const res = await fetch("/api/lineas")
+      const data = await res.json()
+      if (data.lines) setLines(data.lines)
+    } catch (e) {
+      console.error("Error cargando líneas:", e)
+    }
+  }
+
+  const addLine = async () => {
+    if (!newPhone.trim()) return alert("Escribí el número de la línea")
+    try {
+      const res = await fetch("/api/lineas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: newPhone.trim(), nombre: newName.trim() || "Nueva Línea" }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setShowAddModal(false)
+        setNewPhone("")
+        setNewName("")
+        await fetchLines()
+        // Auto-abrir QR para conectar
+        setSelectedLine(data.line)
+        setQrModalOpen(true)
+        connectLine(data.line.phone)
+      } else {
+        alert(data.error || "Error creando línea")
+      }
+    } catch (e) {
+      alert("Error de red")
+    }
+  }
 
   const connectLine = async (phone: string) => {
     setQrStatus("CONNECTING")
@@ -84,7 +112,7 @@ export default function Dashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lineId }),
       })
-      setLines(prev => prev.map(l => l.id === lineId ? { ...l, status: "DESCONECTADA" } : l))
+      fetchLines()
       if (selectedLine?.id === lineId) setSelectedLine(null)
     } catch (e) {
       alert("Error al desconectar")
@@ -149,19 +177,32 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Líneas */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-  <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
-  Líneas WhatsApp
-  <button onClick={fetchLines} className="ml-auto text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded-lg transition-colors">
-    🔄 Refrescar
-  </button>
-</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+              <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
+              Líneas WhatsApp
+            </h2>
+            <div className="flex gap-2">
+              <button onClick={fetchLines} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-lg transition-colors">
+                🔄 Refrescar
+              </button>
+              <button onClick={() => setShowAddModal(true)} className="text-xs bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded-lg transition-colors text-white font-medium">
+                ➕ Agregar Línea
+              </button>
+            </div>
+          </div>
+
           <div className="space-y-3">
+            {lines.length === 0 && (
+              <p className="text-slate-500 text-sm">No hay líneas registradas. Agregá una con el botón de arriba.</p>
+            )}
             {lines.map(line => (
               <div key={line.id} className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border ${selectedLine?.id === line.id ? "border-emerald-500/40 bg-emerald-500/5" : "border-slate-800 bg-slate-950"}`}>
                 <div className="space-y-1">
                   <p className="font-mono text-white font-semibold">{line.phone}</p>
+                  <p className="text-xs text-slate-400">{line.nombre}</p>
                   <span className={`inline-block px-2.5 py-0.5 rounded-md text-xs font-medium border ${statusColor(line.status)}`}>
                     {line.status === "CONECTADA" ? "🟢 ONLINE" : line.status === "PENDING" ? "🟡 PENDIENTE" : "🔴 OFFLINE"}
                   </span>
@@ -186,6 +227,46 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Modal Agregar Línea */}
+        {showAddModal && (
+          <div className="bg-slate-900 border border-blue-500 rounded-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white">Agregar Nueva Línea</h3>
+              <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-300">Número de WhatsApp (sin + ni espacios)</label>
+                <input
+                  type="text"
+                  value={newPhone}
+                  onChange={e => setNewPhone(e.target.value)}
+                  placeholder="5491123456789"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-300">Nombre (opcional)</label>
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={e => setNewName(e.target.value)}
+                  placeholder="Ej: Línea Principal"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <button
+                onClick={addLine}
+                disabled={!newPhone.trim()}
+                className={`w-full h-12 rounded-xl font-bold transition-all ${!newPhone.trim() ? "bg-slate-800 text-slate-500 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500 text-white"}`}
+              >
+                💾 Guardar y Generar QR
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* QR Modal */}
         {qrModalOpen && selectedLine && (
           <div className="bg-slate-900 border-2 border-blue-500 rounded-2xl p-6 space-y-4">
             <div className="flex items-center justify-between">
@@ -218,6 +299,7 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Campaña */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-5">
           <h2 className="text-lg font-semibold text-white flex items-center gap-2">
             <span className="w-2 h-2 bg-emerald-400 rounded-full"></span>

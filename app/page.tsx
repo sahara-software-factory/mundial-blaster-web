@@ -22,12 +22,21 @@ export default function Dashboard() {
   const [logs, setLogs] = useState<string[]>([])
   const [socketConnected, setSocketConnected] = useState(false)
 
-  useEffect(() => {
-    setLines([
-      { id: "line_abc123", phone: "5491123456789", status: "CONECTADA", nombre: "Línea 1" },
-      { id: "line_def456", phone: "5491165432198", status: "DESCONECTADA", nombre: "Línea 2" },
-    ])
+   useEffect(() => {
+    fetchLines()
   }, [])
+
+  const fetchLines = async () => {
+    try {
+      const res = await fetch("/api/lineas")
+      const data = await res.json()
+      if (data.lines) {
+        setLines(data.lines)
+      }
+    } catch (e) {
+      console.error("Error cargando líneas:", e)
+    }
+  }
 
   useEffect(() => {
     if (!SOCKET_URL) return
@@ -142,9 +151,12 @@ export default function Dashboard() {
 
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
           <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-            <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
-            Líneas WhatsApp
-          </h2>
+  <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
+  Líneas WhatsApp
+  <button onClick={fetchLines} className="ml-auto text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded-lg transition-colors">
+    🔄 Refrescar
+  </button>
+</h2>
           <div className="space-y-3">
             {lines.map(line => (
               <div key={line.id} className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border ${selectedLine?.id === line.id ? "border-emerald-500/40 bg-emerald-500/5" : "border-slate-800 bg-slate-950"}`}>

@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { motion, AnimatePresence } from "framer-motion"
+import { useRouter } from "next/navigation" 
+import { motion, AnimatePresence } from "motion/react";
+
 
 const STEPS = [
   { id: 1, title: "Bienvenido", subtitle: "Empecemos" },

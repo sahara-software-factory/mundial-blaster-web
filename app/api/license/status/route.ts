@@ -11,25 +11,30 @@ function getBackendUrl(): string {
   return `https://${BACKEND_URL}`
 }
 
+// app/api/license/status/route.ts
 export async function GET(req: NextRequest) {
   try {
     const url = `${getBackendUrl()}/api/license/status`
+    console.log("[Proxy] Fetching:", url)
     
     const res = await fetch(url, {
       headers: { "x-api-secret": SECRET },
       signal: AbortSignal.timeout(8000)
     })
     
+    console.log("[Proxy] Backend status:", res.status)
+    
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      return NextResponse.json({ active: false, error: err.error || "Backend error" }, { status: 200 })
+      const text = await res.text().catch(() => "No body")
+      console.error("[Proxy] Backend error body:", text)
+      return NextResponse.json({ active: false, backendStatus: res.status, backendError: text }, { status: 200 })
     }
     
     const data = await res.json()
     return NextResponse.json(data)
     
   } catch (e: any) {
-    console.error("[Proxy license/status]", e.message)
-    return NextResponse.json({ active: false, error: e.message }, { status: 200 })
+    console.error("[Proxy] Exception:", e.message)
+    return NextResponse.json({ active: false, proxyError: e.message }, { status: 200 })
   }
 }

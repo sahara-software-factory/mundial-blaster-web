@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { io } from "socket.io-client"
 import { QRModal } from "./components/qr-modal"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useLicense } from "@/hooks/useLicense"
 import { useUser } from "@/hooks/useUser"
 
@@ -18,19 +18,22 @@ interface LineaWhatsApp {
 
 export default function Dashboard() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { license, loading: licenseLoading, checked, isActive } = useLicense()
   const { user, loading: userLoading, hasUser } = useUser()
 
-  // 🔥 CADENA DE REDIRECCIÓN
+  // 🔥 WORKAROUND: Si hay ?onboarding=true en la URL, forzamos el onboarding
+  const forceOnboarding = searchParams.get('onboarding') === 'true'
+
   useEffect(() => {
     if (!licenseLoading && checked) {
-      if (!isActive) {
+      if (!isActive && !forceOnboarding) {
         router.push("/setup")
-      } else if (!userLoading && !hasUser) {
+      } else if ((isActive || forceOnboarding) && !userLoading && !hasUser) {
         router.push("/onboarding")
       }
     }
-  }, [licenseLoading, userLoading, checked, isActive, hasUser, router])
+  }, [licenseLoading, userLoading, checked, isActive, hasUser, router, forceOnboarding])
 
   // Spinner mientras carga licencia O usuario
   if (licenseLoading || userLoading || !checked) {

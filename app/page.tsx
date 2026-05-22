@@ -5,6 +5,7 @@ import { io } from "socket.io-client"
 import { QRModal } from "./components/qr-modal"
 import { useRouter } from "next/navigation"
 import { useLicense } from "@/hooks/useLicense"
+import { useUser } from "@/hooks/useUser"
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || ""
 
@@ -17,34 +18,31 @@ interface LineaWhatsApp {
 
 export default function Dashboard() {
   const router = useRouter()
-  const { license, loading, checked, isActive } = useLicense()
+  const { license, loading: licenseLoading, checked, isActive } = useLicense()
+  const { user, loading: userLoading, hasUser } = useUser()
 
-  // 🔥 TODOS los useEffect VAN PRIMERO, antes de cualquier return condicional
+  // 🔥 CADENA DE REDIRECCIÓN
   useEffect(() => {
-    console.log("[Dashboard] checked:", checked, "isActive:", isActive)
-    if (checked && !isActive) {
-      console.log("[Dashboard] No license, redirecting to /setup")
-      router.push("/setup")
+    if (!licenseLoading && checked) {
+      if (!isActive) {
+        router.push("/setup")
+      } else if (!userLoading && !hasUser) {
+        router.push("/onboarding")
+      }
     }
-  }, [checked, isActive, router])
+  }, [licenseLoading, userLoading, checked, isActive, hasUser, router])
 
-  useEffect(() => {
-    if (checked && isActive) {
-      console.log("[Dashboard] Fetching lines...")
-      fetchLines()
-    }
-  }, [checked, isActive])
+  // Spinner mientras carga licencia O usuario
+  if (licenseLoading || userLoading || !checked) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
 
-  useEffect(() => {
-    if (!SOCKET_URL || !checked || !isActive) return
-    const socket = io(SOCKET_URL, { transports: ["websocket"] })
-    socket.on("connect", () => setSocketConnected(true))
-    socket.on("disconnect", () => setSocketConnected(false))
-    socket.on("status", (payload: any) => {
-      if (payload.status === "CONECTADA") fetchLines()
-    })
-    return () => { socket.disconnect() }
-  }, [checked, isActive])
+  if (!isActive) return null
+  if (!hasUser) return null
 
   // Estados del dashboard
   const [lines, setLines] = useState<LineaWhatsApp[]>([])
@@ -63,17 +61,6 @@ export default function Dashboard() {
   const [newPhone, setNewPhone] = useState("")
   const [newName, setNewName] = useState("")
 
-  // Mientras carga o no chequeó todavía, mostramos spinner
-  if (loading || !checked) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
-  }
-
-  // Si no hay licencia, no renderizamos nada (ya se redirigió)
-  if (!isActive) return null
 
   // Funciones
   const fetchLines = async () => {

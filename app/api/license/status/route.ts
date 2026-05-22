@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic'  // ← AGREGAR ESTO AL INICIO
+export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from "next/server"
 
@@ -13,20 +13,23 @@ function getBackendUrl(): string {
 
 export async function GET(req: NextRequest) {
   try {
-     const url = `${getBackendUrl()}/api/license/status`
+    const url = `${getBackendUrl()}/api/license/status`
+    
     const res = await fetch(url, {
-      headers: { "x-api-secret": SECRET }
+      headers: { "x-api-secret": SECRET },
+      signal: AbortSignal.timeout(8000)
     })
     
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
-      return NextResponse.json({ active: false, error: err.error }, { status: res.status })
+      return NextResponse.json({ active: false, error: err.error || "Backend error" }, { status: 200 })
     }
     
     const data = await res.json()
     return NextResponse.json(data)
+    
   } catch (e: any) {
     console.error("[Proxy license/status]", e.message)
-    return NextResponse.json({ active: false, error: e.message }, { status: 500 })
+    return NextResponse.json({ active: false, error: e.message }, { status: 200 })
   }
 }

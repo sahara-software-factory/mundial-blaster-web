@@ -3,9 +3,8 @@
 import { useState, useEffect } from "react"
 import { io } from "socket.io-client"
 import { QRModal } from "./components/qr-modal"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { useLicense } from "@/hooks/useLicense"
-import { useUser } from "@/hooks/useUser"
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || ""
 
@@ -18,34 +17,34 @@ interface LineaWhatsApp {
 
 export default function Dashboard() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const { license, loading: licenseLoading, checked, isActive } = useLicense()
-  const { user, loading: userLoading, hasUser } = useUser()
+  const { license, loading, checked, isActive } = useLicense()
 
-  // 🔥 WORKAROUND: Si hay ?onboarding=true en la URL, forzamos el onboarding
-  const forceOnboarding = searchParams.get('onboarding') === 'true'
+  // 🔥 TODOS los useEffect VAN PRIMERO, antes de cualquier return condicional
+  useEffect(() => {
+    console.log("[Dashboard] checked:", checked, "isActive:", isActive)
+    if (checked && !isActive) {
+      console.log("[Dashboard] No license, redirecting to /setup")
+      router.push("/setup")
+    }
+  }, [checked, isActive, router])
 
   useEffect(() => {
-    if (!licenseLoading && checked) {
-      if (!isActive && !forceOnboarding) {
-        router.push("/setup")
-      } else if ((isActive || forceOnboarding) && !userLoading && !hasUser) {
-        router.push("/onboarding")
-      }
+    if (checked && isActive) {
+      console.log("[Dashboard] Fetching lines...")
+      fetchLines()
     }
-  }, [licenseLoading, userLoading, checked, isActive, hasUser, router, forceOnboarding])
+  }, [checked, isActive])
 
-  // Spinner mientras carga licencia O usuario
-  if (licenseLoading || userLoading || !checked) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
-  }
-
-  if (!isActive) return null
-  if (!hasUser) return null
+  useEffect(() => {
+    if (!SOCKET_URL || !checked || !isActive) return
+    const socket = io(SOCKET_URL, { transports: ["websocket"] })
+    socket.on("connect", () => setSocketConnected(true))
+    socket.on("disconnect", () => setSocketConnected(false))
+    socket.on("status", (payload: any) => {
+      if (payload.status === "CONECTADA") fetchLines()
+    })
+    return () => { socket.disconnect() }
+  }, [checked, isActive])
 
   // Estados del dashboard
   const [lines, setLines] = useState<LineaWhatsApp[]>([])
@@ -64,6 +63,17 @@ export default function Dashboard() {
   const [newPhone, setNewPhone] = useState("")
   const [newName, setNewName] = useState("")
 
+  // Mientras carga o no chequeó todavía, mostramos spinner
+  if (loading || !checked) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  // Si no hay licencia, no renderizamos nada (ya se redirigió)
+  if (!isActive) return null
 
   // Funciones
   const fetchLines = async () => {

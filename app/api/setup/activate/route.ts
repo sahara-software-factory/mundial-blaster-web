@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic'  // ← AGREGAR ESTO AL INICIO
+export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from "next/server"
 
@@ -23,10 +23,12 @@ export async function POST(req: NextRequest) {
         "x-api-secret": SECRET 
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(8000)
     })
     
     const data = await res.json()
     return NextResponse.json(data, { status: res.status })
+    
   } catch (e: any) {
     console.error("[Proxy setup/activate]", e.message)
     return NextResponse.json({ error: e.message || "Error activando licencia" }, { status: 500 })

@@ -1,5 +1,5 @@
-// app/api/setup/activate/route.ts
 export const dynamic = 'force-dynamic'
+export const revalidate = 0 
 
 import { NextRequest, NextResponse } from "next/server"
 
@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(10000),
       redirect: "follow",
+      cache: "no-store"
     })
 
     debug.fetchStatus = res.status

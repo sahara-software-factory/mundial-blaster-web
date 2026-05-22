@@ -1,5 +1,5 @@
-// app/api/license/status/route.ts
 export const dynamic = 'force-dynamic'
+export const revalidate = 0 
 
 import { NextRequest, NextResponse } from "next/server"
 
@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
       headers: { "x-api-secret": SECRET },
       signal: AbortSignal.timeout(10000),
       redirect: "follow",
+      cache: "no-store", 
     })
 
     debug.fetchStatus = res.status

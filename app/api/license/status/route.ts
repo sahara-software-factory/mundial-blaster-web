@@ -7,34 +7,48 @@ const SECRET = process.env.WHATSAPP_SECRET || ""
 
 function getBackendUrl(): string {
   if (!BACKEND_URL) throw new Error("NEXT_PUBLIC_WHATSAPP_SERVER_URL no está definida")
-  if (BACKEND_URL.startsWith("http://") || BACKEND_URL.startsWith("https://")) return BACKEND_URL
+  // Forzar https siempre
+  if (BACKEND_URL.startsWith("https://")) return BACKEND_URL
+  if (BACKEND_URL.startsWith("http://")) return BACKEND_URL.replace("http://", "https://")
   return `https://${BACKEND_URL}`
 }
 
-// app/api/license/status/route.ts
 export async function GET(req: NextRequest) {
+  console.log("[LicenseProxy] START — BACKEND_URL env:", BACKEND_URL || "VACÍO")
+  
   try {
     const url = `${getBackendUrl()}/api/license/status`
-    console.log("[Proxy] Fetching:", url)
+    console.log("[LicenseProxy] Fetching:", url)
     
     const res = await fetch(url, {
+      method: "GET",
       headers: { "x-api-secret": SECRET },
-      signal: AbortSignal.timeout(8000)
+      signal: AbortSignal.timeout(8000),
+      redirect: "follow"
     })
     
-    console.log("[Proxy] Backend status:", res.status)
+    console.log("[LicenseProxy] Backend status:", res.status)
     
     if (!res.ok) {
       const text = await res.text().catch(() => "No body")
-      console.error("[Proxy] Backend error body:", text)
-      return NextResponse.json({ active: false, backendStatus: res.status, backendError: text }, { status: 200 })
+      console.error("[LicenseProxy] Backend error:", res.status, text)
+      return NextResponse.json({ 
+        active: false, 
+        backendStatus: res.status,
+        backendBody: text 
+      }, { status: 200 })
     }
     
     const data = await res.json()
+    console.log("[LicenseProxy] Backend data:", JSON.stringify(data))
     return NextResponse.json(data)
     
   } catch (e: any) {
-    console.error("[Proxy] Exception:", e.message)
-    return NextResponse.json({ active: false, proxyError: e.message }, { status: 200 })
+    console.error("[LicenseProxy] EXCEPTION:", e.message)
+    return NextResponse.json({ 
+      active: false, 
+      proxyError: e.message,
+      envUrl: BACKEND_URL || "NO_DEFINIDA"
+    }, { status: 200 })
   }
 }

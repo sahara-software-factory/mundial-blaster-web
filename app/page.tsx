@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import { io } from "socket.io-client"
 import { QRModal } from "./components/qr-modal"
 import { useRouter } from "next/navigation"
@@ -18,33 +19,10 @@ interface LineaWhatsApp {
 
 export default function Dashboard() {
   const router = useRouter()
-  const { license, loading: licenseLoading, checked, isActive } = useLicense()
+  const { license, loading: licenseLoading, checked, isActive, refetch } = useLicense()
   const { user, loading: userLoading, hasUser } = useUser()
 
-  // 🔥 CADENA DE REDIRECCIÓN
-  useEffect(() => {
-    if (!licenseLoading && checked) {
-      if (!isActive) {
-        router.push("/setup")
-      } else if (!userLoading && !hasUser) {
-        router.push("/onboarding")
-      }
-    }
-  }, [licenseLoading, userLoading, checked, isActive, hasUser, router])
-
-  // Spinner mientras carga licencia O usuario
-  if (licenseLoading || userLoading || !checked) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
-  }
-
-  if (!isActive) return null
-  if (!hasUser) return null
-
-  // Estados del dashboard
+  // Estados del dashboard (MOVER ARRIBA, antes de cualquier return)
   const [lines, setLines] = useState<LineaWhatsApp[]>([])
   const [selectedLine, setSelectedLine] = useState<LineaWhatsApp | null>(null)
   const [qrModalOpen, setQrModalOpen] = useState(false)
@@ -61,7 +39,49 @@ export default function Dashboard() {
   const [newPhone, setNewPhone] = useState("")
   const [newName, setNewName] = useState("")
 
+  // 🔥 CADENA DE REDIRECCIÓN
+  useEffect(() => {
+    if (!licenseLoading && checked) {
+      if (!isActive) {
+        console.log("[Dashboard] No active license, redirecting to /setup")
+        router.push("/setup")
+      } else if (!userLoading && !hasUser) {
+        router.push("/onboarding")
+      }
+    }
+  }, [licenseLoading, userLoading, checked, isActive, hasUser, router])
 
+  // Cargar líneas al entrar
+  useEffect(() => {
+    if (isActive && hasUser) {
+      fetchLines()
+    }
+  }, [isActive, hasUser])
+
+  // Socket connection
+  useEffect(() => {
+    if (!SOCKET_URL || !isActive) return
+    const socket = io(SOCKET_URL)
+    socket.on("connect", () => setSocketConnected(true))
+    socket.on("disconnect", () => setSocketConnected(false))
+    return () => { socket.disconnect() }
+  }, [isActive])
+
+  // Spinner mientras carga licencia O usuario
+  if (licenseLoading || userLoading || !checked) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <motion.div 
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full"
+        />
+      </div>
+    )
+  }
+
+  if (!isActive) return null
+  if (!hasUser) return null
 
   // Funciones
   const fetchLines = async () => {
@@ -101,7 +121,7 @@ export default function Dashboard() {
   const openQrForLine = (line: LineaWhatsApp) => {
     setQrTargetLine(line)
     setQrModalOpen(true)
-    fetch("/api/whatsapp/connect", {
+    fetch("/api/lineas/connect", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone: line.phone }),
@@ -111,7 +131,11 @@ export default function Dashboard() {
   const logoutLine = async (lineId: string) => {
     if (!confirm("¿Seguro que querés desconectar esta línea?")) return
     try {
-      const res = await fetch(`/api/lineas/${lineId}`, { method: "DELETE" })
+      const res = await fetch("/api/lineas/logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lineId }),
+      })
       if (res.ok) {
         fetchLines()
         if (selectedLine?.id === lineId) setSelectedLine(null)
@@ -164,116 +188,317 @@ export default function Dashboard() {
     return "bg-red-500/20 text-red-400 border-red-500/50"
   }
 
+  // RENDER
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto space-y-6">
-
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      {/* Header */}
+      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white font-bold text-xl">M</div>
-            <div>
-              <h1 className="text-2xl font-bold text-white">Mundial Blaster</h1>
-              <p className="text-xs text-slate-400">Beta Edition — Envío masivo WhatsApp</p>
-            </div>
-          </div>
-          <div className={`px-3 py-1 rounded-full text-xs font-medium border ${socketConnected ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-red-500/20 text-red-400 border-red-500/30"}`}>
-            {socketConnected ? "● Socket Online" : "● Socket Offline"}
-          </div>
-        </div>
-
-        {/* Líneas */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-              <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
-              Líneas WhatsApp
-            </h2>
-            <div className="flex gap-2">
-              <button onClick={fetchLines} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-lg transition-colors">
-                🔄 Refrescar
-              </button>
-              <button onClick={() => setShowAddModal(true)} className="text-xs bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded-lg transition-colors text-white font-medium">
-                ➕ Agregar Línea
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {lines.length === 0 && (
-              <p className="text-slate-500 text-sm">No hay líneas registradas. Agregá una con el botón de arriba.</p>
+            <motion.div 
+              initial={{ scale: 0 }} 
+              animate={{ scale: 1 }} 
+              className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold"
+            >
+              MB
+            </motion.div>
+            <h1 className="text-xl font-bold text-white">Mundial Blaster</h1>
+            {license?.label && (
+              <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full border border-blue-500/30">
+                {license.label}
+              </span>
             )}
-            {lines.map(line => (
-              <div key={line.id} className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border ${selectedLine?.id === line.id ? "border-emerald-500/40 bg-emerald-500/5" : "border-slate-800 bg-slate-950"}`}>
-                <div className="space-y-1">
-                  <p className="font-mono text-white font-semibold">{line.phone}</p>
-                  <p className="text-xs text-slate-400">{line.nombre}</p>
-                  <span className={`inline-block px-2.5 py-0.5 rounded-md text-xs font-medium border ${statusColor(line.status)}`}>
-                    {line.status === "CONECTADA" ? "🟢 ONLINE" : line.status === "PENDING" ? "🟡 PENDIENTE" : "🔴 OFFLINE"}
-                  </span>
+          </div>
+          <div className="flex items-center gap-3 text-sm">
+            <span className={`flex items-center gap-1.5 ${socketConnected ? "text-emerald-400" : "text-red-400"}`}>
+              <span className={`h-2 w-2 rounded-full ${socketConnected ? "bg-emerald-400 animate-pulse" : "bg-red-400"}`} />
+              {socketConnected ? "Conectado" : "Desconectado"}
+            </span>
+            <button onClick={refetch} className="text-slate-400 hover:text-white transition-colors">
+              🔄
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Panel izquierdo: Líneas */}
+        <div className="lg:col-span-1 space-y-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-bold text-white">Líneas WhatsApp</h2>
+              <button 
+                onClick={() => setShowAddModal(true)}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors"
+              >
+                + Agregar
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <AnimatePresence>
+                {lines.map((line) => (
+                  <motion.div
+                    key={line.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    onClick={() => setSelectedLine(line)}
+                    className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                      selectedLine?.id === line.id 
+                        ? "border-blue-500 bg-blue-500/10" 
+                        : "border-slate-800 bg-slate-950 hover:border-slate-700"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-white text-sm">{line.nombre}</p>
+                        <p className="text-xs text-slate-500 font-mono">{line.phone}</p>
+                      </div>
+                      <span className={`px-2 py-0.5 text-xs rounded-full border ${statusColor(line.status)}`}>
+                        {line.status}
+                      </span>
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                      {line.status !== "CONECTADA" && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); openQrForLine(line) }}
+                          className="text-xs px-2 py-1 bg-emerald-600/20 text-emerald-400 rounded border border-emerald-600/30 hover:bg-emerald-600/30"
+                        >
+                          Conectar
+                        </button>
+                      )}
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); logoutLine(line.id) }}
+                        className="text-xs px-2 py-1 bg-red-600/20 text-red-400 rounded border border-red-600/30 hover:bg-red-600/30"
+                      >
+                        Desconectar
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+              
+              {lines.length === 0 && (
+                <div className="text-center py-8 text-slate-600 text-sm">
+                  No hay líneas. Agregá una para empezar.
                 </div>
-                <div className="flex gap-2">
-                  {line.status !== "CONECTADA" && (
-                    <button onClick={() => openQrForLine(line)} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors">
-                      📷 Conectar QR
-                    </button>
-                  )}
-                  {line.status === "CONECTADA" && (
-                    <button onClick={() => setSelectedLine(line)} className={`px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${selectedLine?.id === line.id ? "bg-emerald-600 border-emerald-500 text-white" : "border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10"}`}>
-                      {selectedLine?.id === line.id ? "✓ Usando esta" : "Usar esta"}
-                    </button>
-                  )}
-                  <button onClick={() => logoutLine(line.id)} className="px-3 py-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/30 rounded-lg transition-colors text-sm">
-                    🗑
-                  </button>
-                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Info de licencia */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+            <h3 className="font-bold text-white text-sm mb-2">Tu Plan</h3>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between text-slate-400">
+                <span>Plan</span>
+                <span className="text-white">{license?.label || "-"}</span>
               </div>
-            ))}
+              <div className="flex justify-between text-slate-400">
+                <span>Líneas</span>
+                <span className="text-white">{lines.length} / {license?.maxLines || 1}</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Spintax</span>
+                <span className={license?.features?.spintax ? "text-emerald-400" : "text-slate-600"}>
+                  {license?.features?.spintax ? "✅" : "❌"}
+                </span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Agendamiento</span>
+                <span className={license?.features?.scheduling ? "text-emerald-400" : "text-slate-600"}>
+                  {license?.features?.scheduling ? "✅" : "❌"}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Modal Agregar Línea */}
-        {showAddModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-slate-900 border border-blue-500 rounded-2xl p-6 space-y-4 w-full max-w-md">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-white">Agregar Nueva Línea</h3>
-                <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-white">✕</button>
+        {/* Panel central: Campaña */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <h2 className="font-bold text-white mb-4">📤 Nueva Campaña</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Línea seleccionada</label>
+                <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl">
+                  {selectedLine ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-white font-medium">{selectedLine.nombre}</span>
+                      <span className="text-xs text-slate-500">{selectedLine.phone}</span>
+                    </div>
+                  ) : (
+                    <span className="text-slate-600 text-sm">Seleccioná una línea del panel izquierdo</span>
+                  )}
+                </div>
               </div>
+
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Números (uno por línea)</label>
+                <textarea
+                  value={numbersText}
+                  onChange={e => setNumbersText(e.target.value)}
+                  placeholder="5491123456789&#10;5491165432109&#10;..."
+                  rows={6}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 font-mono text-sm text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500 transition-colors"
+                />
+                <p className="text-xs text-slate-600 mt-1">
+                  {numbersText.split("\n").filter(Boolean).length} números detectados
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Mensaje</label>
+                <textarea
+                  value={message}
+                  onChange={e => setMessage(e.target.value)}
+                  placeholder="Hola {{nombre}}, te escribo de..."
+                  rows={3}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500 transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">URL de imagen (opcional)</label>
+                <input
+                  type="text"
+                  value={imageUrl}
+                  onChange={e => setImageUrl(e.target.value)}
+                  placeholder="https://tusitio.com/imagen.jpg"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500 transition-colors"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Delay mínimo (ms)</label>
+                  <input
+                    type="number"
+                    value={delayMin}
+                    onChange={e => setDelayMin(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Delay máximo (ms)</label>
+                  <input
+                    type="number"
+                    value={delayMax}
+                    onChange={e => setDelayMax(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={sendCampaign}
+                disabled={isSending || !selectedLine}
+                className={`w-full font-bold py-3 rounded-xl transition-all ${
+                  isSending || !selectedLine
+                    ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-500 text-white hover:shadow-lg hover:shadow-blue-500/25"
+                }`}
+              >
+                {isSending ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                    Enviando...
+                  </span>
+                ) : (
+                  "🚀 Disparar Campaña"
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Logs */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+            <h3 className="font-bold text-white text-sm mb-2">📋 Logs</h3>
+            <div className="bg-slate-950 rounded-xl p-3 h-48 overflow-y-auto font-mono text-xs space-y-1">
+              {logs.length === 0 ? (
+                <span className="text-slate-700">Esperando acciones...</span>
+              ) : (
+                logs.map((log, i) => (
+                  <motion.div 
+                    key={i} 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`${
+                      log.includes("✅") ? "text-emerald-400" : 
+                      log.includes("❌") ? "text-red-400" : 
+                      log.includes("🚀") ? "text-blue-400" : "text-slate-400"
+                    }`}
+                  >
+                    {log}
+                  </motion.div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {/* Modal agregar línea */}
+      <AnimatePresence>
+        {showAddModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md"
+            >
+              <h3 className="text-lg font-bold text-white mb-4">Agregar Línea</h3>
               <div className="space-y-3">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-300">Número de WhatsApp (sin + ni espacios)</label>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Número (con código país)</label>
                   <input
                     type="text"
                     value={newPhone}
                     onChange={e => setNewPhone(e.target.value)}
                     placeholder="5491123456789"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500"
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-300">Nombre (opcional)</label>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Nombre (opcional)</label>
                   <input
                     type="text"
                     value={newName}
                     onChange={e => setNewName(e.target.value)}
-                    placeholder="Ej: Línea Principal"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500"
+                    placeholder="Línea Principal"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500"
                   />
                 </div>
-                <button
-                  onClick={addLine}
-                  disabled={!newPhone.trim()}
-                  className={`w-full h-12 rounded-xl font-bold transition-all ${!newPhone.trim() ? "bg-slate-800 text-slate-500 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500 text-white"}`}
-                >
-                  💾 Guardar y Generar QR
-                </button>
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => setShowAddModal(false)}
+                    className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={addLine}
+                    className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition-colors font-bold"
+                  >
+                    Guardar
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
+      </AnimatePresence>
 
-        {/* QR Modal */}
-        <QRModal 
+      {/* QR Modal */}
+     <QRModal 
           open={qrModalOpen} 
           onOpenChange={(v) => {
             setQrModalOpen(v)
@@ -281,88 +506,6 @@ export default function Dashboard() {
           }} 
           line={qrTargetLine} 
         />
-
-        {/* Campaña */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-5">
-          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-            <span className="w-2 h-2 bg-emerald-400 rounded-full"></span>
-            Nueva Campaña
-          </h2>
-
-          {selectedLine ? (
-            <div className="inline-block px-3 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-sm font-medium">
-              📱 Usando: {selectedLine.phone}
-            </div>
-          ) : (
-            <div className="inline-block px-3 py-1.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg text-sm font-medium">
-              ⚠️ Seleccioná una línea arriba
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-300">Números de destino (uno por línea)</label>
-            <textarea
-              value={numbersText}
-              onChange={e => setNumbersText(e.target.value)}
-              placeholder="5491123456789&#10;5491165432198&#10;5491176543210"
-              rows={8}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 font-mono text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500 transition-colors resize-y"
-            />
-            <p className="text-xs text-slate-500">{numbersText.split("\n").filter(Boolean).length} números detectados</p>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-300">Mensaje</label>
-            <textarea
-              value={message}
-              onChange={e => setMessage(e.target.value)}
-              placeholder="Hola! Tenemos una promo imperdible para el mundial..."
-              rows={4}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500 transition-colors resize-y"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-300">URL de imagen (opcional)</label>
-            <input
-              type="text"
-              value={imageUrl}
-              onChange={e => setImageUrl(e.target.value)}
-              placeholder="https://i.imgur.com/tu-imagen.jpg"
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500 transition-colors"
-            />
-            <p className="text-xs text-slate-500">Debe ser una URL pública. Si no tenés, dejá vacío.</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-300">Delay mínimo (ms)</label>
-              <input type="number" value={delayMin} onChange={e => setDelayMin(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-300">Delay máximo (ms)</label>
-              <input type="number" value={delayMax} onChange={e => setDelayMax(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500" />
-            </div>
-          </div>
-          <p className="text-xs text-slate-500">Delay aleatorio entre mensajes para evitar detección. Recomendado: 4000-12000ms.</p>
-
-          <button
-            onClick={sendCampaign}
-            disabled={isSending || !selectedLine}
-            className={`w-full h-14 rounded-xl font-bold text-lg transition-all ${isSending || !selectedLine ? "bg-slate-800 text-slate-500 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-500 text-white hover:scale-[1.01] active:scale-[0.99]"}`}
-          >
-            {isSending ? <span className="flex items-center justify-center gap-2"><span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>DISPARANDO...</span> : <span className="flex items-center justify-center gap-2">🚀 DISPARAR CAMPAÑA</span>}
-          </button>
-
-          {logs.length > 0 && (
-            <div className="bg-black border border-slate-800 rounded-xl p-4 font-mono text-sm space-y-1 max-h-48 overflow-y-auto">
-              {logs.map((l, i) => (
-                <div key={i} className={`${l.startsWith("✅") ? "text-emerald-400" : l.startsWith("❌") ? "text-red-400" : l.startsWith("🚀") ? "text-blue-400" : "text-slate-400"}`}>{l}</div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   )
 }

@@ -42,12 +42,12 @@ const [newName, setNewName] = useState("")
 const [showSettings, setShowSettings] = useState(false)
 
   // 🔥 CADENA DE REDIRECCIÓN
- useEffect(() => {
+useEffect(() => {
   if (!licenseLoading && licenseChecked) {
     if (!isActive) {
       router.push("/setup")
     } else if (!authLoading && authChecked && !isAuthenticated) {
-      router.push("/onboarding")
+      router.push("/login")  // ← ANTES DECÍA "/onboarding"
     }
   }
 }, [licenseLoading, authLoading, licenseChecked, authChecked, isActive, isAuthenticated, router])
@@ -77,7 +77,7 @@ useEffect(() => {
 }
 
 if (!isActive) return null
-if (!isAuthenticated) return null
+if (!isAuthenticated) return null  // ← ANTES DECÍA !hasUser
 
   // Funciones
   const fetchLines = async () => {

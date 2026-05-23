@@ -88,9 +88,20 @@ export default function LoginPage() {
               </button>
             </p>
           </form>
+          
         ) : (
           <RecoverForm onBack={() => setShowRecover(false)} />
         )}
+        <p className="text-center text-sm text-slate-500 mt-4">
+  ¿Primera vez?{" "}
+  <button 
+    type="button" 
+    onClick={() => router.push("/onboarding")}
+    className="text-blue-400 hover:underline font-medium"
+  >
+    Crear cuenta
+  </button>
+</p>
       </motion.div>
     </div>
   )

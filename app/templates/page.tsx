@@ -408,10 +408,11 @@ function TemplateFormModal({ open, onClose, onSubmit, categories, initial }: any
   })
   const [detectedVars, setDetectedVars] = useState<string[]>(initial?.variables || [])
 
-  const detectVariables = (text: string) => {
-    const vars = [...text.matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1])
-    setDetectedVars([...new Set(vars)])
-  }
+const detectVariables = (text: string) => {
+  const matches = text.matchAll(/\{\{(\w+)\}\}/g)
+  const vars = Array.from(matches).map(m => m[1])
+  setDetectedVars([...new Set(vars)])
+}
 
   return (
     <PremiumModal open={open} onClose={onClose} title={initial ? "Editar Template" : "Nuevo Template"}>

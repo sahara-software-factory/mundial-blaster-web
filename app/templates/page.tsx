@@ -411,7 +411,7 @@ function TemplateFormModal({ open, onClose, onSubmit, categories, initial }: any
 const detectVariables = (text: string) => {
   const matches = text.matchAll(/\{\{(\w+)\}\}/g)
   const vars = Array.from(matches).map(m => m[1])
-  setDetectedVars([...new Set(vars)])
+  setDetectedVars(Array.from(new Set(vars)))
 }
 
   return (

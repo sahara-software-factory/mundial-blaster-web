@@ -1,4 +1,5 @@
 import { AuthGuard } from './components/AuthGuard'
+// @ts-ignore
 import './globals.css'
 
 export const metadata = {

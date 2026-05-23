@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth"
 
 export default function LoginPage() {
   const router = useRouter()
-  const { login, user, checked } = useAuth()  // ← UNA SOLA LLAMADA
+  const { login, user, checked } = useAuth()
   
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -18,9 +18,9 @@ export default function LoginPage() {
   // Si ya está logueado, mandar al dashboard
   useEffect(() => {
     if (checked && user) {
-      router.push("/")
+      window.location.href = "/"
     }
-  }, [checked, user, router])
+  }, [checked, user])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -29,10 +29,10 @@ export default function LoginPage() {
     
     try {
       await login(email, password)
-      router.push("/")
+      // 🔥 Fuerza recarga completa para evitar race conditions de hooks
+      window.location.href = "/"
     } catch (e: any) {
       setError(e.message)
-    } finally {
       setLoading(false)
     }
   }
@@ -105,7 +105,7 @@ export default function LoginPage() {
   )
 }
 
-// Sub-componente recuperación
+// Sub-componente recuperación (igual que antes)
 function RecoverForm({ onBack }: { onBack: () => void }) {
   const [email, setEmail] = useState("")
   const [answer, setAnswer] = useState("")

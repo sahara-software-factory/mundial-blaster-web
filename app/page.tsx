@@ -6,7 +6,6 @@ import { io } from "socket.io-client"
 import { QRModal } from "./components/qr-modal"
 import { useRouter } from "next/navigation"
 import { useLicense } from "@/hooks/useLicense"
-import { useUser } from "@/hooks/useUser"
 import { useAuth } from "@/hooks/useAuth"
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || ""
@@ -19,45 +18,51 @@ interface LineaWhatsApp {
 }
 
 export default function Dashboard() {
-const router = useRouter()
-const { license, loading: licenseLoading, checked: licenseChecked, isActive } = useLicense()
-const { user, loading: authLoading, checked: authChecked, isAuthenticated, logout } = useAuth()
+  const router = useRouter()
+  const { license, loading: licenseLoading, checked: licenseChecked, isActive } = useLicense()
+  const { user, loading: authLoading, checked: authChecked, isAuthenticated, logout } = useAuth()
 
-// Estados del dashboard
-const [lines, setLines] = useState<LineaWhatsApp[]>([])
-const [selectedLine, setSelectedLine] = useState<LineaWhatsApp | null>(null)
-const [qrModalOpen, setQrModalOpen] = useState(false)
-const [qrTargetLine, setQrTargetLine] = useState<LineaWhatsApp | null>(null)
-const [numbersText, setNumbersText] = useState("")
-const [message, setMessage] = useState("")
-const [imageUrl, setImageUrl] = useState("")
-const [delayMin, setDelayMin] = useState(4000)
-const [delayMax, setDelayMax] = useState(12000)
-const [isSending, setIsSending] = useState(false)
-const [logs, setLogs] = useState<string[]>([])
-const [socketConnected, setSocketConnected] = useState(false)
-const [showAddModal, setShowAddModal] = useState(false)
-const [newPhone, setNewPhone] = useState("")
-const [newName, setNewName] = useState("")
-const [showSettings, setShowSettings] = useState(false)
+  // Estados del dashboard
+  const [lines, setLines] = useState<LineaWhatsApp[]>([])
+  const [selectedLine, setSelectedLine] = useState<LineaWhatsApp | null>(null)
+  const [qrModalOpen, setQrModalOpen] = useState(false)
+  const [qrTargetLine, setQrTargetLine] = useState<LineaWhatsApp | null>(null)
+  const [numbersText, setNumbersText] = useState("")
+  const [message, setMessage] = useState("")
+  const [imageUrl, setImageUrl] = useState("")
+  const [delayMin, setDelayMin] = useState(4000)
+  const [delayMax, setDelayMax] = useState(12000)
+  const [isSending, setIsSending] = useState(false)
+  const [logs, setLogs] = useState<string[]>([])
+  const [socketConnected, setSocketConnected] = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [newPhone, setNewPhone] = useState("")
+  const [newName, setNewName] = useState("")
+  const [showSettings, setShowSettings] = useState(false)
 
-  // 🔥 CADENA DE REDIRECCIÓN
-useEffect(() => {
-  if (!licenseLoading && licenseChecked) {
+  // 🔥 CADENA DE REDIRECCIÓN (solo cuando TODO terminó de cargar)
+  useEffect(() => {
+    // Esperar que ambos hooks terminen
+    if (licenseLoading || authLoading || !licenseChecked || !authChecked) return
+
     if (!isActive) {
       router.push("/setup")
-    } else if (!authLoading && authChecked && !isAuthenticated) {
-      router.push("/login")  // ← ANTES DECÍA "/onboarding"
+      return
     }
-  }
-}, [licenseLoading, authLoading, licenseChecked, authChecked, isActive, isAuthenticated, router])
 
-// Cargar líneas al entrar
-useEffect(() => {
-  if (isActive && isAuthenticated) {
-    fetchLines()
-  }
-}, [isActive, isAuthenticated])
+    if (!isAuthenticated) {
+      router.push("/login")
+      return
+    }
+  }, [licenseLoading, authLoading, licenseChecked, authChecked, isActive, isAuthenticated, router])
+
+  // Cargar líneas solo cuando estamos seguros de que hay sesión
+  useEffect(() => {
+    if (isActive && isAuthenticated) {
+      fetchLines()
+    }
+  }, [isActive, isAuthenticated])
+
   // Socket connection
   useEffect(() => {
     if (!SOCKET_URL || !isActive) return
@@ -67,17 +72,18 @@ useEffect(() => {
     return () => { socket.disconnect() }
   }, [isActive])
 
-  // Spinner mientras carga licencia O usuario
- if (licenseLoading || authLoading || !licenseChecked || !authChecked) {
-  return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-      <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-    </div>
-  )
-}
+  // Spinner mientras carga licencia O auth
+  if (licenseLoading || authLoading || !licenseChecked || !authChecked) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
 
-if (!isActive) return null
-if (!isAuthenticated) return null  // ← ANTES DECÍA !hasUser
+  // Guardas finales (por si acaso)
+  if (!isActive) return null
+  if (!isAuthenticated) return null
 
   // Funciones
   const fetchLines = async () => {

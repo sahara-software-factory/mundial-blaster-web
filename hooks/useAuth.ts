@@ -22,30 +22,35 @@ export function useAuth() {
   }
 
   const checkAuth = useCallback(async () => {
-    const token = getToken()
-    if (!token) {
-      setLoading(false)
-      setChecked(true)
-      return
-    }
-
+    setLoading(true)
+    
     try {
+      const token = getToken()
+      if (!token) {
+        setUser(null)
+        setChecked(true)
+        setLoading(false)
+        return
+      }
+
       const res = await fetch("/api/auth/me", {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          "Cache-Control": "no-cache"
+        },
         cache: "no-store",
       })
-      
+
       if (!res.ok) throw new Error("Unauthorized")
-      
+
       const data = await res.json()
       setUser(data.user)
     } catch {
-      // Token inválido o expirado
       localStorage.removeItem('mb_token')
       setUser(null)
     } finally {
-      setLoading(false)
       setChecked(true)
+      setLoading(false)
     }
   }, [])
 
@@ -55,10 +60,10 @@ export function useAuth() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     })
-    
+
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || "Error en login")
-    
+
     localStorage.setItem('mb_token', data.token)
     setUser(data.user)
     return data
@@ -82,6 +87,5 @@ export function useAuth() {
     login,
     logout,
     refetch: checkAuth,
-    token: getToken(),
   }
 }

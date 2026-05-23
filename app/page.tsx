@@ -96,16 +96,21 @@ export default function Dashboard() {
   const [upgradeKey, setUpgradeKey] = useState("")
   const [upgrading, setUpgrading] = useState(false)
   const isPro = license?.tier === 'pro' || license?.tier === 'business'
-  const token = typeof window !== 'undefined' ? localStorage.getItem('mb_token') : 
+  const token = typeof window !== 'undefined' ? localStorage.getItem('mb_token') || '' : '' 
  
   
   
-  // Redirecciones
   useEffect(() => {
     if (licenseLoading || authLoading || !licenseChecked || !authChecked) return
-    if (!isActive) { window.location.href = "/setup"; return }
-    if (!isAuthenticated) { window.location.href = "/login"; return }
-  }, [licenseLoading, authLoading, licenseChecked, authChecked, isActive, isAuthenticated])
+    if (!isActive) { 
+      router.push("/setup")
+      return 
+    }
+    if (!isAuthenticated) { 
+      router.push("/login")
+      return 
+    }
+  }, [licenseLoading, authLoading, licenseChecked, authChecked, isActive, isAuthenticated, router])
 
   useEffect(() => {
     if (isActive && isAuthenticated) fetchLines()
@@ -140,14 +145,43 @@ useEffect(() => {
   }
 }, [numberSource, isAuthenticated, token])
 
-  if (licenseLoading || authLoading || !licenseChecked || !authChecked) {
+    if (licenseLoading || authLoading || !licenseChecked || !authChecked) {
     return (
-      <div className="min-h-screen bg-[var(--bg-primary)] dark:bg-[var(--bg-primary)] bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
         <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full" />
       </div>
     )
   }
   if (!isActive || !isAuthenticated) return null
+
+
+   if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col items-center justify-center gap-4">
+        <p className="text-[var(--text-secondary)]">Sesión expirada. Redirigiendo al login...</p>
+        <button 
+          onClick={() => router.push("/login")}
+          className="px-4 py-2 bg-blue-600 text-white rounded-xl"
+        >
+          Ir al login
+        </button>
+      </div>
+    )
+  }
+
+  if (!isActive) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col items-center justify-center gap-4">
+        <p className="text-[var(--text-secondary)]">Licencia requerida. Redirigiendo...</p>
+        <button 
+          onClick={() => router.push("/setup")}
+          className="px-4 py-2 bg-blue-600 text-white rounded-xl"
+        >
+          Activar licencia
+        </button>
+      </div>
+    )
+  }
 
   const fetchLines = async () => {
     try {
@@ -858,7 +892,8 @@ useEffect(() => {
                 
                 // Recarga completa para que useLicense lea la nueva licencia
                 setTimeout(() => {
-                  window.location.href = "/"
+                        router.push("/")
+
                 }, 1500)
                 
               } catch (e: any) {

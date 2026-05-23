@@ -1,7 +1,7 @@
-// hooks/useAuth.ts
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
 
 interface User {
   id: string
@@ -12,6 +12,7 @@ interface User {
 }
 
 export function useAuth() {
+  const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [checked, setChecked] = useState(false)
@@ -23,7 +24,6 @@ export function useAuth() {
 
   const checkAuth = useCallback(async () => {
     setLoading(true)
-    
     try {
       const token = getToken()
       if (!token) {
@@ -41,7 +41,14 @@ export function useAuth() {
         cache: "no-store",
       })
 
-      if (!res.ok) throw new Error("Unauthorized")
+      if (!res.ok) {
+        // Token inválido o expirado
+        localStorage.removeItem('mb_token')
+        setUser(null)
+        setChecked(true)
+        setLoading(false)
+        return
+      }
 
       const data = await res.json()
       setUser(data.user)
@@ -72,7 +79,7 @@ export function useAuth() {
   const logout = () => {
     localStorage.removeItem('mb_token')
     setUser(null)
-    window.location.href = "/login"
+    router.push("/login")
   }
 
   useEffect(() => {

@@ -25,10 +25,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
 
     // 2. Licencia OK pero sin usuario registrado → onboarding
-    if (isActive && !user && pathname !== "/onboarding") {
-      router.push("/onboarding")
-      return
-    }
+    if (isActive && !user && pathname !== "/login" && pathname !== "/onboarding") {
+  router.push("/login")
+}
 
     // 3. Usuario existe pero no logueado → login
     if (isActive && user && !authChecked) {

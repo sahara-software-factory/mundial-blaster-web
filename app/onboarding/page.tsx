@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useRouter } from "next/navigation"
 
@@ -41,18 +41,7 @@ export default function OnboardingPage() {
   })
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-useEffect(() => {
-  fetch("/api/user", {
-    headers: { "x-api-secret": process.env.NEXT_PUBLIC_WHATSAPP_SECRET || "" }
-  })
-    .then(r => r.json())
-    .then(data => {
-      if (data.user) {
-        router.push("/login")
-      }
-    })
-    .catch(() => {})
-}, [router])
+
   const update = (field: string, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }))
     setError("")
@@ -303,6 +292,14 @@ useEffect(() => {
                 </button>
               )}
             </div>
+
+            {/* Link a login */}
+            <p className="text-center text-sm text-slate-500 pt-2">
+              ¿Ya tenés cuenta?{" "}
+              <button onClick={() => router.push("/login")} className="text-blue-400 hover:underline">
+                Iniciar sesión
+              </button>
+            </p>
           </motion.div>
         </AnimatePresence>
       </div>

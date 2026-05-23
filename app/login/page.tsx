@@ -1,21 +1,22 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
-import { useEffect } from "react"
 
 export default function LoginPage() {
   const router = useRouter()
-  const { login } = useAuth()
+  const { login, user, checked } = useAuth()  // ← UNA SOLA LLAMADA
+  
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [showRecover, setShowRecover] = useState(false)
-  const { user, checked } = useAuth()
- useEffect(() => {
+
+  // Si ya está logueado, mandar al dashboard
+  useEffect(() => {
     if (checked && user) {
       router.push("/")
     }
@@ -81,27 +82,24 @@ export default function LoginPage() {
               {loading ? "Ingresando..." : "Ingresar"}
             </button>
             
-            <p className="text-center text-sm text-slate-500">
-              ¿Olvidaste tu contraseña?{" "}
-              <button type="button" onClick={() => setShowRecover(true)} className="text-blue-400 hover:underline">
-                Recuperar
-              </button>
-            </p>
+            <div className="text-center space-y-2">
+              <p className="text-sm text-slate-500">
+                ¿Olvidaste tu contraseña?{" "}
+                <button type="button" onClick={() => setShowRecover(true)} className="text-blue-400 hover:underline">
+                  Recuperar
+                </button>
+              </p>
+              <p className="text-sm text-slate-500">
+                ¿Primera vez?{" "}
+                <button type="button" onClick={() => router.push("/onboarding")} className="text-blue-400 hover:underline font-medium">
+                  Crear cuenta
+                </button>
+              </p>
+            </div>
           </form>
-          
         ) : (
           <RecoverForm onBack={() => setShowRecover(false)} />
         )}
-        <p className="text-center text-sm text-slate-500 mt-4">
-  ¿Primera vez?{" "}
-  <button 
-    type="button" 
-    onClick={() => router.push("/onboarding")}
-    className="text-blue-400 hover:underline font-medium"
-  >
-    Crear cuenta
-  </button>
-</p>
       </motion.div>
     </div>
   )
@@ -113,7 +111,6 @@ function RecoverForm({ onBack }: { onBack: () => void }) {
   const [answer, setAnswer] = useState("")
   const [newPass, setNewPass] = useState("")
   const [confirmPass, setConfirmPass] = useState("")
-  const [step, setStep] = useState(1)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
 

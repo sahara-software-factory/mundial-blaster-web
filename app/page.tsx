@@ -886,7 +886,7 @@ useEffect(() => {
 </AnimatePresence>
       
 
-      <QRModal open={qrModalOpen} onClose={() => setQrModalOpen(false)} line={qrTargetLine} />
+      <QRModal open={qrModalOpen}  onOpenChange={(v) => setQrModalOpen(v)}  line={qrTargetLine} />
     </div>
   )
 }

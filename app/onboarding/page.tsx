@@ -134,7 +134,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8">
+    <div className="min-h-screen bg-slate-950 text-[var(--text-primary)] p-4 md:p-8">
       <div className="max-w-xl mx-auto">
         
         {/* Progress */}
@@ -156,26 +156,26 @@ export default function OnboardingPage() {
           >
             {step === 1 && (
               <>
-                <h2 className="text-xl font-bold text-white">👤 Tu cuenta</h2>
+                <h2 className="text-xl font-bold text-[var(--text-primary)]">👤 Tu cuenta</h2>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm text-slate-400 mb-1">Nombre completo</label>
+                    <label className="block text-sm text-[var(--text-secondary)] mb-1">Nombre completo</label>
                     <input
                       type="text"
                       value={form.nombre}
                       onChange={e => update("nombre", e.target.value)}
                       placeholder="Juan Pérez"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-slate-400 mb-1">Email de registro</label>
+                    <label className="block text-sm text-[var(--text-secondary)] mb-1">Email de registro</label>
                     <input
                       type="email"
                       value={form.email}
                       onChange={e => update("email", e.target.value)}
                       placeholder="juan@email.com"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                     />
                   </div>
                 </div>
@@ -184,26 +184,26 @@ export default function OnboardingPage() {
 
             {step === 2 && (
               <>
-                <h2 className="text-xl font-bold text-white">🔐 Seguridad</h2>
+                <h2 className="text-xl font-bold text-[var(--text-primary)]">🔐 Seguridad</h2>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm text-slate-400 mb-1">Contraseña</label>
+                    <label className="block text-sm text-[var(--text-secondary)] mb-1">Contraseña</label>
                     <input
                       type="password"
                       value={form.password}
                       onChange={e => update("password", e.target.value)}
                       placeholder="Mínimo 6 caracteres"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-slate-400 mb-1">Confirmar contraseña</label>
+                    <label className="block text-sm text-[var(--text-secondary)] mb-1">Confirmar contraseña</label>
                     <input
                       type="password"
                       value={form.confirmPassword}
                       onChange={e => update("confirmPassword", e.target.value)}
                       placeholder="Repetí la contraseña"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                     />
                   </div>
                 </div>
@@ -212,15 +212,15 @@ export default function OnboardingPage() {
 
             {step === 3 && (
               <>
-                <h2 className="text-xl font-bold text-white">🛡️ Recuperación</h2>
-                <p className="text-sm text-slate-400">Si olvidás tu contraseña, esto te salva.</p>
+                <h2 className="text-xl font-bold text-[var(--text-primary)]">🛡️ Recuperación</h2>
+                <p className="text-sm text-[var(--text-secondary)]">Si olvidás tu contraseña, esto te salva.</p>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm text-slate-400 mb-1">Pregunta de seguridad</label>
+                    <label className="block text-sm text-[var(--text-secondary)] mb-1">Pregunta de seguridad</label>
                     <select
                       value={form.security_question}
                       onChange={e => update("security_question", e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                     >
                       {SECURITY_QUESTIONS.map(q => (
                         <option key={q} value={q}>{q}</option>
@@ -228,19 +228,19 @@ export default function OnboardingPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm text-slate-400 mb-1">Tu respuesta</label>
+                    <label className="block text-sm text-[var(--text-secondary)] mb-1">Tu respuesta</label>
                     <input
                       type="text"
                       value={form.security_answer}
                       onChange={e => update("security_answer", e.target.value)}
                       placeholder="Solo vos sabés esto..."
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                     />
                   </div>
                 </div>
 
                 <div className="pt-4 border-t border-slate-800">
-                  <h3 className="text-sm font-bold text-white mb-3">Elegí tu avatar</h3>
+                  <h3 className="text-sm font-bold text-[var(--text-primary)] mb-3">Elegí tu avatar</h3>
                   <div className="grid grid-cols-5 gap-2">
                     {AVATARS.map((a) => (
                       <button
@@ -262,27 +262,27 @@ export default function OnboardingPage() {
 
             {step === 4 && (
               <>
-                <h2 className="text-xl font-bold text-white">📱 Línea WhatsApp (opcional)</h2>
-                <p className="text-sm text-slate-400">Podés agregarla ahora o después desde el dashboard.</p>
+                <h2 className="text-xl font-bold text-[var(--text-primary)]">📱 Línea WhatsApp (opcional)</h2>
+                <p className="text-sm text-[var(--text-secondary)]">Podés agregarla ahora o después desde el dashboard.</p>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm text-slate-400 mb-1">Número (con código país)</label>
+                    <label className="block text-sm text-[var(--text-secondary)] mb-1">Número (con código país)</label>
                     <input
                       type="text"
                       value={form.line_phone}
                       onChange={e => update("line_phone", e.target.value)}
                       placeholder="5491123456789"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-slate-400 mb-1">Nombre de la línea</label>
+                    <label className="block text-sm text-[var(--text-secondary)] mb-1">Nombre de la línea</label>
                     <input
                       type="text"
                       value={form.line_name}
                       onChange={e => update("line_name", e.target.value)}
                       placeholder="Línea Principal"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                     />
                   </div>
                 </div>
@@ -295,7 +295,7 @@ export default function OnboardingPage() {
               {step > 1 && (
                 <button
                   onClick={() => setStep(s => s - 1)}
-                  className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-colors"
+                  className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-[var(--text-primary)] rounded-xl transition-colors"
                 >
                   ← Atrás
                 </button>
@@ -303,7 +303,7 @@ export default function OnboardingPage() {
               {step < 4 ? (
                 <button
                   onClick={nextStep}
-                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-colors"
+                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] font-bold rounded-xl transition-colors"
                 >
                   Siguiente →
                 </button>
@@ -311,14 +311,14 @@ export default function OnboardingPage() {
                 <button
                   onClick={handleSubmit}
                   disabled={loading}
-                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-colors disabled:opacity-50"
+                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-[var(--text-primary)] font-bold rounded-xl transition-colors disabled:opacity-50"
                 >
                   {loading ? "Creando cuenta..." : "🚀 Crear cuenta y entrar"}
                 </button>
               )}
             </div>
 
-            <p className="text-center text-sm text-slate-500 pt-2">
+            <p className="text-center text-sm text-[var(--text-muted)] pt-2">
               ¿Ya tenés cuenta?{" "}
               <button onClick={() => window.location.href = "/login"} className="text-blue-400 hover:underline">
                 Iniciar sesión

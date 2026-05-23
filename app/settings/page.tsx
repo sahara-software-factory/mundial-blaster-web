@@ -86,15 +86,15 @@ export default function SettingsPage() {
   if (!user) return null
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8">
+    <div className="min-h-screen bg-slate-950 text-[var(--text-primary)] p-4 md:p-8">
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold text-white mb-6">⚙️ Configuración</h1>
+        <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-6">⚙️ Configuración</h1>
         
         <div className="flex gap-2 mb-6">
           <button
             onClick={() => setTab("profile")}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-              tab === "profile" ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-400 hover:text-white"
+              tab === "profile" ? "bg-blue-600 text-[var(--text-primary)]" : "bg-slate-800 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
             }`}
           >
             Perfil
@@ -102,7 +102,7 @@ export default function SettingsPage() {
           <button
             onClick={() => setTab("security")}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-              tab === "security" ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-400 hover:text-white"
+              tab === "security" ? "bg-blue-600 text-[var(--text-primary)]" : "bg-slate-800 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
             }`}
           >
             Seguridad
@@ -123,18 +123,18 @@ export default function SettingsPage() {
         {tab === "profile" && (
           <form onSubmit={updateProfile} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Nombre</label>
-              <input name="nombre" defaultValue={user.nombre} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" />
+              <label className="block text-sm text-[var(--text-secondary)] mb-1">Nombre</label>
+              <input name="nombre" defaultValue={user.nombre} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[var(--text-primary)]" />
             </div>
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Email</label>
-              <input name="email" type="email" defaultValue={user.email} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" />
+              <label className="block text-sm text-[var(--text-secondary)] mb-1">Email</label>
+              <input name="email" type="email" defaultValue={user.email} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[var(--text-primary)]" />
             </div>
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Contraseña actual (requerida para cambiar email)</label>
-              <input name="current_password" type="password" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" />
+              <label className="block text-sm text-[var(--text-secondary)] mb-1">Contraseña actual (requerida para cambiar email)</label>
+              <input name="current_password" type="password" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[var(--text-primary)]" />
             </div>
-            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl">
+            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] font-bold py-3 rounded-xl">
               Guardar cambios
             </button>
           </form>
@@ -143,18 +143,18 @@ export default function SettingsPage() {
         {tab === "security" && (
           <form onSubmit={updatePassword} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Contraseña actual</label>
-              <input name="current" type="password" required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" />
+              <label className="block text-sm text-[var(--text-secondary)] mb-1">Contraseña actual</label>
+              <input name="current" type="password" required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[var(--text-primary)]" />
             </div>
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Nueva contraseña</label>
-              <input name="new" type="password" required minLength={6} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" />
+              <label className="block text-sm text-[var(--text-secondary)] mb-1">Nueva contraseña</label>
+              <input name="new" type="password" required minLength={6} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[var(--text-primary)]" />
             </div>
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Confirmar nueva contraseña</label>
-              <input name="confirm" type="password" required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" />
+              <label className="block text-sm text-[var(--text-secondary)] mb-1">Confirmar nueva contraseña</label>
+              <input name="confirm" type="password" required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[var(--text-primary)]" />
             </div>
-            <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl">
+            <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-[var(--text-primary)] font-bold py-3 rounded-xl">
               Cambiar contraseña
             </button>
           </form>

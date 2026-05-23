@@ -110,10 +110,10 @@ export function QRModal({
         {/* Header */}
         <div className="p-6 border-b border-white/10 bg-white/5 flex justify-between items-center">
           <div>
-            <h2 className="text-xl font-bold text-white">Vincular Dispositivo</h2>
-            <p className="text-xs text-slate-400 mt-1">Línea: {line.phone}</p>
+            <h2 className="text-xl font-bold text-[var(--text-primary)]">Vincular Dispositivo</h2>
+            <p className="text-xs text-[var(--text-secondary)] mt-1">Línea: {line.phone}</p>
           </div>
-          <button onClick={() => onOpenChange(false)} className="text-slate-400 hover:text-white text-xl">✕</button>
+          <button onClick={() => onOpenChange(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xl">✕</button>
         </div>
 
         <div className="p-8 flex flex-col items-center justify-center min-h-[320px]">
@@ -128,14 +128,14 @@ export function QRModal({
                 </div>
               </div>
               <div className="space-y-2">
-                <h3 className="text-lg font-semibold text-white">{error ? "Algo salió mal" : "Listo para conectar"}</h3>
-                <p className="text-sm text-slate-400 max-w-[250px] mx-auto">
+                <h3 className="text-lg font-semibold text-[var(--text-primary)]">{error ? "Algo salió mal" : "Listo para conectar"}</h3>
+                <p className="text-sm text-[var(--text-secondary)] max-w-[250px] mx-auto">
                   {error || "Abrí WhatsApp en tu celular y tenelo listo para escanear."}
                 </p>
               </div>
               <button 
                 onClick={startConnection} 
-                className="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-8 py-3 font-medium shadow-lg transition-all hover:scale-105 mx-auto"
+                className="bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] rounded-xl px-8 py-3 font-medium shadow-lg transition-all hover:scale-105 mx-auto"
               >
                 {error ? "🔄 Reintentar" : "📡 Generar Código QR"}
               </button>
@@ -157,8 +157,8 @@ export function QRModal({
                 <img src={qr} alt="QR WhatsApp" className="h-64 w-64 rounded-lg" />
               </div>
               <div className="space-y-1">
-                <p className="text-sm font-medium text-white">📷 Escanea con tu celular</p>
-                <p className="text-xs text-slate-500">WhatsApp ⋮ Dispositivos Vinculados</p>
+                <p className="text-sm font-medium text-[var(--text-primary)]">📷 Escanea con tu celular</p>
+                <p className="text-xs text-[var(--text-muted)]">WhatsApp ⋮ Dispositivos Vinculados</p>
               </div>
             </div>
           )}
@@ -171,8 +171,8 @@ export function QRModal({
                 <div className="absolute inset-0 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
                 <span className="absolute inset-0 m-auto flex items-center justify-center text-3xl">📱</span>
               </div>
-              <h3 className="text-xl font-bold text-white">Verificando...</h3>
-              <p className="text-sm text-slate-400">Estableciendo conexión segura</p>
+              <h3 className="text-xl font-bold text-[var(--text-primary)]">Verificando...</h3>
+              <p className="text-sm text-[var(--text-secondary)]">Estableciendo conexión segura</p>
             </div>
           )}
 
@@ -183,8 +183,8 @@ export function QRModal({
                 ✅
               </div>
               <div className="space-y-2">
-                <h3 className="text-2xl font-bold text-white">¡Conectado!</h3>
-                <p className="text-slate-400">Tu línea está lista para enviar.</p>
+                <h3 className="text-2xl font-bold text-[var(--text-primary)]">¡Conectado!</h3>
+                <p className="text-[var(--text-secondary)]">Tu línea está lista para enviar.</p>
               </div>
             </div>
           )}

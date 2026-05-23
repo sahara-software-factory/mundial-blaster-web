@@ -45,30 +45,30 @@ export default function LoginPage() {
         className="bg-slate-900 border border-slate-800 rounded-2xl p-8 w-full max-w-md"
       >
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-white">Mundial Blaster</h1>
-          <p className="text-slate-400 text-sm">Iniciá sesión en tu sistema</p>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Mundial Blaster</h1>
+          <p className="text-[var(--text-secondary)] text-sm">Iniciá sesión en tu sistema</p>
         </div>
 
         {!showRecover ? (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Email</label>
+              <label className="block text-sm text-[var(--text-secondary)] mb-1">Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
               />
             </div>
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Contraseña</label>
+              <label className="block text-sm text-[var(--text-secondary)] mb-1">Contraseña</label>
               <input
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
               />
             </div>
             
@@ -77,19 +77,19 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-50"
+              className="w-full bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] font-bold py-3 rounded-xl transition-colors disabled:opacity-50"
             >
               {loading ? "Ingresando..." : "Ingresar"}
             </button>
             
             <div className="text-center space-y-2">
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-[var(--text-muted)]">
                 ¿Olvidaste tu contraseña?{" "}
                 <button type="button" onClick={() => setShowRecover(true)} className="text-blue-400 hover:underline">
                   Recuperar
                 </button>
               </p>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-[var(--text-muted)]">
                 ¿Primera vez?{" "}
                 <button type="button" onClick={() => router.push("/onboarding")} className="text-blue-400 hover:underline font-medium">
                   Crear cuenta
@@ -147,9 +147,9 @@ function RecoverForm({ onBack }: { onBack: () => void }) {
     return (
       <div className="text-center space-y-4">
         <div className="text-4xl">✅</div>
-        <h3 className="text-white font-bold">¡Contraseña actualizada!</h3>
-        <p className="text-slate-400 text-sm">Ya podés iniciar sesión con tu nueva contraseña.</p>
-        <button onClick={onBack} className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl">
+        <h3 className="text-[var(--text-primary)] font-bold">¡Contraseña actualizada!</h3>
+        <p className="text-[var(--text-secondary)] text-sm">Ya podés iniciar sesión con tu nueva contraseña.</p>
+        <button onClick={onBack} className="w-full bg-blue-600 text-[var(--text-primary)] font-bold py-3 rounded-xl">
           Ir al Login
         </button>
       </div>
@@ -158,58 +158,58 @@ function RecoverForm({ onBack }: { onBack: () => void }) {
 
   return (
     <form onSubmit={handleRecover} className="space-y-4">
-      <h3 className="text-white font-bold">Recuperar cuenta</h3>
-      <p className="text-slate-400 text-sm">Respondé tu pregunta de seguridad.</p>
+      <h3 className="text-[var(--text-primary)] font-bold">Recuperar cuenta</h3>
+      <p className="text-[var(--text-secondary)] text-sm">Respondé tu pregunta de seguridad.</p>
       
       <div>
-        <label className="block text-sm text-slate-400 mb-1">Email</label>
+        <label className="block text-sm text-[var(--text-secondary)] mb-1">Email</label>
         <input
           type="email"
           value={email}
           onChange={e => setEmail(e.target.value)}
           required
-          className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white"
+          className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[var(--text-primary)]"
         />
       </div>
       <div>
-        <label className="block text-sm text-slate-400 mb-1">Respuesta de seguridad</label>
+        <label className="block text-sm text-[var(--text-secondary)] mb-1">Respuesta de seguridad</label>
         <input
           type="text"
           value={answer}
           onChange={e => setAnswer(e.target.value)}
           required
           placeholder="Tu respuesta..."
-          className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white"
+          className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[var(--text-primary)]"
         />
       </div>
       <div>
-        <label className="block text-sm text-slate-400 mb-1">Nueva contraseña</label>
+        <label className="block text-sm text-[var(--text-secondary)] mb-1">Nueva contraseña</label>
         <input
           type="password"
           value={newPass}
           onChange={e => setNewPass(e.target.value)}
           required
           minLength={6}
-          className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white"
+          className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[var(--text-primary)]"
         />
       </div>
       <div>
-        <label className="block text-sm text-slate-400 mb-1">Confirmar contraseña</label>
+        <label className="block text-sm text-[var(--text-secondary)] mb-1">Confirmar contraseña</label>
         <input
           type="password"
           value={confirmPass}
           onChange={e => setConfirmPass(e.target.value)}
           required
-          className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white"
+          className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[var(--text-primary)]"
         />
       </div>
       
       {error && <p className="text-red-400 text-sm">{error}</p>}
       
-      <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl">
+      <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-[var(--text-primary)] font-bold py-3 rounded-xl">
         Restablecer contraseña
       </button>
-      <button type="button" onClick={onBack} className="w-full text-slate-400 hover:text-white text-sm py-2">
+      <button type="button" onClick={onBack} className="w-full text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-sm py-2">
         ← Volver al login
       </button>
     </form>

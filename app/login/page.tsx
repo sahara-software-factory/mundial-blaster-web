@@ -4,6 +4,7 @@ import { useState } from "react"
 import { motion } from "framer-motion"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
+import { useEffect } from "react"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -13,6 +14,12 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [showRecover, setShowRecover] = useState(false)
+  const { user, checked } = useAuth()
+ useEffect(() => {
+    if (checked && user) {
+      router.push("/")
+    }
+  }, [checked, user, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

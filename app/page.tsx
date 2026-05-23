@@ -7,6 +7,7 @@ import { QRModal } from "./components/qr-modal"
 import { useRouter } from "next/navigation"
 import { useLicense } from "@/hooks/useLicense"
 import { useUser } from "@/hooks/useUser"
+import { useAuth } from "@/hooks/useAuth"
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || ""
 
@@ -18,46 +19,45 @@ interface LineaWhatsApp {
 }
 
 export default function Dashboard() {
-  const router = useRouter()
-  const { license, loading: licenseLoading, checked, isActive, refetch } = useLicense()
-  const { user, loading: userLoading, hasUser } = useUser()
+const router = useRouter()
+const { license, loading: licenseLoading, checked: licenseChecked, isActive } = useLicense()
+const { user, loading: authLoading, checked: authChecked, isAuthenticated, logout } = useAuth()
 
-  // Estados del dashboard (MOVER ARRIBA, antes de cualquier return)
-  const [lines, setLines] = useState<LineaWhatsApp[]>([])
-  const [selectedLine, setSelectedLine] = useState<LineaWhatsApp | null>(null)
-  const [qrModalOpen, setQrModalOpen] = useState(false)
-  const [qrTargetLine, setQrTargetLine] = useState<LineaWhatsApp | null>(null)
-  const [numbersText, setNumbersText] = useState("")
-  const [message, setMessage] = useState("")
-  const [imageUrl, setImageUrl] = useState("")
-  const [delayMin, setDelayMin] = useState(4000)
-  const [delayMax, setDelayMax] = useState(12000)
-  const [isSending, setIsSending] = useState(false)
-  const [logs, setLogs] = useState<string[]>([])
-  const [socketConnected, setSocketConnected] = useState(false)
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [newPhone, setNewPhone] = useState("")
-  const [newName, setNewName] = useState("")
+// Estados del dashboard
+const [lines, setLines] = useState<LineaWhatsApp[]>([])
+const [selectedLine, setSelectedLine] = useState<LineaWhatsApp | null>(null)
+const [qrModalOpen, setQrModalOpen] = useState(false)
+const [qrTargetLine, setQrTargetLine] = useState<LineaWhatsApp | null>(null)
+const [numbersText, setNumbersText] = useState("")
+const [message, setMessage] = useState("")
+const [imageUrl, setImageUrl] = useState("")
+const [delayMin, setDelayMin] = useState(4000)
+const [delayMax, setDelayMax] = useState(12000)
+const [isSending, setIsSending] = useState(false)
+const [logs, setLogs] = useState<string[]>([])
+const [socketConnected, setSocketConnected] = useState(false)
+const [showAddModal, setShowAddModal] = useState(false)
+const [newPhone, setNewPhone] = useState("")
+const [newName, setNewName] = useState("")
+const [showSettings, setShowSettings] = useState(false)
 
   // 🔥 CADENA DE REDIRECCIÓN
-  useEffect(() => {
-    if (!licenseLoading && checked) {
-      if (!isActive) {
-        console.log("[Dashboard] No active license, redirecting to /setup")
-        router.push("/setup")
-      } else if (!userLoading && !hasUser) {
-        router.push("/onboarding")
-      }
+ useEffect(() => {
+  if (!licenseLoading && licenseChecked) {
+    if (!isActive) {
+      router.push("/setup")
+    } else if (!authLoading && authChecked && !isAuthenticated) {
+      router.push("/onboarding")
     }
-  }, [licenseLoading, userLoading, checked, isActive, hasUser, router])
+  }
+}, [licenseLoading, authLoading, licenseChecked, authChecked, isActive, isAuthenticated, router])
 
-  // Cargar líneas al entrar
-  useEffect(() => {
-    if (isActive && hasUser) {
-      fetchLines()
-    }
-  }, [isActive, hasUser])
-
+// Cargar líneas al entrar
+useEffect(() => {
+  if (isActive && isAuthenticated) {
+    fetchLines()
+  }
+}, [isActive, isAuthenticated])
   // Socket connection
   useEffect(() => {
     if (!SOCKET_URL || !isActive) return
@@ -68,20 +68,16 @@ export default function Dashboard() {
   }, [isActive])
 
   // Spinner mientras carga licencia O usuario
-  if (licenseLoading || userLoading || !checked) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <motion.div 
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full"
-        />
-      </div>
-    )
-  }
+ if (licenseLoading || authLoading || !licenseChecked || !authChecked) {
+  return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+}
 
-  if (!isActive) return null
-  if (!hasUser) return null
+if (!isActive) return null
+if (!isAuthenticated) return null
 
   // Funciones
   const fetchLines = async () => {
@@ -192,34 +188,60 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       {/* Header */}
-      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <motion.div 
-              initial={{ scale: 0 }} 
-              animate={{ scale: 1 }} 
-              className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold"
-            >
-              MB
-            </motion.div>
-            <h1 className="text-xl font-bold text-white">Mundial Blaster</h1>
-            {license?.label && (
-              <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full border border-blue-500/30">
-                {license.label}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3 text-sm">
-            <span className={`flex items-center gap-1.5 ${socketConnected ? "text-emerald-400" : "text-red-400"}`}>
-              <span className={`h-2 w-2 rounded-full ${socketConnected ? "bg-emerald-400 animate-pulse" : "bg-red-400"}`} />
-              {socketConnected ? "Conectado" : "Desconectado"}
-            </span>
-            <button onClick={refetch} className="text-slate-400 hover:text-white transition-colors">
-              🔄
-            </button>
-          </div>
+      {/* HEADER */}
+<header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur">
+  <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+    <div className="flex items-center gap-3">
+      <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white">
+        MB
+      </div>
+      <h1 className="text-xl font-bold text-white">Mundial Blaster</h1>
+      {license?.label && (
+        <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full border border-blue-500/30">
+          {license.label}
+        </span>
+      )}
+    </div>
+    
+    <div className="flex items-center gap-3">
+      {/* Avatar + Nombre */}
+      <div className="flex items-center gap-2">
+        <div className="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center text-lg">
+          {user?.avatar === 'avatar1' && '👤'}
+          {user?.avatar === 'avatar2' && '🧑‍💼'}
+          {user?.avatar === 'avatar3' && '👩‍💻'}
+          {user?.avatar === 'avatar4' && '🦸'}
+          {user?.avatar === 'avatar5' && '🧙'}
+          {user?.avatar === 'avatar6' && '🤖'}
+          {user?.avatar === 'avatar7' && '👽'}
+          {user?.avatar === 'avatar8' && '🎩'}
+          {user?.avatar === 'avatar9' && '🦁'}
+          {user?.avatar === 'avatar10' && '🐺'}
+          {!user?.avatar && '👤'}
         </div>
-      </header>
+        <span className="text-sm text-slate-300 hidden sm:block">{user?.nombre}</span>
+      </div>
+
+      {/* Botón Settings */}
+      <button 
+        onClick={() => setShowSettings(true)}
+        className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+        title="Configuración"
+      >
+        ⚙️
+      </button>
+
+      {/* Botón Logout */}
+      <button 
+        onClick={logout}
+        className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+        title="Cerrar sesión"
+      >
+        🚪
+      </button>
+    </div>
+  </div>
+</header>
 
       <main className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Panel izquierdo: Líneas */}
@@ -498,6 +520,86 @@ export default function Dashboard() {
       </AnimatePresence>
 
       {/* QR Modal */}
+      {/* MODAL SETTINGS */}
+<AnimatePresence>
+  {showSettings && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto"
+      >
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-bold text-white">⚙️ Configuración</h3>
+          <button onClick={() => setShowSettings(false)} className="text-slate-500 hover:text-white">
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={async (e) => {
+          e.preventDefault()
+          const form = new FormData(e.currentTarget)
+          const token = localStorage.getItem('mb_token')
+          
+          try {
+            const res = await fetch("/api/auth/me", {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                nombre: form.get("nombre"),
+                email: form.get("email"),
+                current_password: form.get("current_password") || undefined,
+                new_password: form.get("new_password") || undefined,
+              }),
+            })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error)
+            alert("✅ Perfil actualizado")
+            setShowSettings(false)
+          } catch (err: any) {
+            alert("❌ " + err.message)
+          }
+        }} className="space-y-4">
+          
+          <div>
+            <label className="block text-sm text-slate-400 mb-1">Nombre</label>
+            <input name="nombre" defaultValue={user?.nombre || ""} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500" />
+          </div>
+          
+          <div>
+            <label className="block text-sm text-slate-400 mb-1">Email</label>
+            <input name="email" type="email" defaultValue={user?.email || ""} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500" />
+          </div>
+
+          <div className="border-t border-slate-800 pt-4">
+            <p className="text-xs text-slate-500 mb-3">Cambiar contraseña (opcional)</p>
+            <div>
+              <label className="block text-sm text-slate-400 mb-1">Contraseña actual</label>
+              <input name="current_password" type="password" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500" />
+            </div>
+            <div className="mt-3">
+              <label className="block text-sm text-slate-400 mb-1">Nueva contraseña</label>
+              <input name="new_password" type="password" minLength={6} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500" />
+            </div>
+          </div>
+
+          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-colors">
+            Guardar cambios
+          </button>
+        </form>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
      <QRModal 
           open={qrModalOpen} 
           onOpenChange={(v) => {

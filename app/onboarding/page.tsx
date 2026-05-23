@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useRouter } from "next/navigation"
 
@@ -27,6 +27,7 @@ const SECURITY_QUESTIONS = [
 
 export default function OnboardingPage() {
   const router = useRouter()
+  const [checking, setChecking] = useState(true)
   const [step, setStep] = useState(1)
   const [form, setForm] = useState({
     nombre: "",
@@ -41,6 +42,23 @@ export default function OnboardingPage() {
   })
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+
+  // 🔒 PROTECCIÓN: si ya existe usuario, mandar a login inmediatamente
+  useEffect(() => {
+    fetch("/api/auth/check", { cache: "no-store" })
+      .then(r => r.json())
+      .then(data => {
+        if (data.hasUser) {
+          window.location.href = "/login"
+        } else {
+          setChecking(false)
+        }
+      })
+      .catch(() => {
+        // Si falla el check, mostrar onboarding igual (fail-open para no bloquear)
+        setChecking(false)
+      })
+  }, [])
 
   const update = (field: string, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -96,16 +114,23 @@ export default function OnboardingPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Error en registro")
       
-      // Guardar token
+      // Guardar token y forzar recarga completa al dashboard
       localStorage.setItem('mb_token', data.token)
-      
-      // Ir al dashboard
-      router.push("/")
+      window.location.href = "/"
       
     } catch (e: any) {
       setError(e.message)
       setLoading(false)
     }
+  }
+
+  // 🔒 Mientras chequea si existe usuario, mostrar spinner (no el form)
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
   }
 
   return (
@@ -293,10 +318,9 @@ export default function OnboardingPage() {
               )}
             </div>
 
-            {/* Link a login */}
             <p className="text-center text-sm text-slate-500 pt-2">
               ¿Ya tenés cuenta?{" "}
-              <button onClick={() => router.push("/login")} className="text-blue-400 hover:underline">
+              <button onClick={() => window.location.href = "/login"} className="text-blue-400 hover:underline">
                 Iniciar sesión
               </button>
             </p>

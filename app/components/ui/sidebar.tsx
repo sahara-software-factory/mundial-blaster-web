@@ -1,7 +1,7 @@
 // components/ui/sidebar.tsx
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, memo } from "react"
 import { motion } from "framer-motion"
 import { 
   Send, 
@@ -26,6 +26,46 @@ interface SidebarProps {
   onSettings: () => void
   onUpgrade?: () => void
 }
+
+const SidebarItem = memo(function SidebarItem({ 
+  icon: Icon, 
+  label, 
+  active, 
+  locked, 
+  collapsed, 
+  onClick 
+}: {
+  icon: any
+  label: string
+  active: boolean
+  locked: boolean
+  collapsed: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all relative group ${
+        active 
+          ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
+          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--border-color)]/50'
+      } ${locked ? 'opacity-60' : 'cursor-pointer'}`}
+      title={label}
+    >
+      <Icon size={20} className="shrink-0" />
+      {!collapsed && (
+        <>
+          <span className="font-medium truncate">{label}</span>
+          {locked && (
+            <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1">
+              <Zap size={8} /> PRO
+            </span>
+          )}
+        </>
+      )}
+    </button>
+  )
+})
 
 export function Sidebar({ onSettings, onUpgrade }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
@@ -76,49 +116,33 @@ export function Sidebar({ onSettings, onUpgrade }: SidebarProps) {
         )}
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-        {menuItems.map((item) => {
-  const Icon = item.icon
-  const active = pathname === item.path
-  return (
-    <button
+     <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
+  {menuItems.map((item) => (
+    <SidebarItem
       key={item.id}
+      icon={item.icon}
+      label={item.label}
+      active={pathname === item.path}
+      locked={item.locked}
+      collapsed={collapsed}
       onClick={() => !item.locked ? router.push(item.path) : onUpgrade?.()}
-      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all relative group ${
-        active 
-          ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
-          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--border-color)]/50'
-      } ${item.locked ? 'opacity-60' : 'cursor-pointer'}`}
-      title={item.label}
+    />
+  ))}
+  
+  {/* Upgrade button - solo si no es Pro y no está colapsado */}
+  {!isPro && !collapsed && (
+    <button
+      onClick={() => onUpgrade?.()}
+      className="mt-4 w-full flex items-center gap-3 px-3 py-3 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-amber-400 hover:from-amber-500/30 hover:to-orange-500/30 transition-all"
     >
-      <Icon size={20} className="shrink-0" />
-      {!collapsed && <span className="font-medium truncate">{item.label}</span>}
-      {item.locked && !collapsed && (
-        <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1">
-          <Zap size={8} /> PRO
-        </span>
-      )}
+      <Zap size={20} />
+      <div className="text-left">
+        <p className="text-xs font-bold">Upgrade a Pro</p>
+        <p className="text-[10px] opacity-60">Desbloqueá todo</p>
+      </div>
     </button>
-  )
-})}
-
-{/* // Agregá ESTO al final del nav, antes del div de bottom: */}
-{!isPro && !collapsed && (
-  <motion.button
-    whileHover={{ scale: 1.02 }}
-    whileTap={{ scale: 0.98 }}
-    onClick={() => onUpgrade?.()}
-    className="mt-4 w-full flex items-center gap-3 px-3 py-3 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-amber-400 hover:from-amber-500/30 hover:to-orange-500/30 transition-all"
-  >
-    <Zap size={20} className="text-amber-400" />
-    <div className="text-left">
-      <p className="text-xs font-bold text-amber-400">Upgrade a Pro</p>
-      <p className="text-[10px] text-amber-400/60">Desbloqueá todo</p>
-    </div>
-  </motion.button>
-)}
-      </nav>
+  )}
+</nav>
 
       {/* Bottom */}
       <div className="p-3 border-t border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 space-y-1">

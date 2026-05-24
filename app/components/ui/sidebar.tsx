@@ -123,7 +123,7 @@ export function Sidebar({ onSettings, onUpgrade }: SidebarProps) {
       icon={item.icon}
       label={item.label}
       active={pathname === item.path}
-      locked={item.locked}
+      locked={!!item.locked}  
       collapsed={collapsed}
       onClick={() => !item.locked ? router.push(item.path) : onUpgrade?.()}
     />

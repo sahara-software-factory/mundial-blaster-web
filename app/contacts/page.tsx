@@ -469,23 +469,20 @@ export default function ContactsPage() {
 // ============================================================
 
 function ContactFormModal({ open, onClose, onSubmit, tags, initial }: any) {
-  const [form, setForm] = useState({
+    const [form, setForm] = useState({
     name: initial?.name || "",
     phone: initial?.phone || "",
     email: initial?.email || "",
     company: initial?.company || "",
-    tags: initial?.tags?.join(";") || "",
+    tags: initial?.tags || [] as string[],
     notes: initial?.notes || "",
   })
 
   return (
     <PremiumModal open={open} onClose={onClose} title={initial ? "Editar Contacto" : "Nuevo Contacto"}>
-      <form onSubmit={(e) => {
+       <form onSubmit={(e) => {
         e.preventDefault()
-        onSubmit({
-          ...form,
-          tags: form.tags.split(";").map((t: string) => t.trim()).filter(Boolean)
-        })
+        onSubmit(form)
       }} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -507,29 +504,42 @@ function ContactFormModal({ open, onClose, onSubmit, tags, initial }: any) {
             <input value={form.company} onChange={e => setForm({...form, company: e.target.value})} className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-[var(--text-primary)] text-sm focus:outline-none focus:border-blue-500" />
           </div>
         </div>
+        
         <div>
-          <label className="block text-xs text-[var(--text-secondary)] mb-1">Tags (separados por ;)</label>
-          <input value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} placeholder="cliente;hot;lead" className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-[var(--text-primary)] text-sm focus:outline-none focus:border-blue-500" />
-          <div className="flex gap-1 mt-2 flex-wrap">
-            {tags.map((t: any) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => {
-                  const current = form.tags.split(";").map((x: string) => x.trim()).filter(Boolean)
-                  if (current.includes(t.name)) {
-                    setForm({...form, tags: current.filter((x: string) => x !== t.name).join(";")})
-                  } else {
-                    setForm({...form, tags: [...current, t.name].join(";")})
-                  }
-                }}
-                className={`px-2 py-1 rounded-lg text-[10px] font-medium border transition-colors ${form.tags.includes(t.name) ? 'text-[var(--text-primary)]' : 'bg-[var(--bg-input)] text-[var(--text-muted)] border-[var(--border-color)]'}`}
-                style={form.tags.includes(t.name) ? { backgroundColor: t.color + '40', borderColor: t.color, color: t.color } : {}}
-              >
-                {t.name}
-              </button>
-            ))}
-          </div>
+          <label className="block text-xs text-[var(--text-secondary)] mb-1">Etiquetas</label>
+          {tags.length === 0 ? (
+            <p className="text-xs text-[var(--text-muted)]">
+              No hay etiquetas creadas. Primero creá etiquetas en el módulo <strong>Tags</strong>.
+            </p>
+          ) : (
+            <div className="flex gap-2 flex-wrap">
+              {tags.map((t: any) => {
+                const isSelected = form.tags.includes(t.name)
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => {
+                      if (isSelected) {
+                        setForm({...form, tags: form.tags.filter((x: string) => x !== t.name)})
+                      } else {
+                        setForm({...form, tags: [...form.tags, t.name]})
+                      }
+                    }}
+                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-all ${
+                      isSelected 
+                        ? 'text-[var(--text-primary)]' 
+                        : 'bg-[var(--bg-input)] text-[var(--text-muted)] border-[var(--border-color)] hover:border-slate-500'
+                    }`}
+                    style={isSelected ? { backgroundColor: t.color + '40', borderColor: t.color, color: t.color } : {}}
+                  >
+                    {isSelected && <span className="mr-1">✓</span>}
+                    {t.name}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
         <div>
           <label className="block text-xs text-[var(--text-secondary)] mb-1">Notas</label>

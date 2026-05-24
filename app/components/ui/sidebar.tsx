@@ -75,7 +75,19 @@ export function Sidebar({ onSettings, onUpgrade }: SidebarProps) {
   const router = useRouter()
   const pathname = usePathname()
 
-  const isPro = license?.tier === 'pro' || license?.tier === 'business'
+  // === DESPUÉS ===
+const [confirmedTier, setConfirmedTier] = useState<'starter' | 'pro' | 'loading'>('loading')
+
+useEffect(() => {
+  // Solo actualizamos cuando license ya no es null/undefined
+  if (license && license.tier) {
+    const isPro = license.tier === 'pro' || license.tier === 'business'
+    setConfirmedTier(isPro ? 'pro' : 'starter')
+  }
+}, [license?.tier]) // solo reacciona cuando el tier cambia realmente
+
+const isPro = confirmedTier === 'pro'
+const isLoadingTier = confirmedTier === 'loading'
 
   useEffect(() => {
   document.documentElement.style.setProperty('--sidebar-width', collapsed ? '72px' : '240px')
@@ -105,13 +117,15 @@ export function Sidebar({ onSettings, onUpgrade }: SidebarProps) {
         {!collapsed && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <h1 className="text-sm font-bold text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900">Mundial Blaster</h1>
-            {isPro ? (
-              <span className="text-[10px] font-bold text-amber-400 flex items-center gap-1">
-                <Zap size={10} /> PRO
-              </span>
-            ) : (
-              <span className="text-[10px] text-blue-400 font-medium">Starter</span>
-            )}
+            {isLoadingTier ? (
+  <div className="h-3 w-12 bg-gray-700/40 rounded animate-pulse" />
+) : isPro ? (
+  <span className="text-[10px] font-bold text-amber-400 flex items-center gap-1">
+    <Zap size={10} /> PRO
+  </span>
+) : (
+  <span className="text-[10px] text-blue-400 font-medium">Starter</span>
+)}
           </motion.div>
         )}
       </div>

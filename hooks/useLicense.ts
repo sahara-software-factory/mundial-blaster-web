@@ -1,7 +1,6 @@
-// hooks/useLicense.ts
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 
 interface LicenseData {
   active: boolean
@@ -11,30 +10,58 @@ interface LicenseData {
   features?: any
 }
 
-export function useLicense() {
-  const [license, setLicense] = useState<LicenseData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [checked, setChecked] = useState(false)
+const STORAGE_KEY = "mb_license_cache"
 
-  const checkLicense = useCallback(async () => {
+function getCachedLicense(): LicenseData | null {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch {}
+  return null
+}
+
+function setCachedLicense(data: LicenseData | null) {
+  if (typeof window === "undefined") return
+  try {
+    if (data) localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    else localStorage.removeItem(STORAGE_KEY)
+  } catch {}
+}
+
+export function useLicense() {
+  // Estado inicial: lee del cache local para evitar flash
+  const [license, setLicense] = useState<LicenseData | null>(getCachedLicense)
+  const [loading, setLoading] = useState(!getCachedLicense()) // solo loading si no hay cache
+  const [checked, setChecked] = useState(false)
+  const fetchingRef = useRef(false)
+
+  const checkLicense = useCallback(async (force = false) => {
+    // Evita fetch duplicado si ya está en curso
+    if (fetchingRef.current && !force) return
+    fetchingRef.current = true
+
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('mb_token') : null
-      
+      const token = typeof window !== "undefined" ? localStorage.getItem("mb_token") : null
       const headers: Record<string, string> = {}
       if (token) headers.Authorization = `Bearer ${token}`
-      
+
       const res = await fetch("/api/license/status", {
         cache: "no-store",
         headers,
       })
-      
-      const data = await res.json()
+
+      const data: LicenseData = await res.json()
       setLicense(data)
+      setCachedLicense(data)
     } catch {
-      setLicense({ active: false })
+      const fallback: LicenseData = { active: false }
+      setLicense(fallback)
+      setCachedLicense(fallback)
     } finally {
       setLoading(false)
       setChecked(true)
+      fetchingRef.current = false
     }
   }, [])
 
@@ -47,6 +74,6 @@ export function useLicense() {
     loading,
     checked,
     isActive: license?.active === true,
-    refetch: checkLicense,
+    refetch: () => checkLicense(true),
   }
 }

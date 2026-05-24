@@ -77,10 +77,11 @@ export function useAuth() {
   }
 
   const logout = () => {
-    localStorage.removeItem('mb_token')
-    setUser(null)
-    router.push("/login")
-  }
+  localStorage.removeItem('mb_token')
+  localStorage.removeItem('mb_license_cache')
+  setUser(null)
+  router.push("/login")
+}
 
   useEffect(() => {
     checkAuth()

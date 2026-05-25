@@ -85,7 +85,8 @@
     
     // Logs
     const [logs, setLogs] = useState<string[]>([])
-    
+    const [campaignName, setCampaignName] = useState("")
+    const [scheduleMode, setScheduleMode] = useState<"now" | "pending">("now")
     // UI
     const [socketConnected, setSocketConnected] = useState(false)
     const [showAddModal, setShowAddModal] = useState(false)
@@ -171,44 +172,52 @@
         }
     }
 
-    const sendCampaign = async () => {
-        if (!selectedLine) return toast.error("Seleccioná una línea primero")
-        const rawNumbers = numbersText.split("\n").map(n => n.trim()).filter(Boolean)
-        const targets = rawNumbers.map(n => ({ phone: n.replace(/\D/g, ""), name: "" }))
-        if (targets.length === 0) return toast.error("No hay números válidos")
+  const sendCampaign = async () => {
+  if (!selectedLine) return toast.error("Seleccioná una línea primero")
+  
+  const rawNumbers = numbersText.split("\n").map(n => n.trim()).filter(Boolean)
+  const targets = rawNumbers.map(n => ({ phone: n.replace(/\D/g, ""), name: "" }))
+  if (targets.length === 0) return toast.error("No hay números válidos")
 
-        setIsSending(true)
-        setLogs(prev => [...prev, `🚀 Campaña iniciada: ${targets.length} números`])
-        setActiveTab("logs")
+  setIsSending(true)
+  setLogs(prev => [...prev, `🚀 ${scheduleMode === 'now' ? 'Campaña iniciada' : 'Campaña guardada'}: ${targets.length} números`])
 
-        try {
-        const res = await fetch("/api/campaign/send", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-            lineId: selectedLine.id,
-            targets,
-            message,
-            imageUrl: imageUrl || undefined,
-            delayMin,
-            delayMax,
-            }),
-        })
-        const data = await res.json()
-        if (data.success) {
-            setLogs(prev => [...prev, `✅ Campaña ${data.campaignId} | Total: ${data.total}`])
-            toast.success(`Campaña iniciada: ${data.total} números`)
-        } else {
-            setLogs(prev => [...prev, `❌ Error: ${data.error}`])
-            toast.error(data.error || "Error en campaña")
-        }
-        } catch {
-        setLogs(prev => [...prev, `❌ Error de red`])
-        toast.error("Error de red")
-        } finally {
-        setIsSending(false)
-        }
+  try {
+    const res = await fetch("/api/campaigns", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        lineId: selectedLine.id,
+        targets,
+        message,
+        imageUrl: imageUrl || undefined,
+        delayMin,
+        delayMax,
+        name: campaignName || `Campaña ${new Date().toLocaleString('es-AR')}`,
+        schedule: scheduleMode
+      }),
+    })
+    const data = await res.json()
+    if (data.success) {
+      if (scheduleMode === 'pending') {
+        toast.success("Campaña guardada en espera")
+        setLogs(prev => [...prev, `⏸️ Campaña ${data.campaignId} guardada para ejecutar después`])
+      } else {
+        setLogs(prev => [...prev, `✅ Campaña ${data.campaignId} | Total: ${data.total}`])
+        toast.success(`Campaña iniciada: ${data.total} números`)
+      }
+      setActiveTab("logs")
+    } else {
+      setLogs(prev => [...prev, `❌ Error: ${data.error}`])
+      toast.error(data.error || "Error en campaña")
     }
+  } catch {
+    setLogs(prev => [...prev, `❌ Error de red`])
+    toast.error("Error de red")
+  } finally {
+    setIsSending(false)
+  }
+}
 
     const statusColor = (status: string) => {
         if (status === "CONECTADA") return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
@@ -573,6 +582,52 @@ const copyMessage = async () => {
     </div>
     )}
 
+    {/* Nombre + Scheduling */}
+{/* Nombre de campaña + Modo de ejecución */}
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  <div>
+    <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5 block">
+      Nombre de campaña
+    </label>
+    <input
+      type="text"
+      value={campaignName}
+      onChange={e => setCampaignName(e.target.value)}
+      placeholder="Ej: Promo Mayo 2026"
+      className="w-full bg-[var(--bg-input)] dark:bg-[var(--bg-input)] bg-gray-50 border border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 rounded-xl p-3 text-sm text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900 placeholder:text-slate-700 dark:placeholder:text-slate-700 placeholder:text-gray-400 focus:outline-none focus:border-blue-500/50 transition-all"
+    />
+  </div>
+  <div>
+    <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5 block">
+      Ejecución
+    </label>
+    <div className="flex gap-2">
+      <button
+        type="button"
+        onClick={() => setScheduleMode("now")}
+        className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${
+          scheduleMode === "now"
+            ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/25'
+            : 'bg-[var(--bg-input)] dark:bg-[var(--bg-input)] bg-gray-50 text-[var(--text-secondary)] border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 hover:border-slate-600'
+        }`}
+      >
+        ⚡ Enviar ahora
+      </button>
+      <button
+        type="button"
+        onClick={() => setScheduleMode("pending")}
+        className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${
+          scheduleMode === "pending"
+            ? 'bg-amber-600 text-white border-amber-500 shadow-lg shadow-amber-500/25'
+            : 'bg-[var(--bg-input)] dark:bg-[var(--bg-input)] bg-gray-50 text-[var(--text-secondary)] border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 hover:border-slate-600'
+        }`}
+      >
+        ⏸️ Guardar para después
+      </button>
+    </div>
+  </div>
+</div>
+
     {/* Textarea de números */}
     {numberSource === "manual" && (
     <textarea
@@ -731,32 +786,35 @@ const copyMessage = async () => {
                             </div>
                         </div>
 
-                        <motion.button
-                            whileHover={{ scale: 1.01 }}
-                            whileTap={{ scale: 0.99 }}
-                            onClick={sendCampaign}
-                            disabled={isSending || !selectedLine}
-                            className={`w-full font-bold py-4 rounded-xl transition-all relative overflow-hidden ${
-                            isSending || !selectedLine
-                                ? "bg-[#1E293B] dark:bg-[#1E293B] bg-gray-200 text-[var(--text-muted)] dark:text-[var(--text-muted)] text-gray-400 cursor-not-allowed"
-                                : "bg-gradient-to-r from-blue-600 to-blue-500 text-[var(--text-primary)] shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40"
-                            }`}
-                        >
-                            {isSending ? (
-                            <span className="flex items-center justify-center gap-2">
-                                <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
-                                Enviando...
-                            </span>
-                            ) : !selectedLine ? (
-                            <span className="flex items-center justify-center gap-2">
-                                <Users size={18} /> Seleccioná una línea en la pestaña "Líneas"
-                            </span>
-                            ) : (
-                            <span className="flex items-center justify-center gap-2">
-                                <Play size={18} /> Disparar {numbersText.split("\n").filter(Boolean).length} mensajes
-                            </span>
-                            )}
-                        </motion.button>
+                      <motion.button
+  whileHover={{ scale: 1.01 }}
+  whileTap={{ scale: 0.99 }}
+  onClick={sendCampaign}
+  disabled={isSending || !selectedLine}
+  className={`w-full font-bold py-4 rounded-xl transition-all relative overflow-hidden ${
+    isSending || !selectedLine
+      ? "bg-[#1E293B] dark:bg-[#1E293B] bg-gray-200 text-[var(--text-muted)] dark:text-[var(--text-muted)] text-gray-400 cursor-not-allowed"
+      : scheduleMode === 'pending'
+      ? "bg-gradient-to-r from-amber-600 to-orange-500 text-[var(--text-primary)] shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40"
+      : "bg-gradient-to-r from-blue-600 to-blue-500 text-[var(--text-primary)] shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40"
+  }`}
+>
+  {isSending ? (
+    <span className="flex items-center justify-center gap-2">
+      <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
+      {scheduleMode === 'pending' ? 'Guardando...' : 'Enviando...'}
+    </span>
+  ) : !selectedLine ? (
+    <span className="flex items-center justify-center gap-2">
+      <Users size={18} /> Seleccioná una línea en la pestaña "Líneas"
+    </span>
+  ) : (
+    <span className="flex items-center justify-center gap-2">
+      {scheduleMode === 'pending' ? <Clock size={18} /> : <Play size={18} />}
+      {scheduleMode === 'pending' ? 'Guardar' : 'Disparar'} {numbersText.split("\n").filter(Boolean).length} mensajes
+    </span>
+  )}
+</motion.button>
                         </div>
                     </div>
                     </div>

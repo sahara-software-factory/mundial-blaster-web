@@ -14,7 +14,8 @@ import {
   RotateCcw, 
   Trash2,
   Calendar,
-  Zap
+  Zap,
+  Play
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -121,6 +122,24 @@ export default function ReportsPage() {
       setCampaignLogs([])
     }
   }
+
+  const startCampaign = async (id: string) => {
+  try {
+    const res = await fetch(`/api/campaigns/${id}/start`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const data = await res.json()
+    if (res.ok) {
+      toast.success("Campaña iniciada")
+      fetchReports()
+    } else {
+      toast.error(data.error || "Error")
+    }
+  } catch {
+    toast.error("Error de red")
+  }
+}
 
   const openDetail = (campaign: Campaign) => {
     setSelectedCampaign(campaign)
@@ -416,44 +435,55 @@ export default function ReportsPage() {
                           </td>
                           <td className="p-4">
                             <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border ${
-                              campaign.status === 'completed'
-                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                                : campaign.status === 'running'
-                                ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
-                                : 'bg-red-500/10 text-red-400 border-red-500/30'
-                            }`}>
-                              {campaign.status === 'completed' ? 'Completada' : campaign.status === 'running' ? 'Enviando...' : 'Error'}
-                            </span>
+  campaign.status === 'completed'
+    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+    : campaign.status === 'running'
+    ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+    : campaign.status === 'pending'
+    ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+    : 'bg-red-500/10 text-red-400 border-red-500/30'
+}`}>
+  {campaign.status === 'completed' ? 'Completada' : campaign.status === 'running' ? 'Enviando...' : campaign.status === 'pending' ? 'En espera' : 'Error'}
+</span>
                           </td>
                           <td className="p-4 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <button 
-                                onClick={() => openDetail(campaign)}
-                                className="p-1.5 text-[var(--text-muted)] hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
-                                title="Ver detalle"
-                              >
-                                <Eye size={16} />
-                              </button>
-                              <button 
-                                onClick={() => cloneCampaign(campaign.id)}
-                                className={`p-1.5 rounded-lg transition-colors ${
-                                  isPro 
-                                    ? 'text-[var(--text-muted)] hover:text-amber-400 hover:bg-amber-500/10' 
-                                    : 'text-slate-700 cursor-not-allowed'
-                                }`}
-                                title={isPro ? "Repetir campaña" : "Requiere Pro"}
-                              >
-                                <RotateCcw size={16} />
-                              </button>
-                              <button 
-                                onClick={() => deleteCampaign(campaign.id)}
-                                className="p-1.5 text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                                title="Eliminar"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </td>
+  <div className="flex items-center justify-end gap-1">
+    {campaign.status === 'pending' && (
+      <button 
+        onClick={() => startCampaign(campaign.id)}
+        className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors"
+        title="Ejecutar ahora"
+      >
+        <Play size={16} />
+      </button>
+    )}
+    <button 
+      onClick={() => openDetail(campaign)}
+      className="p-1.5 text-[var(--text-muted)] hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
+      title="Ver detalle"
+    >
+      <Eye size={16} />
+    </button>
+    <button 
+      onClick={() => cloneCampaign(campaign.id)}
+      className={`p-1.5 rounded-lg transition-colors ${
+        isPro 
+          ? 'text-[var(--text-muted)] hover:text-amber-400 hover:bg-amber-500/10' 
+          : 'text-slate-700 cursor-not-allowed'
+      }`}
+      title={isPro ? "Repetir campaña" : "Requiere Pro"}
+    >
+      <RotateCcw size={16} />
+    </button>
+    <button 
+      onClick={() => deleteCampaign(campaign.id)}
+      className="p-1.5 text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+      title="Eliminar"
+    >
+      <Trash2 size={16} />
+    </button>
+  </div>
+</td>
                         </motion.tr>
                       )
                     })}

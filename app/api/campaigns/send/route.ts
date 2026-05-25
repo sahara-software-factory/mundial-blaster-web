@@ -14,7 +14,7 @@ function getBackendUrl(): string {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const url = `${getBackendUrl()}/api/campaign/send`
+    const url = `${getBackendUrl()}/api/campaigns/send`
 
     console.log("[Proxy Campaign] Enviando a:", url)
     console.log("[Proxy Campaign] Payload:", JSON.stringify(body, null, 2))

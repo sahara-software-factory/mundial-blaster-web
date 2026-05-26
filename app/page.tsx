@@ -29,7 +29,8 @@
     import { useAuth } from "@/hooks/useAuth"
     import { Sidebar } from "./components/ui/sidebar"
     import { PremiumModal } from "./components/ui/modal"
-
+    import { ConfirmDialog } from "./components/ui/confirm-dialog"
+    import { useConfirm } from "@/hooks/useConfirm"
     const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || ""
 
     interface LineaWhatsApp {
@@ -79,6 +80,8 @@
     const [isSending, setIsSending] = useState(false)
     const [numberSource, setNumberSource] = useState<"manual" | "contacts" | "tag">("manual")  // ← NUEVO
     const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null)               // ← NUEVO
+    const { isOpen, options, confirm, onConfirm, onCancel } = useConfirm()
+
     
     // Contactos + Tags (para campaña por tag)
     const [contactList, setContactList] = useState<Contact[]>([])  // ← NUEVO
@@ -176,7 +179,14 @@ function generatePreview(text: string, targetName = "Juan Pérez", targetPhone =
     }
 
     const logoutLine = async (lineId: string) => {
-        if (!confirm("¿Seguro que querés desconectar esta línea?")) return
+  const ok = await confirm({
+    title: "Desconectar línea",
+    description: "¿Seguro que querés desconectar esta línea de WhatsApp? Tendrás que escanear el QR nuevamente para reconectar.",
+    confirmText: "Desconectar",
+    cancelText: "Cancelar",
+    variant: "warning",
+  })
+  if (!ok) return
         try {
         const res = await fetch("/api/lineas/logout", {
             method: "POST",
@@ -1217,6 +1227,8 @@ const copyMessage = async () => {
         
 
         <QRModal open={qrModalOpen}  onOpenChange={(v) => setQrModalOpen(v)}  line={qrTargetLine} />
+        <ConfirmDialog open={isOpen} onClose={onCancel} onConfirm={onConfirm} {...options} />
+
         </div>
     )
     }

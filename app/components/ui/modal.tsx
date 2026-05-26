@@ -7,7 +7,7 @@ interface ModalProps {
   open: boolean
   onClose: () => void
   children: React.ReactNode
-  title?: string
+  title?:  React.ReactNode
 }
 
 export function PremiumModal({ open, onClose, children, title }: ModalProps) {

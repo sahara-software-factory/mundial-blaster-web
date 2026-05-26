@@ -20,7 +20,8 @@ import {
   Users
 } from "lucide-react"
 import { toast } from "sonner"
-
+import { ConfirmDialog } from "../components/ui/confirm-dialog"
+import { useConfirm } from "@/hooks/useConfirm" // si usás el hook
 import { useRouter } from "next/navigation"
 import { Sidebar } from "../components/ui/sidebar"
 import { PremiumModal } from "../components/ui/modal"
@@ -56,6 +57,7 @@ export default function ContactsPage() {
   const [showTagManager, setShowTagManager] = useState(false)
   const [importProgress, setImportProgress] = useState(0)
   const [isImporting, setIsImporting] = useState(false)
+  const { isOpen, options, confirm, onConfirm, onCancel } = useConfirm()
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('mb_token') : ''
 
@@ -113,7 +115,13 @@ export default function ContactsPage() {
   }
 
   const deleteSelected = async () => {
-    if (!confirm(`¿Eliminar ${selectedIds.size} contactos?`)) return
+  const ok = await confirm({
+    title: "Eliminar contactos",
+    description: `¿Eliminar ${selectedIds.size} contactos seleccionados? Esta acción no se puede deshacer.`,
+    confirmText: "Eliminar",
+    variant: "danger",
+  })
+  if (!ok) return
     try {
       const res = await fetch("/api/contacts", {
         method: "DELETE",
@@ -460,6 +468,12 @@ export default function ContactsPage() {
         tags={tags}
         onRefresh={fetchTags}
       />
+      <ConfirmDialog
+  open={isOpen}
+  onClose={onCancel}
+  onConfirm={onConfirm}
+  {...options}
+/>
     </div>
   )
 }
@@ -550,7 +564,9 @@ function ContactFormModal({ open, onClose, onSubmit, tags, initial }: any) {
           <button type="submit" className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] font-bold rounded-xl transition-colors">{initial ? "Guardar" : "Crear"}</button>
         </div>
       </form>
+      
     </PremiumModal>
+    
   )
 }
 
@@ -628,11 +644,15 @@ function TagManagerModal({ open, onClose, tags, onRefresh }: any) {
               <button onClick={() => deleteTag(tag.id)} className="p-1.5 text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
                 <Trash2 size={14} />
               </button>
+              
             </div>
           ))}
           {tags.length === 0 && <p className="text-center text-sm text-[var(--text-muted)] py-4">No hay tags</p>}
+          
         </div>
+        
       </div>
     </PremiumModal>
+    
   )
 }

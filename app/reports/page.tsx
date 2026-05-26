@@ -18,7 +18,8 @@ import {
   Play
 } from "lucide-react"
 import { toast } from "sonner"
-
+import { ConfirmDialog } from "../components/ui/confirm-dialog"
+import { useConfirm } from "@/hooks/useConfirm"
 import { useLicense } from "@/hooks/useLicense"
 import { useAuth } from "@/hooks/useAuth"
 import {
@@ -88,6 +89,7 @@ export default function ReportsPage() {
   const [showDetail, setShowDetail] = useState(false)
   const [campaignLogs, setCampaignLogs] = useState<any[]>([])
   
+  const { isOpen, options, confirm, onConfirm, onCancel } = useConfirm()
 
   
   const isPro = license?.tier === 'pro' || license?.tier === 'business'
@@ -176,7 +178,13 @@ export default function ReportsPage() {
 }
 
   const deleteCampaign = async (id: string) => {
-    if (!confirm("¿Eliminar campaña?")) return
+  const ok = await confirm({
+    title: "Eliminar campaña",
+    description: "¿Eliminar esta campaña y todos sus logs? Esta acción no se puede deshacer.",
+    confirmText: "Eliminar",
+    variant: "danger",
+  })
+  if (!ok) return
     try {
       // Usar el endpoint DELETE de campaigns si existe, sino marcar como eliminada
       toast.success("Campaña eliminada")
@@ -532,7 +540,7 @@ export default function ReportsPage() {
                   <p className="text-xs text-blue-400/70 uppercase tracking-wider">Total</p>
                 </div>
               </div>
-
+<ConfirmDialog open={isOpen} onClose={onCancel} onConfirm={onConfirm} {...options} />
               {/* Progreso circular */}
               <div className="flex items-center justify-center py-4">
                 <div className="relative h-32 w-32">
@@ -587,9 +595,13 @@ export default function ReportsPage() {
           </PremiumModal>
         )}
       </AnimatePresence>
+      <ConfirmDialog open={isOpen} onClose={onCancel} onConfirm={onConfirm} {...options} />
     </div>
+    
   )
 }
+
+
 
 function StatCard({ icon: Icon, label, value, color, bg }: any) {
   return (

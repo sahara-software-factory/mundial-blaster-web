@@ -14,6 +14,8 @@ import {
 import { toast } from "sonner"
 import { Sidebar } from "../components/ui/sidebar"
 import { PremiumModal } from "../components/ui/modal"
+import { useConfirm } from "@/hooks/useConfirm"
+import { ConfirmDialog } from "../components/ui/confirm-dialog"
 
 interface TagItem {
   id: string
@@ -34,8 +36,13 @@ export default function TagsPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [newTagName, setNewTagName] = useState("")
   const [newTagColor, setNewTagColor] = useState(PRESET_COLORS[0])
-
-  const token = typeof window !== 'undefined' ? localStorage.getItem('mb_token') : ''
+  const { isOpen, options, confirm: askConfirm, onConfirm, onCancel } = useConfirm()
+  const [showTagContacts, setShowTagContacts] = useState(false)
+const [selectedTagName, setSelectedTagName] = useState("")
+const [selectedTagColor, setSelectedTagColor] = useState("")
+const [tagContacts, setTagContacts] = useState<any[]>([])
+const [loadingContacts, setLoadingContacts] = useState(false)
+const token = typeof window !== 'undefined' ? localStorage.getItem('mb_token') : ''
 
   const fetchTags = useCallback(async () => {
     setLoading(true)
@@ -56,6 +63,26 @@ export default function TagsPage() {
   useEffect(() => {
     fetchTags()
   }, [fetchTags])
+
+  const openTagContacts = async (tag: TagItem) => {
+  setSelectedTagName(tag.name)
+  setSelectedTagColor(tag.color)
+  setShowTagContacts(true)
+  setLoadingContacts(true)
+  try {
+    const res = await fetch(`/api/contacts?tag=${encodeURIComponent(tag.name)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    })
+    const data = await res.json()
+    setTagContacts(data.contacts || [])
+  } catch {
+    toast.error("Error cargando contactos")
+    setTagContacts([])
+  } finally {
+    setLoadingContacts(false)
+  }
+}
 
   const createTag = async () => {
     if (!newTagName.trim()) return toast.error("Nombre requerido")
@@ -79,19 +106,25 @@ export default function TagsPage() {
     }
   }
 
-  const deleteTag = async (id: string) => {
-    if (!confirm("¿Eliminar etiqueta? Los contactos la perderán.")) return
-    try {
-      await fetch(`/api/tags/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      toast.success("Etiqueta eliminada")
-      fetchTags()
-    } catch {
-      toast.error("Error eliminando")
-    }
+const deleteTag = async (id: string) => {
+  const ok = await askConfirm({
+    title: "Eliminar etiqueta",
+    description: "¿Eliminar esta etiqueta? Se quitará de todos los contactos que la tengan.",
+    confirmText: "Eliminar",
+    variant: "danger",
+  })
+  if (!ok) return
+  try {
+    await fetch(`/api/tags/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    toast.success("Etiqueta eliminada")
+    fetchTags()
+  } catch {
+    toast.error("Error eliminando")
   }
+}
 
   const filteredTags = tags.filter(t => 
     t.name.toLowerCase().includes(search.toLowerCase())
@@ -138,13 +171,14 @@ export default function TagsPage() {
             <AnimatePresence>
               {filteredTags.map((tag) => (
                 <motion.div
-                  key={tag.id}
-                  layout
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className="group relative bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl p-5 hover:border-[var(--border-hover)] hover:shadow-lg transition-all cursor-pointer"
-                >
+  key={tag.id}
+  layout
+  initial={{ opacity: 0, scale: 0.9 }}
+  animate={{ opacity: 1, scale: 1 }}
+  exit={{ opacity: 0, scale: 0.9 }}
+  onClick={() => openTagContacts(tag)}
+  className="group relative bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl p-5 hover:border-[var(--border-hover)] hover:shadow-lg transition-all cursor-pointer"
+>
                   {/* Badge de cantidad */}
                   <div 
                     className="absolute -top-2 -right-2 h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-md"
@@ -228,6 +262,84 @@ export default function TagsPage() {
           </div>
         </div>
       </PremiumModal>
+      {/* MODAL: Contactos de la etiqueta */}
+<PremiumModal 
+  open={showTagContacts} 
+  onClose={() => setShowTagContacts(false)} 
+  title={
+    <div className="flex items-center gap-2">
+      <Users size={18} className="text-blue-400" />
+      Contactos Etiquetados
+    </div>
+  }
+>
+  <div className="space-y-4">
+    {/* Header de tag */}
+    <div className="flex items-center gap-2 pb-3 border-b border-[var(--border-color)]">
+      <span 
+        className="px-3 py-1 rounded-full text-xs font-bold text-white"
+        style={{ backgroundColor: selectedTagColor }}
+      >
+        {selectedTagName}
+      </span>
+      <span className="text-xs text-[var(--text-muted)]">
+        {tagContacts.length} contactos
+      </span>
+    </div>
+
+    {/* Lista de contactos */}
+    <div className="max-h-80 overflow-y-auto space-y-2">
+      {loadingContacts ? (
+        <div className="py-8 text-center">
+          <motion.div 
+            animate={{ rotate: 360 }} 
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            className="h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto"
+          />
+        </div>
+      ) : tagContacts.length === 0 ? (
+        <div className="py-8 text-center text-sm text-[var(--text-muted)]">
+          No hay contactos con esta etiqueta
+        </div>
+      ) : (
+        tagContacts.map((contact) => (
+          <div 
+            key={contact.id}
+            className="flex items-center gap-3 p-3 bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)] hover:border-[var(--border-hover)] transition-colors"
+          >
+            <div 
+              className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0"
+              style={{ backgroundColor: selectedTagColor + '80' }}
+            >
+              {contact.name?.charAt(0)?.toUpperCase() || "?"}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-[var(--text-primary)] truncate">
+                {contact.name || "Sin nombre"}
+              </p>
+              <p className="text-xs text-[var(--text-muted)] font-mono">
+                {contact.phone}
+              </p>
+            </div>
+            {contact.email && (
+              <span className="text-[10px] text-[var(--text-muted)] hidden sm:block">
+                {contact.email}
+              </span>
+            )}
+          </div>
+        ))
+      )}
+    </div>
+  </div>
+</PremiumModal>
+
+{/* ConfirmDialog */}
+<ConfirmDialog
+  open={isOpen}
+  onClose={onCancel}
+  onConfirm={onConfirm}
+  {...options}
+/>
     </div>
   )
 }

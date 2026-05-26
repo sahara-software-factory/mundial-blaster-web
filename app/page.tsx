@@ -1,6 +1,6 @@
     "use client"
 
-    import { useState, useEffect } from "react"
+    import { useState, useEffect, useRef } from "react"
     import { motion, AnimatePresence } from "framer-motion"
     import { io } from "socket.io-client"
     import { toast } from "sonner"
@@ -20,7 +20,8 @@
     Tag,        // ← NUEVO
     Zap,
     RotateCcw,
-    Sparkles
+    Sparkles,
+    Eye
     } from "lucide-react"
     import { QRModal } from "./components/qr-modal"
     import { useRouter } from "next/navigation"
@@ -82,11 +83,16 @@
     // Contactos + Tags (para campaña por tag)
     const [contactList, setContactList] = useState<Contact[]>([])  // ← NUEVO
     const [tags, setTags] = useState<TagItem[]>([])                 // ← NUEVO
+
+    const campaignNameRef = useRef<HTMLInputElement>(null)
     
     // Logs
     const [logs, setLogs] = useState<string[]>([])
     const [campaignName, setCampaignName] = useState("")
     const [scheduleMode, setScheduleMode] = useState<"now" | "pending">("now")
+
+    const [showPreview, setShowPreview] = useState(false)
+
     // UI
     const [socketConnected, setSocketConnected] = useState(false)
     const [showAddModal, setShowAddModal] = useState(false)
@@ -101,6 +107,23 @@
     const token = typeof window !== 'undefined' ? localStorage.getItem('mb_token') || '' : '' 
     const [templates, setTemplates] = useState<any[]>([])
     const [showSpintaxHelp, setShowSpintaxHelp] = useState(false)
+
+
+        function resolveSpintax(text: string): string {
+  return text.replace(/\{\{([^}]+)\}\}/g, (match, content) => {
+    if (!content.includes('|')) return match
+    const variants = content.split("|").map((s: string) => s.trim()).filter(Boolean)
+    return variants.length ? variants[Math.floor(Math.random() * variants.length)] : ''
+  })
+}
+
+function generatePreview(text: string, targetName = "Juan Pérez", targetPhone = "5491123456789"): string {
+  let t = resolveSpintax(text)
+  t = t.replace(/\{\{nombre\}\}/gi, targetName).replace(/\{nombre\}/gi, targetName)
+  t = t.replace(/\{\{telefono\}\}/gi, targetPhone).replace(/\{telefono\}/gi, targetPhone)
+  return t
+}
+
         const fetchLines = async () => {
         try {
         const res = await fetch("/api/lineas", { cache: "no-store" })
@@ -193,7 +216,7 @@
         imageUrl: imageUrl || undefined,
         delayMin,
         delayMax,
-        name: campaignName || `Campaña ${new Date().toLocaleString('es-AR')}`,
+        name: campaignNameRef.current?.value.trim() || undefined,
         schedule: scheduleMode
       }),
     })
@@ -720,6 +743,26 @@ const copyMessage = async () => {
     className="w-full bg-[var(--bg-input)] dark:bg-[var(--bg-input)] bg-gray-50 border border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 rounded-xl p-4 text-sm text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900 placeholder:text-slate-700 dark:placeholder:text-slate-700 placeholder:text-gray-400 focus:outline-none focus:border-blue-500/50 focus:shadow-[0_0_15px_rgba(59,130,246,0.1)] transition-all resize-none"
   />
   
+  <div className="flex items-center gap-3 mt-2">
+  <button
+    type="button"
+    onClick={() => setShowPreview(true)}
+    className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
+  >
+    <Eye size={12} /> Ver preview
+  </button>
+  <span className="text-[10px] text-[var(--text-muted)] bg-[var(--bg-input)] px-2 py-1 rounded border border-[var(--border-color)]">
+  {`Spintax: {{hola|buenas|hey}}`}
+</span>
+  <button
+    type="button"
+    onClick={() => setShowSpintaxHelp(true)}
+    className="text-[10px] px-2 py-1 rounded-lg bg-[var(--bg-input)] text-[var(--text-muted)] border border-[var(--border-color)] hover:text-blue-400 hover:border-blue-500/30 transition-colors flex items-center gap-1"
+  >
+    <Sparkles size={10} /> ¿Qué es Spintax?
+  </button>
+</div>
+  
   {/* Barra de herramientas Spintax */}
   <div className="flex flex-wrap items-center gap-2 mt-3">
     <span className="text-[10px] text-[var(--text-muted)]">Insertar:</span>
@@ -880,6 +923,36 @@ const copyMessage = async () => {
         </div>
 
         {/* MODALS */}
+        {/* MODAL: Vista previa del mensaje */}
+<PremiumModal open={showPreview} onClose={() => setShowPreview(false)} title="Vista previa del mensaje">
+  <div className="space-y-4">
+    <p className="text-xs text-[var(--text-muted)]">
+      Estas son 3 simulaciones de cómo llegaría el mensaje a tus contactos:
+    </p>
+    
+    <div className="space-y-3">
+      {[1, 2, 3].map(i => {
+        const preview = generatePreview(message)
+        return (
+          <div key={i} className="p-4 bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)] relative">
+            <span className="absolute -top-2 left-3 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
+              Variante {i}
+            </span>
+            <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap mt-1 font-mono">
+              {preview}
+            </p>
+          </div>
+        )
+      })}
+    </div>
+
+    <div className="flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
+      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+      <span>Datos de ejemplo: <strong>Juan Pérez</strong> — <strong>5491123456789</strong></span>
+    </div>
+  </div>
+</PremiumModal> 
+
         <PremiumModal open={showAddModal} onClose={() => setShowAddModal(false)} title="Agregar Línea">
             <div className="space-y-4">
             <div>

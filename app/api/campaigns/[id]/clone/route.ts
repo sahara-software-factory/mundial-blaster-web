@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from "next/server"
 
 const BACKEND_URL = (process.env.NEXT_PUBLIC_WHATSAPP_SERVER_URL || "").replace(/\/$/, "")
@@ -11,14 +12,23 @@ function getBackendUrl(): string {
   return `https://${BACKEND_URL}`
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
+    const { id } = await params
     const token = req.headers.get("authorization") || ""
-    const res = await fetch(`${getBackendUrl()}/api/campaigns/${params.id}/clone`, {
+    
+    const res = await fetch(`${getBackendUrl()}/api/campaigns/${id}/clone`, {
       method: "POST",
-      headers: { "x-api-secret": SECRET, "authorization": token },
+      headers: { 
+        "x-api-secret": SECRET, 
+        "authorization": token 
+      },
       cache: "no-store",
     })
+    
     const data = await res.json()
     return NextResponse.json(data, { status: res.status })
   } catch (e: any) {

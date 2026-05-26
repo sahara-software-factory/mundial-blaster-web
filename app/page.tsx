@@ -88,7 +88,7 @@
     
     // Logs
     const [logs, setLogs] = useState<string[]>([])
-    const [campaignName, setCampaignName] = useState("")
+    // const [campaignName, setCampaignName] = useState("")
     const [scheduleMode, setScheduleMode] = useState<"now" | "pending">("now")
 
     const [showPreview, setShowPreview] = useState(false)
@@ -613,12 +613,12 @@ const copyMessage = async () => {
       Nombre de campaña
     </label>
     <input
-      type="text"
-      value={campaignName}
-      onChange={e => setCampaignName(e.target.value)}
-      placeholder="Ej: Promo Mayo 2026"
-      className="w-full bg-[var(--bg-input)] dark:bg-[var(--bg-input)] bg-gray-50 border border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 rounded-xl p-3 text-sm text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900 placeholder:text-slate-700 dark:placeholder:text-slate-700 placeholder:text-gray-400 focus:outline-none focus:border-blue-500/50 transition-all"
-    />
+  ref={campaignNameRef}
+  type="text"
+  defaultValue=""
+  placeholder="Ej: Promo Mayo 2026"
+  className="w-full bg-[var(--bg-input)] dark:bg-[var(--bg-input)] bg-gray-50 border border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 rounded-xl p-3 text-sm text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900 placeholder:text-slate-700 dark:placeholder:text-slate-700 placeholder:text-gray-400 focus:outline-none focus:border-blue-500/50 transition-all"
+/>
   </div>
   <div>
     <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5 block">

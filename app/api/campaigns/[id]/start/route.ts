@@ -12,7 +12,7 @@ function getBackendUrl(): string {
   return `https://${BACKEND_URL}`
 }
 
-export async function GET(
+export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -20,7 +20,8 @@ export async function GET(
     const { id } = await params
     const token = req.headers.get("authorization") || ""
     
-    const res = await fetch(`${getBackendUrl()}/api/campaigns/${id}/logs`, {
+    const res = await fetch(`${getBackendUrl()}/api/campaigns/${id}/start`, {
+      method: "POST",
       headers: { 
         "x-api-secret": SECRET, 
         "authorization": token 

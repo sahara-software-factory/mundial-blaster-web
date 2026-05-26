@@ -22,6 +22,8 @@ export function useAuth() {
     return localStorage.getItem('mb_token')
   }
 
+  
+
   const checkAuth = useCallback(async () => {
     setLoading(true)
     try {

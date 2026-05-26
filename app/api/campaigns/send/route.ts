@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic'  // ← AGREGAR ESTO AL INICIO
+export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from "next/server"
 
@@ -14,18 +14,20 @@ function getBackendUrl(): string {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
+    const token = req.headers.get("authorization") || ""  // ← AGREGAR ESTO
     const url = `${getBackendUrl()}/api/campaigns/send`
 
     console.log("[Proxy Campaign] Enviando a:", url)
-    console.log("[Proxy Campaign] Payload:", JSON.stringify(body, null, 2))
 
     const res = await fetch(url, {
       method: "POST",
       headers: { 
         "Content-Type": "application/json", 
-        "x-api-secret": SECRET 
+        "x-api-secret": SECRET,
+        "authorization": token  // ← AGREGAR ESTO
       },
       body: JSON.stringify(body),
+      cache: "no-store",  // ← AGREGAR ESTO
     })
 
     const data = await res.json().catch(() => ({ error: "Respuesta inválida del backend" }))

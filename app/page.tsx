@@ -21,7 +21,10 @@
     Zap,
     RotateCcw,
     Sparkles,
-    Eye
+    Eye,
+    Upload,
+    AlertTriangle,
+    X
     } from "lucide-react"
     import { QRModal } from "./components/qr-modal"
     import { useRouter } from "next/navigation"
@@ -31,6 +34,7 @@
     import { PremiumModal } from "./components/ui/modal"
     import { ConfirmDialog } from "./components/ui/confirm-dialog"
     import { useConfirm } from "@/hooks/useConfirm"
+import { CampaignLineSelector } from "./components/campaign-line-selector"
     const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || ""
 
     interface LineaWhatsApp {
@@ -66,7 +70,8 @@
     // Líneas
     const [lines, setLines] = useState<LineaWhatsApp[]>([])
     const [selectedLine, setSelectedLine] = useState<LineaWhatsApp | null>(null)
-    
+    const hasConnectedLine = lines.some(l => l.status === "CONECTADA")
+    const selectedLineConnected = selectedLine?.status === "CONECTADA"
     // QR
     const [qrModalOpen, setQrModalOpen] = useState(false)
     const [qrTargetLine, setQrTargetLine] = useState<LineaWhatsApp | null>(null)
@@ -80,14 +85,20 @@
     const [isSending, setIsSending] = useState(false)
     const [numberSource, setNumberSource] = useState<"manual" | "contacts" | "tag">("manual")  // ← NUEVO
     const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null)               // ← NUEVO
-    const { isOpen, options, confirm, onConfirm, onCancel } = useConfirm()
+    const { isOpen, options, confirm: askConfirm, onConfirm, onCancel } = useConfirm()
 
-    
+    const [campaignName, setCampaignName] = useState("")
+    const [showImportNumbers, setShowImportNumbers] = useState(false)
+    const [importNumbersText, setImportNumbersText] = useState("")
+
+    const [isVerifying, setIsVerifying] = useState(false)
+const [duplicateNumbers, setDuplicateNumbers] = useState<string[]>([])
+const [verifyTimeout, setVerifyTimeout] = useState<NodeJS.Timeout | null>(null)
     // Contactos + Tags (para campaña por tag)
     const [contactList, setContactList] = useState<Contact[]>([])  // ← NUEVO
     const [tags, setTags] = useState<TagItem[]>([])                 // ← NUEVO
 
-    const campaignNameRef = useRef<HTMLInputElement>(null)
+    // const campaignNameRef = useRef<HTMLInputElement>(null)
     
     // Logs
     const [logs, setLogs] = useState<string[]>([])
@@ -111,7 +122,15 @@
     const [templates, setTemplates] = useState<any[]>([])
     const [showSpintaxHelp, setShowSpintaxHelp] = useState(false)
 
-
+  
+const [importLoading, setImportLoading] = useState(false)
+const [importProgress, setImportProgress] = useState(0)
+const [dragActive, setDragActive] = useState(false)
+const [importedCount, setImportedCount] = useState(0)
+const [previewNumbers, setPreviewNumbers] = useState<string[]>([])
+const [pendingNumbers, setPendingNumbers] = useState<string[]>([])
+const [distributionMode, setDistributionMode] = useState<"single" | "round_robin">("single")
+const [selectedLineIds, setSelectedLineIds] = useState<string[]>([])
         function resolveSpintax(text: string): string {
   return text.replace(/\{\{([^}]+)\}\}/g, (match, content) => {
     if (!content.includes('|')) return match
@@ -128,58 +147,70 @@ function generatePreview(text: string, targetName = "Juan Pérez", targetPhone =
 }
 
         const fetchLines = async () => {
-        try {
-        const res = await fetch("/api/lineas", { cache: "no-store" })
-        const data = await res.json()
-        if (data.lines) setLines(data.lines)
-        } catch {
-        toast.error("Error cargando líneas")
-        }
-    }
+  try {
+    const token = localStorage.getItem('mb_token') || ''
+    const res = await fetch("/api/lineas", { 
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store" 
+    })
+    const data = await res.json()
+    if (data.lines) setLines(data.lines)
+  } catch {
+    toast.error("Error cargando líneas")
+  }
+}
 
-    const addLine = async () => {
-        if (!newPhone.trim()) return toast.error("Escribí el número")
-        if (!isPro && lines.length >= 1) {
-        setShowUpgrade(true)
-        return
-        }
-        try {
-        const res = await fetch("/api/lineas", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ phone: newPhone.trim(), nombre: newName.trim() || "Nueva Línea" }),
-        })
-        const data = await res.json()
-        if (data.success && data.line) {
-            setShowAddModal(false)
-            setNewPhone("")
-            setNewName("")
-            await fetchLines()
-            setQrTargetLine(data.line)
-            setQrModalOpen(true)
-            toast.success("Línea creada. Escaneá el QR.")
-        } else if (res.status === 403) {
-            setShowUpgrade(true)
-        } else {
-            toast.error(data.error || "Error creando línea")
-        }
-        } catch {
-        toast.error("Error de red")
-        }
+const addLine = async () => {
+  if (!newPhone.trim()) return toast.error("Escribí el número")
+  if (!isPro && lines.length >= 1) {
+    setShowUpgrade(true)
+    return
+  }
+  try {
+    const token = localStorage.getItem('mb_token') || ''
+    const res = await fetch("/api/lineas", {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ phone: newPhone.trim(), nombre: newName.trim() || "Nueva Línea" }),
+    })
+    const data = await res.json()
+    if (data.success && data.line) {
+      setShowAddModal(false)
+      setNewPhone("")
+      setNewName("")
+      await fetchLines()
+      setQrTargetLine(data.line)
+      setQrModalOpen(true)
+      toast.success("Línea creada. Escaneá el QR.")
+    } else if (res.status === 403) {
+      setShowUpgrade(true)
+    } else {
+      toast.error(data.error || "Error creando línea")
     }
+  } catch {
+    toast.error("Error de red")
+  }
+}
 
     const openQrForLine = (line: LineaWhatsApp) => {
-        setQrTargetLine(line)
-        setQrModalOpen(true)
-        fetch("/api/lineas/connect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: line.phone }),
-        }).catch(() => {})
-    }
+  setQrTargetLine(line)
+  setQrModalOpen(true)
+  const token = localStorage.getItem('mb_token') || ''
+  fetch("/api/lineas/connect", {
+    method: "POST",
+    headers: { 
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ phone: line.phone }),
+  }).catch(() => {})
+}
 
     const logoutLine = async (lineId: string) => {
-  const ok = await confirm({
+  const ok = await askConfirm({
     title: "Desconectar línea",
     description: "¿Seguro que querés desconectar esta línea de WhatsApp? Tendrás que escanear el QR nuevamente para reconectar.",
     confirmText: "Desconectar",
@@ -187,26 +218,32 @@ function generatePreview(text: string, targetName = "Juan Pérez", targetPhone =
     variant: "warning",
   })
   if (!ok) return
-        try {
-        const res = await fetch("/api/lineas/logout", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ lineId }),
-        })
-        if (res.ok) {
-            fetchLines()
-            if (selectedLine?.id === lineId) setSelectedLine(null)
-            toast.success("Línea desconectada")
-        } else {
-            toast.error("Error al desconectar")
-        }
-        } catch {
-        toast.error("Error de red")
-        }
+  try {
+    const token = localStorage.getItem('mb_token') || ''
+    const res = await fetch("/api/lineas/logout", {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ lineId }),
+    })
+    if (res.ok) {
+      fetchLines()
+      if (selectedLine?.id === lineId) setSelectedLine(null)
+      toast.success("Línea desconectada")
+    } else {
+      toast.error("Error al desconectar")
     }
+  } catch {
+    toast.error("Error de red")
+  }
+}
 
   const sendCampaign = async () => {
+    
   if (!selectedLine) return toast.error("Seleccioná una línea primero")
+  if (selectedLine.status !== "CONECTADA") return toast.error("La línea seleccionada no está conectada")
   
   const rawNumbers = numbersText.split("\n").map(n => n.trim()).filter(Boolean)
   const targets = rawNumbers.map(n => ({ phone: n.replace(/\D/g, ""), name: "" }))
@@ -225,8 +262,10 @@ function generatePreview(text: string, targetName = "Juan Pérez", targetPhone =
         message,
         imageUrl: imageUrl || undefined,
         delayMin,
+        distribution_mode: distributionMode,
+        selected_lines: selectedLineIds, // Array de UUIDs
         delayMax,
-        name: campaignNameRef.current?.value.trim() || undefined,
+        name: campaignName.trim() || undefined,
         schedule: scheduleMode
       }),
     })
@@ -252,6 +291,187 @@ function generatePreview(text: string, targetName = "Juan Pérez", targetPhone =
   }
 }
 
+const extractNumbersFromSheet = (data: any[][]): string[] => {
+  const numbers: string[] = []
+  data.forEach((row: any[]) => {
+    row.forEach((cell: any) => {
+      const str = String(cell || '').trim()
+      // Buscar números de teléfono: mínimo 8 dígitos, opcional +
+      const cleaned = str.replace(/\D/g, '')
+      if (cleaned.length >= 8) numbers.push(cleaned)
+    })
+  })
+  return [...new Set(numbers)] // eliminar duplicados
+}
+
+const handleNumberFile = (file: File) => {
+  if (!file) return
+  setImportLoading(true)
+  setImportProgress(0)
+
+  const reader = new FileReader()
+  let progress = 0
+  const interval = setInterval(() => {
+    progress += Math.random() * 12
+    setImportProgress(Math.min(progress, 85))
+  }, 150)
+
+  reader.onload = (e) => {
+    clearInterval(interval)
+    setImportProgress(100)
+    
+    const buffer = e.target?.result
+    let numbers: string[] = []
+
+    try {
+      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        const XLSX = require('xlsx')
+        const workbook = XLSX.read(buffer, { type: 'array' })
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 })
+        numbers = extractNumbersFromSheet(jsonData as any[][])
+      } else {
+        // CSV o TXT
+        const text = String(buffer || '')
+        const raw = text.split(/[\n\r,\s\t;]+/).map(n => n.trim()).filter(Boolean)
+        numbers = raw.map(n => n.replace(/\D/g, '')).filter(n => n.length >= 8)
+        numbers = [...new Set(numbers)]
+      }
+    } catch (err) {
+      console.error('Error parseando archivo:', err)
+      toast.error('Error leyendo el archivo. Asegurate de que sea un formato válido.')
+      setImportLoading(false)
+      return
+    }
+
+    setTimeout(() => {
+      setImportedCount(numbers.length)
+      setPreviewNumbers(numbers.slice(0, 20))
+      setPendingNumbers(numbers)
+      setImportLoading(false)
+      setImportProgress(0)
+      
+      if (numbers.length === 0) {
+        toast.error('No se encontraron números válidos en el archivo')
+      }
+    }, 400)
+  }
+
+  reader.onerror = () => {
+    clearInterval(interval)
+    setImportLoading(false)
+    toast.error('Error leyendo el archivo')
+  }
+
+  if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+    reader.readAsArrayBuffer(file)
+  } else {
+    reader.readAsText(file)
+  }
+}
+
+const confirmImportNumbers = () => {
+  if (pendingNumbers.length === 0) return
+  
+  const current = numbersText.split("\n").map(n => n.trim()).filter(Boolean)
+  const merged = [...new Set([...current, ...pendingNumbers])]
+  setNumbersText(merged.join("\n"))
+  
+  toast.success(`${pendingNumbers.length} números agregados a la campaña`)
+  setShowImportNumbers(false)
+  setImportedCount(0)
+  setPreviewNumbers([])
+  setPendingNumbers([])
+}
+
+const handleImportNumbers = (text: string) => {
+  const raw = text.split(/[\n,\s;]+/).map(n => n.trim()).filter(Boolean)
+  const cleaned = raw.map(n => n.replace(/\D/g, '')).filter(n => n.length >= 8)
+  const unique = [...new Set(cleaned)]
+  
+  if (unique.length === 0) {
+    toast.error("No se encontraron números válidos")
+    return
+  }
+  
+  setImportedCount(unique.length)
+  setPreviewNumbers(unique.slice(0, 20))
+  setPendingNumbers(unique)
+}
+
+const onDrag = (e: React.DragEvent) => {
+  e.preventDefault()
+  e.stopPropagation()
+  if (e.type === "dragenter" || e.type === "dragover") setDragActive(true)
+  else if (e.type === "dragleave") setDragActive(false)
+}
+
+const onDrop = (e: React.DragEvent) => {
+  e.preventDefault()
+  e.stopPropagation()
+  setDragActive(false)
+  if (e.dataTransfer.files?.[0]) handleNumberFile(e.dataTransfer.files[0])
+}
+
+const verifyNumbers = (text: string) => {
+  const raw = text.split("\n").map(n => n.trim()).filter(Boolean)
+  const cleaned = raw.map(n => n.replace(/\D/g, '')).filter(n => n.length >= 8)
+  
+  const seen = new Map<string, number>()
+  cleaned.forEach(n => seen.set(n, (seen.get(n) || 0) + 1))
+  
+  const dups = Array.from(seen.entries())
+    .filter(([_, count]) => count > 1)
+    .map(([num]) => num)
+  
+  setDuplicateNumbers(dups)
+  setIsVerifying(false)
+}
+
+useEffect(() => {
+  if (verifyTimeout) clearTimeout(verifyTimeout)
+  
+  const raw = numbersText.trim()
+  if (!raw) {
+    setDuplicateNumbers([])
+    setIsVerifying(false)
+    return
+  }
+  
+  setIsVerifying(true)
+  const t = setTimeout(() => verifyNumbers(raw), 3000)
+  setVerifyTimeout(t)
+  
+  return () => clearTimeout(t)
+}, [numbersText])
+
+
+
+const removeAllDuplicates = () => {
+  const raw = numbersText.split("\n").map(n => n.trim()).filter(Boolean)
+  const seen = new Set<string>()
+  const cleaned: string[] = []
+  
+  raw.forEach(n => {
+    const clean = n.replace(/\D/g, '')
+    if (!seen.has(clean)) {
+      seen.add(clean)
+      cleaned.push(n) // mantenemos formato original
+    }
+  })
+  
+  setNumbersText(cleaned.join("\n"))
+  setDuplicateNumbers([]) // limpiar inmediatamente
+  toast.success(`${raw.length - cleaned.length} duplicados eliminados. ${cleaned.length} únicos restantes.`)
+}
+
+const removeSpecificNumber = (phoneToRemove: string) => {
+  const raw = numbersText.split("\n").map(n => n.trim()).filter(Boolean)
+  const cleaned = raw.filter(n => n.replace(/\D/g, '') !== phoneToRemove)
+  setNumbersText(cleaned.join("\n"))
+}
+
+
     const statusColor = (status: string) => {
         if (status === "CONECTADA") return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
         if (status === "PENDING") return "bg-amber-500/10 text-amber-400 border-amber-500/30"
@@ -264,45 +484,33 @@ function generatePreview(text: string, targetName = "Juan Pérez", targetPhone =
         return "bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.5)]"
     }
 
-    useEffect(() => {
+useEffect(() => {
   const cloned = localStorage.getItem('mb_clone_campaign')
-  if (cloned) {
-    try {
-      const data = JSON.parse(cloned)
-
-      const line = lines.find((l: any) => l.id === data.line_id && l.status === 'CONECTADA')
-if (line) {
-  setSelectedLine(line)
-}
-      
-      // Setear nombre en el ref
-      if (campaignNameRef.current) {
-        campaignNameRef.current.value = data.name || ''
-      }
-      
-      // Setear mensaje
-      setMessage(data.message || '')
-      
-      // Setear imagen
-      setImageUrl(data.image_url || '')
-      
-      // Setear números
-      if (data.targets?.length) {
-        setNumbersText(data.targets.map((t: any) => t.phone).join('\n'))
-      }
-      
-      // Cambiar a tab campaña
-      setActiveTab('campaign')
-      
-      // Limpiar para no recargar al volver
-      localStorage.removeItem('mb_clone_campaign')
-      
-      toast.success('Campaña clonada. Editá y enviá cuando quieras.')
-    } catch (e) {
-      console.error('Error cargando clone:', e)
+  if (!cloned) return
+  
+  try {
+    const data = JSON.parse(cloned)
+    console.log('🔄 Clonando campaña:', data)
+    localStorage.removeItem('mb_clone_campaign')
+    
+    setActiveTab('campaign')
+    setNumberSource('manual')
+    setMessage(data.message || '')
+    setImageUrl(data.image_url || '')
+    setCampaignName(data.name || '') // ← AHORA CON STATE
+    
+    if (data.targets && Array.isArray(data.targets) && data.targets.length > 0) {
+      const phones = data.targets.map((t: any) => t.phone).filter(Boolean).join('\n')
+      setNumbersText(phones)
+    } else {
+      setNumbersText('')
     }
+    
+    toast.success('Campaña clonada. Editá y enviá cuando quieras.')
+  } catch (e) {
+    console.error('❌ Error cargando clone:', e)
   }
-}, []) // Solo al montar
+}, [])
     
     useEffect(() => {
         if (licenseLoading || authLoading || !licenseChecked || !authChecked) return
@@ -606,16 +814,24 @@ const copyMessage = async () => {
                             <h2 className="text-xl font-bold text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900">Nueva Campaña</h2>
                             <p className="text-sm text-[var(--text-muted)] mt-1">Dispará mensajes masivos por WhatsApp</p>
                         </div>
-                        {selectedLine ? (
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                            <div className={`h-1.5 w-1.5 rounded-full ${statusDot(selectedLine.status)}`} />
-                            <span className="text-xs text-blue-400 font-medium">{selectedLine.nombre}</span>
-                            </div>
-                        ) : (
-                            <span className="text-xs text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/20">
-                            Seleccioná una línea primero
-                            </span>
-                        )}
+                        {selectedLineConnected ? (
+  <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+    <div className={`h-1.5 w-1.5 rounded-full ${statusDot(selectedLine.status)}`} />
+    <span className="text-xs text-blue-400 font-medium">{selectedLine.nombre}</span>
+  </div>
+) : lines.length === 0 ? (
+  <span className="text-xs text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20">
+    No hay líneas creadas
+  </span>
+) : !hasConnectedLine ? (
+  <span className="text-xs text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/20">
+    Conectá una línea primero
+  </span>
+) : (
+  <span className="text-xs text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/20">
+    Seleccioná una línea conectada
+  </span>
+)}
                         </div>
 
                         <div className="space-y-5">
@@ -663,9 +879,9 @@ const copyMessage = async () => {
       Nombre de campaña
     </label>
     <input
-  ref={campaignNameRef}
   type="text"
-  defaultValue=""
+  value={campaignName}
+  onChange={e => setCampaignName(e.target.value)}
   placeholder="Ej: Promo Mayo 2026"
   className="w-full bg-[var(--bg-input)] dark:bg-[var(--bg-input)] bg-gray-50 border border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 rounded-xl p-3 text-sm text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900 placeholder:text-slate-700 dark:placeholder:text-slate-700 placeholder:text-gray-400 focus:outline-none focus:border-blue-500/50 transition-all"
 />
@@ -702,54 +918,93 @@ const copyMessage = async () => {
 </div>
 
     {/* Textarea de números */}
+
+    {/* <div className="flex items-center justify-between mb-2">
+  <span className="text-xs text-[var(--text-muted)]">
+    {numbersText.split("\n").filter(Boolean).length} números seleccionados
+  </span>
+  <button
+    onClick={() => setShowImportNumbers(true)}
+    className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-600/30 transition-colors"
+  >
+    <Upload size={12} /> Importar números
+  </button>
+</div> */}
     {numberSource === "manual" && (
-    <textarea
+  <div className="space-y-2">
+    <div className="flex items-center justify-between mb-1">
+      <span className="text-xs text-[var(--text-muted)]">
+        {numbersText.split("\n").filter(Boolean).length} números
+        {duplicateNumbers.length > 0 && (
+          <span className="text-red-400 ml-2 font-medium">• {duplicateNumbers.length} duplicado{duplicateNumbers.length > 1 ? 's' : ''}</span>
+        )}
+      </span>
+      <button
+        onClick={() => setShowImportNumbers(true)}
+        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-600/30 transition-colors"
+      >
+        <Upload size={12} /> Importar números
+      </button>
+    </div>
+
+    <CampaignLineSelector
+  mode={distributionMode}
+  onModeChange={setDistributionMode}
+  selectedIds={selectedLineIds}
+  onSelectionChange={setSelectedLineIds}
+/>
+    
+    <div className="relative">
+      <textarea
         value={numbersText}
         onChange={e => setNumbersText(e.target.value)}
         placeholder="5491123456789&#10;5491165432109&#10;..."
         rows={6}
-        className="input-field font-mono resize-none"
-    />
-    )}
-
-    {/* Lista de contactos seleccionables */}
-    {(numberSource === "contacts" || numberSource === "tag") && (
-    <div className="bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 h-48 overflow-y-auto space-y-1">
-        {contactList
-        .filter(c => numberSource === "contacts" || !selectedTagFilter || c.tags.includes(selectedTagFilter))
-        .map(c => {
-            const isSelected = numbersText.includes(c.phone)
-            return (
-            <button
-                key={c.id}
-                onClick={() => {
-                const current = numbersText.split("\n").map(n => n.trim()).filter(Boolean)
-                const exists = current.includes(c.phone)
-                const next = exists 
-                    ? current.filter(n => n !== c.phone)
-                    : [...current, c.phone]
-                setNumbersText(next.join("\n"))
-                }}
-                className={`w-full flex items-center justify-between p-2 rounded-lg text-xs transition-all ${isSelected ? 'bg-blue-500/10 border border-blue-500/20' : 'hover:bg-[var(--border-color)]'}`}
-            >
-                <div className="flex items-center gap-2">
-                <div className="h-6 w-6 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-[10px] font-bold text-white">
-                    {c.name.charAt(0)}
-                </div>
-                <div className="text-left">
-                    <p className="text-[var(--text-primary)]">{c.name}</p>
-                    <p className="text-[var(--text-muted)]">{c.phone}</p>
-                </div>
-                </div>
-                {isSelected && <CheckCircle2 size={14} className="text-blue-400" />}
-            </button>
-            )
-        })}
-        {numberSource === "tag" && selectedTagFilter && contactList.filter(c => c.tags.includes(selectedTagFilter)).length === 0 && (
-        <p className="text-center text-xs text-[var(--text-muted)] py-4">No hay contactos con esta etiqueta</p>
-        )}
+        className={`w-full bg-[var(--bg-input)] dark:bg-[var(--bg-input)] bg-gray-50 border rounded-xl p-4 text-sm text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900 placeholder:text-slate-700 dark:placeholder:text-slate-700 placeholder:text-gray-400 focus:outline-none focus:shadow-[0_0_15px_rgba(59,130,246,0.1)] transition-all resize-none font-mono ${
+          duplicateNumbers.length > 0
+            ? 'border-red-500/50 focus:border-red-500'
+            : 'border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 focus:border-blue-500/50'
+        }`}
+      />
+      {isVerifying && (
+        <div className="absolute bottom-3 right-3 flex items-center gap-1.5 text-[10px] text-blue-400 bg-[var(--bg-card)]/80 backdrop-blur-sm px-2 py-1 rounded-lg border border-blue-500/20">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            className="h-3 w-3 border border-blue-400 border-t-transparent rounded-full"
+          />
+          Verificando números...
+        </div>
+      )}
     </div>
+
+    {/* Validación de duplicados en textarea general */}
+    {duplicateNumbers.length > 0 && (
+      <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-red-400 font-medium flex items-center gap-1.5">
+            <AlertTriangle size={12} /> {duplicateNumbers.length} número{duplicateNumbers.length > 1 ? 's' : ''} duplicado{duplicateNumbers.length > 1 ? 's' : ''}
+          </p>
+          <button
+            onClick={removeAllDuplicates}
+            className="text-[10px] px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white rounded-lg font-bold transition-colors flex items-center gap-1"
+          >
+            <Trash2 size={10} /> Eliminar todos los duplicados
+          </button>
+        </div>
+        <p className="text-[10px] text-red-400/60">
+          Se mantendrá solo la primera ocurrencia de cada número.
+        </p>
+      </div>
     )}
+    
+    {duplicateNumbers.length === 0 && !isVerifying && numbersText && (
+      <div className="flex items-center gap-1 text-xs text-emerald-400">
+        <CheckCircle2 size={12} /> Todo ok para salir
+      </div>
+    )}
+  </div>
+)}
 
     <span className="text-xs text-[var(--text-muted)] mt-2 block">
     {numbersText.split("\n").filter(Boolean).length} números seleccionados
@@ -883,9 +1138,9 @@ const copyMessage = async () => {
   whileHover={{ scale: 1.01 }}
   whileTap={{ scale: 0.99 }}
   onClick={sendCampaign}
-  disabled={isSending || !selectedLine}
+  disabled={isSending || !selectedLineConnected || isVerifying || duplicateNumbers.length > 0}
   className={`w-full font-bold py-4 rounded-xl transition-all relative overflow-hidden ${
-    isSending || !selectedLine
+    isSending || !selectedLineConnected || isVerifying || duplicateNumbers.length > 0
       ? "bg-[#1E293B] dark:bg-[#1E293B] bg-gray-200 text-[var(--text-muted)] dark:text-[var(--text-muted)] text-gray-400 cursor-not-allowed"
       : scheduleMode === 'pending'
       ? "bg-gradient-to-r from-amber-600 to-orange-500 text-[var(--text-primary)] shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40"
@@ -897,9 +1152,22 @@ const copyMessage = async () => {
       <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
       {scheduleMode === 'pending' ? 'Guardando...' : 'Enviando...'}
     </span>
+  ) : isVerifying ? (
+    <span className="flex items-center justify-center gap-2">
+      <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
+      Verificando...
+    </span>
+  ) : duplicateNumbers.length > 0 ? (
+    <span className="flex items-center justify-center gap-2 text-red-300">
+      <AlertTriangle size={18} /> Eliminá duplicados para continuar
+    </span>
   ) : !selectedLine ? (
     <span className="flex items-center justify-center gap-2">
       <Users size={18} /> Seleccioná una línea en la pestaña "Líneas"
+    </span>
+  ) : !selectedLineConnected ? (
+    <span className="flex items-center justify-center gap-2">
+      <Power size={18} /> Conectá la línea para {scheduleMode === 'pending' ? 'guardar' : 'enviar'}
     </span>
   ) : (
     <span className="flex items-center justify-center gap-2">
@@ -974,6 +1242,188 @@ const copyMessage = async () => {
 
         {/* MODALS */}
         {/* MODAL: Vista previa del mensaje */}
+        {/* MODAL: Importar números para campaña */}
+{/* MODAL: Importar números para campaña */}
+<PremiumModal open={showImportNumbers} onClose={() => !importLoading && setShowImportNumbers(false)} title="Importar Números">
+  <div className="space-y-4">
+    {/* Warning */}
+    <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+      <p className="text-xs text-amber-400 font-medium flex items-start gap-2">
+        <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+        <span>
+          Estos números se usarán <strong>solo para esta campaña</strong> y <strong>NO se guardarán como contactos</strong>. 
+          Para reutilizarlos, agregalos a Contactos.
+        </span>
+      </p>
+    </div>
+
+    {importLoading ? (
+      <div className="space-y-4 py-6">
+        <div className="w-full h-3 bg-[#1E293B] rounded-full overflow-hidden">
+          <motion.div 
+            initial={{ width: 0 }}
+            animate={{ width: `${importProgress}%` }}
+            transition={{ ease: "easeOut" }}
+            className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full"
+          />
+        </div>
+        <div className="text-center space-y-1">
+          <p className="text-sm text-[var(--text-secondary)] font-medium">
+            {importProgress < 100 ? 'Procesando archivo...' : '¡Listo!'}
+          </p>
+          <p className="text-xs text-[var(--text-muted)]">
+            {importProgress < 100 ? `${Math.round(importProgress)}%` : `${importedCount} números encontrados`}
+          </p>
+        </div>
+      </div>
+    ) : importedCount > 0 ? (
+      /* Preview de números encontrados */
+      <div className="space-y-4">
+        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+          <p className="text-sm text-emerald-400 font-medium flex items-center gap-2">
+            <CheckCircle2 size={16} />
+            {importedCount} números válidos encontrados
+          </p>
+        </div>
+        <div className="bg-[var(--bg-input)] rounded-xl p-3 h-32 overflow-y-auto border border-[var(--border-color)]">
+          <div className="flex flex-wrap gap-1.5">
+            {previewNumbers.map((num, i) => (
+              <span key={i} className="text-[10px] px-2 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono">
+                {num}
+              </span>
+            ))}
+            {importedCount > previewNumbers.length && (
+              <span className="text-[10px] px-2 py-1 rounded-full bg-[var(--border-color)] text-[var(--text-muted)]">
+                +{importedCount - previewNumbers.length} más
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <button 
+            onClick={() => { setImportedCount(0); setPreviewNumbers([]) }}
+            className="flex-1 py-2.5 bg-[var(--bg-input)] text-[var(--text-primary)] rounded-xl text-sm font-medium hover:bg-[var(--border-hover)] transition-colors"
+          >
+            Cancelar
+          </button>
+          <button 
+            onClick={confirmImportNumbers}
+            className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] rounded-xl text-sm font-bold transition-colors"
+          >
+            Agregar a campaña
+          </button>
+        </div>
+      </div>
+    ) : (
+      <>
+        {/* Dropzone */}
+        <div
+          onDragEnter={onDrag}
+          onDragLeave={onDrag}
+          onDragOver={onDrag}
+          onDrop={onDrop}
+          onClick={() => document.getElementById('number-file-input')?.click()}
+          className={`relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
+            dragActive 
+              ? 'border-blue-500 bg-blue-500/5' 
+              : 'border-[var(--border-color)] hover:border-[var(--border-hover)] hover:bg-[var(--bg-input)]'
+          }`}
+        >
+          <input
+            id="number-file-input"
+            type="file"
+            accept=".xlsx,.csv,.txt"
+            className="hidden"
+            onChange={(e) => e.target.files?.[0] && handleNumberFile(e.target.files[0])}
+          />
+          <div className="mx-auto h-12 w-12 rounded-xl bg-blue-500/10 flex items-center justify-center mb-3">
+            <Upload size={24} className="text-blue-400" />
+          </div>
+          <p className="text-sm text-[var(--text-primary)] font-medium mb-1">
+            Arrastrá un archivo o hacé clic para seleccionar
+          </p>
+          <p className="text-xs text-[var(--text-muted)]">
+            Excel (.xlsx), CSV o TXT
+          </p>
+        </div>
+
+        {/* Alternativa: pegar */}
+        <div className="relative">
+  <textarea
+    value={numbersText}
+    onChange={e => setNumbersText(e.target.value)}
+    placeholder="5491123456789&#10;5491165432109&#10;..."
+    rows={6}
+    className={`w-full bg-[var(--bg-input)] dark:bg-[var(--bg-input)] bg-gray-50 border rounded-xl p-4 text-sm text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900 placeholder:text-slate-700 dark:placeholder:text-slate-700 placeholder:text-gray-400 focus:outline-none focus:shadow-[0_0_15px_rgba(59,130,246,0.1)] transition-all resize-none font-mono ${
+      duplicateNumbers.length > 0
+        ? 'border-red-500/50 focus:border-red-500'
+        : 'border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 focus:border-blue-500/50'
+    }`}
+  />
+  {isVerifying && (
+    <div className="absolute bottom-3 right-3 flex items-center gap-1.5 text-[10px] text-blue-400 bg-[var(--bg-card)]/80 backdrop-blur-sm px-2 py-1 rounded-lg border border-blue-500/20">
+      <motion.div
+        animate={{ rotate: 360 }}
+        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+        className="h-3 w-3 border border-blue-400 border-t-transparent rounded-full"
+      />
+      Verificando números...
+    </div>
+  )}
+</div>
+
+{/* Contador + Duplicados */}
+<div className="flex flex-col gap-2 mt-2">
+  <div className="flex items-center justify-between">
+    <span className="text-xs text-[var(--text-muted)]">
+      {numbersText.split("\n").filter(Boolean).length} números
+    </span>
+    {duplicateNumbers.length === 0 && !isVerifying && numbersText && (
+      <span className="text-xs text-emerald-400 flex items-center gap-1">
+        <CheckCircle2 size={10} /> Todo ok para salir
+      </span>
+    )}
+  </div>
+  {duplicateNumbers.length > 0 && (
+  <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl space-y-3">
+    {/* Header */}
+    <div className="flex items-center justify-between">
+      <p className="text-xs text-red-400 font-medium flex items-center gap-1.5">
+        <AlertTriangle size={12} /> {duplicateNumbers.length} número{duplicateNumbers.length > 1 ? 's' : ''} duplicado{duplicateNumbers.length > 1 ? 's' : ''}
+      </p>
+      <button
+        onClick={removeAllDuplicates}
+        className="text-[10px] px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white rounded-lg font-bold transition-colors flex items-center gap-1"
+      >
+        <Trash2 size={10} /> Eliminar duplicados
+      </button>
+    </div>
+    
+    {/* Lista de duplicados clickeables */}
+    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+      {duplicateNumbers.map((num, i) => (
+        <button
+          key={i}
+          onClick={() => removeSpecificNumber(num)}
+          className="group flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 font-mono hover:bg-red-500/30 transition-colors"
+          title="Clic para eliminar todas las ocurrencias de este número"
+        >
+          {num}
+          <X size={10} className="opacity-60 group-hover:opacity-100" />
+        </button>
+      ))}
+    </div>
+    
+    <p className="text-[10px] text-red-400/60">
+      💡 Clic en un número para eliminarlo completamente, o usá "Eliminar duplicados" para dejar solo la primera ocurrencia de cada uno.
+    </p>
+  </div>
+)}
+</div>
+      </>
+    )}
+  </div>
+</PremiumModal>
 <PremiumModal open={showPreview} onClose={() => setShowPreview(false)} title="Vista previa del mensaje">
   <div className="space-y-4">
     <p className="text-xs text-[var(--text-muted)]">

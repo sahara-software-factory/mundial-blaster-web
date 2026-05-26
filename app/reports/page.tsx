@@ -15,7 +15,8 @@ import {
   Trash2,
   Calendar,
   Zap,
-  Play
+  Play,
+  Square
 } from "lucide-react"
 import { toast } from "sonner"
 import { ConfirmDialog } from "../components/ui/confirm-dialog"
@@ -89,7 +90,7 @@ export default function ReportsPage() {
   const [showDetail, setShowDetail] = useState(false)
   const [campaignLogs, setCampaignLogs] = useState<any[]>([])
   
-  const { isOpen, options, confirm, onConfirm, onCancel } = useConfirm()
+  const { isOpen, options, confirm: askConfirm, onConfirm, onCancel } = useConfirm()
 
   
   const isPro = license?.tier === 'pro' || license?.tier === 'business'
@@ -158,6 +159,15 @@ export default function ReportsPage() {
     toast.error("Requiere plan Pro")
     return
   }
+
+  const ok = await askConfirm({
+    title: "Duplicar campaña",
+    description: "¿Duplicar esta campaña? Se creará una copia en estado 'En espera' para que la edites antes de enviar.",
+    confirmText: "Duplicar",
+    variant: "warning",
+  })
+  if (!ok) return
+
   try {
     const res = await fetch(`/api/campaigns/${id}/clone`, {
       method: "POST",
@@ -165,9 +175,8 @@ export default function ReportsPage() {
     })
     const data = await res.json()
     if (res.ok && data.campaign) {
-      // Guardar en localStorage para que el Dashboard la cargue
       localStorage.setItem('mb_clone_campaign', JSON.stringify(data.campaign))
-      toast.success("Campaña clonada. Redirigiendo al editor...")
+      toast.success("Campaña duplicada. Redirigiendo al editor...")
       router.push("/")
     } else {
       toast.error(data.error || "Error")
@@ -177,22 +186,62 @@ export default function ReportsPage() {
   }
 }
 
-  const deleteCampaign = async (id: string) => {
-  const ok = await confirm({
+const deleteCampaign = async (id: string, status: string) => {
+  if (status === 'running') {
+    toast.error("No se puede eliminar una campaña en ejecución. Parala primero.")
+    return
+  }
+
+  const ok = await askConfirm({
     title: "Eliminar campaña",
-    description: "¿Eliminar esta campaña y todos sus logs? Esta acción no se puede deshacer.",
+    description: "¿Eliminar esta campaña y todo su historial? Esta acción no se puede deshacer.",
     confirmText: "Eliminar",
     variant: "danger",
   })
   if (!ok) return
-    try {
-      // Usar el endpoint DELETE de campaigns si existe, sino marcar como eliminada
+
+  try {
+    const res = await fetch(`/api/campaigns/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (res.ok) {
       toast.success("Campaña eliminada")
       fetchReports()
-    } catch {
-      toast.error("Error eliminando")
+    } else {
+      const data = await res.json()
+      toast.error(data.error || "Error eliminando")
     }
+  } catch {
+    toast.error("Error de red")
   }
+}
+
+const cancelCampaign = async (id: string) => {
+  const ok = await askConfirm({
+    title: "Parar campaña",
+    description: "¿Detener esta campaña? Los mensajes pendientes no se enviarán.",
+    confirmText: "Parar",
+    variant: "warning",
+  })
+  if (!ok) return
+
+  try {
+    const res = await fetch(`/api/campaigns/${id}/cancel`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (res.ok) {
+      toast.success("Campaña detenida")
+      fetchReports()
+    } else {
+      const data = await res.json()
+      toast.error(data.error || "Error")
+    }
+  } catch {
+    toast.error("Error de red")
+  }
+}
 
   const pieData = stats ? [
     { name: "Entregados", value: stats.totalSent, color: COLORS.sent },
@@ -455,13 +504,28 @@ export default function ReportsPage() {
     ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
     : campaign.status === 'pending'
     ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+    : campaign.status === 'cancelled'
+    ? 'bg-slate-500/10 text-slate-400 border-slate-500/30'
     : 'bg-red-500/10 text-red-400 border-red-500/30'
 }`}>
-  {campaign.status === 'completed' ? 'Completada' : campaign.status === 'running' ? 'Enviando...' : campaign.status === 'pending' ? 'En espera' : 'Error'}
+  {campaign.status === 'completed' ? 'Completada' 
+    : campaign.status === 'running' ? 'Enviando...' 
+    : campaign.status === 'pending' ? 'En espera'
+    : campaign.status === 'cancelled' ? 'Detenida'
+    : 'Error'}
 </span>
                           </td>
                           <td className="p-4 text-right">
   <div className="flex items-center justify-end gap-1">
+     {campaign.status === 'running' && (
+      <button 
+        onClick={() => cancelCampaign(campaign.id)}
+        className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+        title="Parar campaña"
+      >
+        <Square size={16} />
+      </button>
+    )}
     {campaign.status === 'pending' && (
       <button 
         onClick={() => startCampaign(campaign.id)}
@@ -490,7 +554,8 @@ export default function ReportsPage() {
       <RotateCcw size={16} />
     </button>
     <button 
-      onClick={() => deleteCampaign(campaign.id)}
+      onClick={() => deleteCampaign(campaign.id, campaign.status)}
+
       className="p-1.5 text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
       title="Eliminar"
     >

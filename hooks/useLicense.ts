@@ -37,7 +37,7 @@ export function useLicense() {
   const fetchingRef = useRef(false)
 
   const checkLicense = useCallback(async (force = false) => {
-    // Evita fetch duplicado si ya está en curso
+  
     if (fetchingRef.current && !force) return
     fetchingRef.current = true
 
@@ -64,6 +64,54 @@ export function useLicense() {
       fetchingRef.current = false
     }
   }, [])
+
+//   const checkLicense = useCallback(async (force = false) => {
+//   if (fetchingRef.current && !force) return
+//   fetchingRef.current = true
+
+//   // 🔥 BYPASS LOCALHOST: Siempre Pro en desarrollo
+//   const isLocalhost = typeof window !== 'undefined' && 
+//     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  
+//   if (isLocalhost) {
+//     const mockLicense: LicenseData = { 
+//       active: true, 
+//       tier: 'pro', 
+//       maxLines: 3, 
+//       label: 'Local Dev',
+//       features: { unlimited: true }
+//     }
+//     setLicense(mockLicense)
+//     setCachedLicense(mockLicense)
+//     setLoading(false)
+//     setChecked(true)
+//     fetchingRef.current = false
+//     return
+//   }
+
+//   try {
+//     const token = typeof window !== "undefined" ? localStorage.getItem("mb_token") : null
+//     const headers: Record<string, string> = {}
+//     if (token) headers.Authorization = `Bearer ${token}`
+
+//     const res = await fetch("/api/license/status", {
+//       cache: "no-store",
+//       headers,
+//     })
+
+//     const data: LicenseData = await res.json()
+//     setLicense(data)
+//     setCachedLicense(data)
+//   } catch {
+//     const fallback: LicenseData = { active: false }
+//     setLicense(fallback)
+//     setCachedLicense(fallback)
+//   } finally {
+//     setLoading(false)
+//     setChecked(true)
+//     fetchingRef.current = false
+//   }
+// }, [])
 
   useEffect(() => {
     checkLicense()

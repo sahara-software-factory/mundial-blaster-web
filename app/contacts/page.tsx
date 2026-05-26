@@ -58,7 +58,11 @@ export default function ContactsPage() {
   const [importProgress, setImportProgress] = useState(0)
   const [isImporting, setIsImporting] = useState(false)
   const { isOpen, options, confirm, onConfirm, onCancel } = useConfirm()
-
+  const [importFileLoading, setImportFileLoading] = useState(false)
+const [importFileProgress, setImportFileProgress] = useState(0)
+const [importPreview, setImportPreview] = useState<any[]>([])
+const [importDragActive, setImportDragActive] = useState(false)
+const [pendingImportData, setPendingImportData] = useState<any[]>([])
   const token = typeof window !== 'undefined' ? localStorage.getItem('mb_token') : ''
 
   const fetchContacts = useCallback(async () => {
@@ -230,6 +234,180 @@ export default function ContactsPage() {
       toast.error("Error importando")
     }
   }
+
+  const extractContactsFromSheet = (data: any[][]): any[] => {
+  if (!data || data.length < 2) return []
+  
+  const headers = data[0].map((h: any) => String(h || '').toLowerCase().trim())
+  const contacts: any[] = []
+  
+  // Mapeo flexible de columnas
+  const getCol = (row: any[], possibleNames: string[]) => {
+    for (const name of possibleNames) {
+      const idx = headers.indexOf(name)
+      if (idx !== -1 && row[idx] !== undefined) return String(row[idx]).trim()
+    }
+    return ''
+  }
+  
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i]
+    if (!row || row.every((c: any) => !c)) continue
+    
+    const name = getCol(row, ['name', 'nombre', 'nombres', 'contacto', 'cliente'])
+    const phone = getCol(row, ['phone', 'telefono', 'teléfono', 'numero', 'número', 'celular', 'mobile', 'whatsapp'])
+    const email = getCol(row, ['email', 'correo', 'mail', 'e-mail'])
+    const company = getCol(row, ['company', 'empresa', 'organizacion', 'organización', 'negocio'])
+    const tagsRaw = getCol(row, ['tags', 'etiquetas', 'tag', 'categoria', 'categoría', 'grupo'])
+    
+    const cleanedPhone = phone.replace(/\D/g, '')
+    if (!name && !cleanedPhone) continue
+    
+    contacts.push({
+      name: name || 'Sin nombre',
+      phone: cleanedPhone,
+      email,
+      company,
+      tags: tagsRaw ? tagsRaw.split(/[;,]/).map((t: string) => t.trim()).filter(Boolean) : [],
+    })
+  }
+  
+  return contacts
+}
+
+const handleContactFile = (file: File) => {
+  if (!file) return
+  setImportFileLoading(true)
+  setImportFileProgress(0)
+  setImportPreview([])
+
+  let progress = 0
+  const interval = setInterval(() => {
+    progress += Math.random() * 12
+    setImportFileProgress(Math.min(progress, 85))
+  }, 150)
+
+  const reader = new FileReader()
+
+  reader.onload = (e) => {
+    clearInterval(interval)
+    setImportFileProgress(100)
+    
+    const buffer = e.target?.result
+    let contacts: any[] = []
+
+    try {
+      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        const XLSX = require('xlsx')
+        const workbook = XLSX.read(buffer, { type: 'array' })
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 })
+        contacts = extractContactsFromSheet(jsonData as any[][])
+      } else {
+        const text = String(buffer || '')
+        const lines = text.split('\n').filter(l => l.trim())
+        const headers = lines[0]?.split(',').map((h: string) => h.trim().toLowerCase()) || []
+        const hasHeaders = headers.some(h => ['name','nombre','phone','telefono'].includes(h))
+        
+        const startIdx = hasHeaders ? 1 : 0
+        for (let i = startIdx; i < lines.length; i++) {
+          const cols = lines[i].split(',').map((c: string) => c.trim())
+          if (cols.length < 2 && !cols[0]) continue
+          
+          contacts.push({
+            name: cols[0] || 'Sin nombre',
+            phone: String(cols[1] || '').replace(/\D/g, ''),
+            email: cols[2] || '',
+            company: cols[3] || '',
+            tags: cols[4] ? cols[4].split(/[;,]/).map((t: string) => t.trim()).filter(Boolean) : [],
+          })
+        }
+      }
+    } catch (err) {
+      console.error('Error parseando:', err)
+      toast.error('Error leyendo el archivo')
+      setImportFileLoading(false)
+      return
+    }
+
+    setTimeout(() => {
+      setImportFileLoading(false)
+      setImportFileProgress(0)
+      setImportPreview(contacts.slice(0, 5))
+      setPendingImportData(contacts)
+      
+      if (contacts.length === 0) {
+        toast.error('No se encontraron contactos válidos')
+      } else {
+        toast.success(`${contacts.length} contactos encontrados`)
+      }
+    }, 400)
+  }
+
+  reader.onerror = () => {
+    clearInterval(interval)
+    setImportFileLoading(false)
+    toast.error('Error leyendo archivo')
+  }
+
+  if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+    reader.readAsArrayBuffer(file)
+  } else {
+    reader.readAsText(file)
+  }
+}
+
+const confirmImportContacts = async () => {
+  if (pendingImportData.length === 0) return
+  
+  setImportFileLoading(true)
+  let created = 0
+  let errors = 0
+  
+  for (const item of pendingImportData) {
+    try {
+      await fetch("/api/contacts", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json", 
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({
+          name: item.name,
+          phone: item.phone,
+          email: item.email,
+          company: item.company,
+          tags: item.tags,
+          source: 'csv'
+        }),
+      })
+      created++
+    } catch {
+      errors++
+    }
+  }
+  
+  setImportFileLoading(false)
+  setShowImport(false)
+  setImportPreview([])
+  setPendingImportData([])
+  toast.success(`Importados: ${created} contactos${errors > 0 ? `, ${errors} errores` : ''}`)
+  fetchContacts()
+}
+
+const onContactDrag = (e: React.DragEvent) => {
+  e.preventDefault()
+  e.stopPropagation()
+  if (e.type === "dragenter" || e.type === "dragover") setImportDragActive(true)
+  else if (e.type === "dragleave") setImportDragActive(false)
+}
+
+const onContactDrop = (e: React.DragEvent) => {
+  e.preventDefault()
+  e.stopPropagation()
+  setImportDragActive(false)
+  if (e.dataTransfer.files?.[0]) handleContactFile(e.dataTransfer.files[0])
+}
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] flex">
@@ -427,39 +605,135 @@ export default function ContactsPage() {
       )}
 
       {/* MODAL: Importar CSV */}
-      <PremiumModal open={showImport} onClose={() => !isImporting && setShowImport(false)} title="Importar Contactos">
-        <div className="space-y-4">
-          <p className="text-sm text-[var(--text-secondary)]">Subí un archivo CSV con columnas: <code className="text-blue-400">name, phone, email, company, tags</code></p>
-          
-          {isImporting ? (
-            <div className="space-y-3">
-              <div className="w-full h-2 bg-[#1E293B] rounded-full overflow-hidden">
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: `${importProgress}%` }}
-                  className="h-full bg-blue-500 rounded-full"
-                />
+      {/* MODAL: Importar CSV */}
+<PremiumModal open={showImport} onClose={() => !importFileLoading && setShowImport(false)} title="Importar Contactos">
+  <div className="space-y-4">
+    {/* Plantilla + Dropzone */}
+    <div className="flex items-center justify-between">
+      <p className="text-sm text-[var(--text-secondary)]">
+        Columnas: <code className="text-blue-400">name, phone, email, company, tags</code>
+      </p>
+      <button
+        onClick={() => {
+          const csvContent = `name,phone,email,company,tags
+Juan Perez,5491123456789,juan@test.com,Empresa SA,cliente;hot
+Maria Lopez,5491165432109,maria@test.com,Corp,lead`
+          const blob = new Blob([csvContent], { type: 'text/csv' })
+          const link = document.createElement('a')
+          link.href = URL.createObjectURL(blob)
+          link.download = 'plantilla-contactos.csv'
+          link.click()
+          toast.success("Plantilla descargada")
+        }}
+        className="text-xs px-3 py-1.5 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-600/30 transition-colors"
+      >
+        📥 Plantilla
+      </button>
+    </div>
+
+    {importFileLoading ? (
+      <div className="space-y-4 py-6">
+        <div className="w-full h-3 bg-[#1E293B] rounded-full overflow-hidden">
+          <motion.div 
+            initial={{ width: 0 }}
+            animate={{ width: `${importFileProgress}%` }}
+            className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full"
+          />
+        </div>
+        <p className="text-center text-sm text-[var(--text-secondary)]">
+          {importFileProgress < 100 ? 'Procesando...' : 'Finalizando...'}
+        </p>
+      </div>
+    ) : importPreview.length > 0 ? (
+      <div className="space-y-4">
+        <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+          <p className="text-sm text-emerald-400 font-medium">
+            {pendingImportData.length} contactos listos para importar
+          </p>
+        </div>
+        <div className="bg-[var(--bg-input)] rounded-xl p-3 max-h-40 overflow-y-auto border border-[var(--border-color)] space-y-2">
+          {importPreview.map((c, i) => (
+            <div key={i} className="flex items-center gap-2 text-xs">
+              <div className="h-6 w-6 rounded-full bg-blue-500/20 flex items-center justify-center text-[10px] font-bold text-blue-400">
+                {c.name.charAt(0)}
               </div>
-              <p className="text-center text-sm text-[var(--text-secondary)]">{importProgress}% importado...</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-[var(--text-primary)] truncate">{c.name}</p>
+                <p className="text-[var(--text-muted)] font-mono">{c.phone}</p>
+              </div>
             </div>
-          ) : (
-            <textarea
-              rows={8}
-              placeholder={`name,phone,email,company,tags\nJuan Perez,5491123456789,juan@test.com,Empresa SA,cliente;hot\nMaria Lopez,5491165432109,maria@test.com,Corp,lead`}
-              className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-sm text-[var(--text-primary)] font-mono placeholder:text-slate-700 focus:outline-none focus:border-blue-500 resize-none"
-              onChange={(e) => {
-                if (e.target.value.includes('\n') && e.target.value.split('\n').length > 1) {
-                  handleCSVImport(e.target.value)
-                }
-              }}
-            />
+          ))}
+          {pendingImportData.length > importPreview.length && (
+            <p className="text-xs text-[var(--text-muted)] text-center">
+              +{pendingImportData.length - importPreview.length} más
+            </p>
           )}
-          
-          <div className="flex gap-2 text-xs text-[var(--text-muted)]">
-            <span>💡 Tip: Pegá directamente el contenido del CSV</span>
+        </div>
+        <div className="flex gap-3">
+          <button 
+            onClick={() => { setImportPreview([]); setPendingImportData([]) }}
+            className="flex-1 py-2.5 bg-[var(--bg-input)] text-[var(--text-primary)] rounded-xl text-sm"
+          >
+            Cancelar
+          </button>
+          <button 
+            onClick={confirmImportContacts}
+            className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] rounded-xl text-sm font-bold"
+          >
+            Importar {pendingImportData.length}
+          </button>
+        </div>
+      </div>
+    ) : (
+      <>
+        <div
+          onDragEnter={onContactDrag}
+          onDragLeave={onContactDrag}
+          onDragOver={onContactDrag}
+          onDrop={onContactDrop}
+          onClick={() => document.getElementById('contact-file-input')?.click()}
+          className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
+            importDragActive 
+              ? 'border-blue-500 bg-blue-500/5' 
+              : 'border-[var(--border-color)] hover:border-[var(--border-hover)]'
+          }`}
+        >
+          <input
+            id="contact-file-input"
+            type="file"
+            accept=".xlsx,.csv,.txt"
+            className="hidden"
+            onChange={(e) => e.target.files?.[0] && handleContactFile(e.target.files[0])}
+          />
+          <Upload size={24} className="mx-auto text-blue-400 mb-3" />
+          <p className="text-sm text-[var(--text-primary)] font-medium">Arrastrá o hacé clic</p>
+          <p className="text-xs text-[var(--text-muted)]">Excel, CSV o TXT</p>
+        </div>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-[var(--border-color)]" />
+          </div>
+          <div className="relative flex justify-center text-xs">
+            <span className="px-2 bg-[var(--bg-card)] text-[var(--text-muted)]">O pegá CSV</span>
           </div>
         </div>
-      </PremiumModal>
+
+        <textarea
+          rows={4}
+          placeholder={`name,phone,email,company,tags
+Juan Perez,5491123456789,juan@test.com,Empresa SA,cliente`}
+          className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-sm font-mono placeholder:text-slate-700 focus:outline-none focus:border-blue-500 resize-none"
+          onChange={(e) => {
+            if (e.target.value.includes('\n') && e.target.value.split('\n').length > 1) {
+              handleCSVImport(e.target.value)
+            }
+          }}
+        />
+      </>
+    )}
+  </div>
+</PremiumModal>
 
       {/* MODAL: Tag Manager */}
       <TagManagerModal 

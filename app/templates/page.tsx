@@ -414,6 +414,8 @@ const detectVariables = (text: string) => {
   setDetectedVars(Array.from(new Set(vars)))
 }
 
+
+
   return (
     <PremiumModal open={open} onClose={onClose} title={initial ? "Editar Template" : "Nuevo Template"}>
       <form onSubmit={(e) => {

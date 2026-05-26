@@ -89,15 +89,23 @@ export function QRModal({
     setQr(null)
 
     try {
-      const res = await fetch("/api/whatsapp/connect", {
+      const token = localStorage.getItem('mb_token') || ''
+      const res = await fetch("/api/lineas/connect", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
         body: JSON.stringify({ phone: line.phone }),
       })
-      if (!res.ok) throw new Error("Error al iniciar conexión")
-    } catch (err) {
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.error || "Error al iniciar conexión")
+      }
+    } catch (err: any) {
       setUiStatus("ERROR")
-      setError("No se pudo contactar al servidor")
+      setError(err.message || "No se pudo contactar al servidor")
     }
   }
 

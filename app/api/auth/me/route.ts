@@ -15,29 +15,20 @@ function getBackendUrl(): string {
 export async function GET(req: NextRequest) {
   try {
     const token = req.headers.get("authorization") || ""
-    const url = `${getBackendUrl()}/api/auth/me`
-
-    const res = await fetch(url, {
-      method: "GET",
-      headers: {
-        "x-api-secret": SECRET,
-        "authorization": token,
-      },
+    const res = await fetch(`${getBackendUrl()}/api/auth/me`, {
+      headers: { "x-api-secret": SECRET, "authorization": token },
       cache: "no-store",
-      signal: AbortSignal.timeout(10000),
     })
-
-    const text = await res.text()
-    let data
-    try {
-      data = JSON.parse(text)
-    } catch {
-      return NextResponse.json({ error: "Backend devolvió HTML", raw: text.substring(0, 200) }, { status: 500 })
+    
+    const contentType = res.headers.get("content-type") || ""
+    if (!contentType.includes("application/json")) {
+      const text = await res.text()
+      return NextResponse.json({ error: "Backend error", html: text.slice(0, 100) }, { status: 502 })
     }
-
+    
+    const data = await res.json()
     return NextResponse.json(data, { status: res.status })
   } catch (e: any) {
-    console.error("[Proxy auth/me GET]", e.message)
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }
@@ -46,31 +37,27 @@ export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json()
     const token = req.headers.get("authorization") || ""
-    const url = `${getBackendUrl()}/api/auth/me`
-
-    const res = await fetch(url, {
+    
+    const res = await fetch(`${getBackendUrl()}/api/auth/me`, {
       method: "PATCH",
-      headers: {
+      headers: { 
         "Content-Type": "application/json",
-        "x-api-secret": SECRET,
-        "authorization": token,
+        "x-api-secret": SECRET, 
+        "authorization": token 
       },
       body: JSON.stringify(body),
       cache: "no-store",
-      signal: AbortSignal.timeout(10000),
     })
-
-    const text = await res.text()
-    let data
-    try {
-      data = JSON.parse(text)
-    } catch {
-      return NextResponse.json({ error: "Backend devolvió HTML", raw: text.substring(0, 200) }, { status: 500 })
+    
+    const contentType = res.headers.get("content-type") || ""
+    if (!contentType.includes("application/json")) {
+      const text = await res.text()
+      return NextResponse.json({ error: "Backend error", html: text.slice(0, 100) }, { status: 502 })
     }
-
+    
+    const data = await res.json()
     return NextResponse.json(data, { status: res.status })
   } catch (e: any) {
-    console.error("[Proxy auth/me PATCH]", e.message)
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }

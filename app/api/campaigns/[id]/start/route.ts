@@ -29,6 +29,13 @@ export async function POST(
       cache: "no-store",
     })
     
+    const contentType = res.headers.get("content-type") || ""
+    if (!contentType.includes("application/json")) {
+      const text = await res.text()
+      console.error("Backend devolvió HTML:", text.slice(0, 200))
+      return NextResponse.json({ error: "Backend error", html: text.slice(0, 100) }, { status: 502 })
+    }
+    
     const data = await res.json()
     return NextResponse.json(data, { status: res.status })
   } catch (e: any) {

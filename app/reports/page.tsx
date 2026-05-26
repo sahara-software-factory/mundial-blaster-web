@@ -37,6 +37,7 @@ import {
 } from "recharts"
 import { Sidebar } from "../components/ui/sidebar"
 import { PremiumModal } from "../components/ui/modal"
+import { useRouter } from "next/navigation"
 
 interface Campaign {
   id: string
@@ -75,6 +76,7 @@ const COLORS = {
 }
 
 export default function ReportsPage() {
+  const router = useRouter()
   const { license } = useLicense()
   const { user } = useAuth()
   const [period, setPeriod] = useState("30d")
@@ -85,7 +87,9 @@ export default function ReportsPage() {
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null)
   const [showDetail, setShowDetail] = useState(false)
   const [campaignLogs, setCampaignLogs] = useState<any[]>([])
+  
 
+  
   const isPro = license?.tier === 'pro' || license?.tier === 'business'
   const token = typeof window !== 'undefined' ? localStorage.getItem('mb_token') : ''
 
@@ -148,26 +152,28 @@ export default function ReportsPage() {
   }
 
   const cloneCampaign = async (id: string) => {
-    if (!isPro) {
-      toast.error("Requiere plan Pro")
-      return
-    }
-    try {
-      const res = await fetch(`/api/campaigns/${id}/clone`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      const data = await res.json()
-      if (res.ok) {
-        toast.success("Campaña clonada")
-        fetchReports()
-      } else {
-        toast.error(data.error || "Error")
-      }
-    } catch {
-      toast.error("Error de red")
-    }
+  if (!isPro) {
+    toast.error("Requiere plan Pro")
+    return
   }
+  try {
+    const res = await fetch(`/api/campaigns/${id}/clone`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const data = await res.json()
+    if (res.ok && data.campaign) {
+      // Guardar en localStorage para que el Dashboard la cargue
+      localStorage.setItem('mb_clone_campaign', JSON.stringify(data.campaign))
+      toast.success("Campaña clonada. Redirigiendo al editor...")
+      router.push("/")
+    } else {
+      toast.error(data.error || "Error")
+    }
+  } catch {
+    toast.error("Error de red")
+  }
+}
 
   const deleteCampaign = async (id: string) => {
     if (!confirm("¿Eliminar campaña?")) return

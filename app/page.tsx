@@ -253,6 +253,46 @@ function generatePreview(text: string, targetName = "Juan Pérez", targetPhone =
         if (status === "PENDING") return "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]"
         return "bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.5)]"
     }
+
+    useEffect(() => {
+  const cloned = localStorage.getItem('mb_clone_campaign')
+  if (cloned) {
+    try {
+      const data = JSON.parse(cloned)
+
+      const line = lines.find((l: any) => l.id === data.line_id && l.status === 'CONECTADA')
+if (line) {
+  setSelectedLine(line)
+}
+      
+      // Setear nombre en el ref
+      if (campaignNameRef.current) {
+        campaignNameRef.current.value = data.name || ''
+      }
+      
+      // Setear mensaje
+      setMessage(data.message || '')
+      
+      // Setear imagen
+      setImageUrl(data.image_url || '')
+      
+      // Setear números
+      if (data.targets?.length) {
+        setNumbersText(data.targets.map((t: any) => t.phone).join('\n'))
+      }
+      
+      // Cambiar a tab campaña
+      setActiveTab('campaign')
+      
+      // Limpiar para no recargar al volver
+      localStorage.removeItem('mb_clone_campaign')
+      
+      toast.success('Campaña clonada. Editá y enviá cuando quieras.')
+    } catch (e) {
+      console.error('Error cargando clone:', e)
+    }
+  }
+}, []) // Solo al montar
     
     useEffect(() => {
         if (licenseLoading || authLoading || !licenseChecked || !authChecked) return

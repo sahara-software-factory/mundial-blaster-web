@@ -20,11 +20,12 @@ import {
   Users
 } from "lucide-react"
 import { toast } from "sonner"
-import { ConfirmDialog } from "../components/ui/confirm-dialog"
+import { ConfirmDialog } from "../../components/ui/confirm-dialog"
 import { useConfirm } from "@/hooks/useConfirm" // si usás el hook
 import { useRouter } from "next/navigation"
-import { Sidebar } from "../components/ui/sidebar"
-import { PremiumModal } from "../components/ui/modal"
+import { Sidebar } from "../../components/ui/sidebar"
+import { PremiumModal } from "../../components/ui/modal"
+import { useDemoMode } from "@/hooks/useDemo"
 
 interface Contact {
   id: string
@@ -49,7 +50,8 @@ export default function ContactsPage() {
   const [tags, setTags] = useState<TagItem[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
-  const [selectedTag, setSelectedTag] = useState<string | null>(null)
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showCreate, setShowCreate] = useState(false)
   const [showEdit, setShowEdit] = useState<Contact | null>(null)
@@ -64,13 +66,76 @@ const [importPreview, setImportPreview] = useState<any[]>([])
 const [importDragActive, setImportDragActive] = useState(false)
 const [pendingImportData, setPendingImportData] = useState<any[]>([])
   const token = typeof window !== 'undefined' ? localStorage.getItem('mb_token') : ''
+const { isDemo } = useDemoMode()
 
   const fetchContacts = useCallback(async () => {
     setLoading(true)
+
+    if (isDemo) {
+      // DEMO: 30 contactos enriquecidos
+      const demoContacts: Contact[] = [
+        { id: "c-1", name: "Juan Pérez", phone: "5491130012345", email: "juan.perez@gmail.com", company: "Pérez & Asoc.", tags: ["Cliente", "VIP"], notes: "Cliente desde 2023. Compra mensual.", createdAt: "2026-05-28T10:00:00Z" },
+        { id: "c-2", name: "María González", phone: "5491130023456", email: "maria.g@hotmail.com", company: "González Logistics", tags: ["Cliente", "Hot"], notes: "Interesada en volumen mayorista.", createdAt: "2026-05-27T14:30:00Z" },
+        { id: "c-3", name: "Carlos Rodríguez", phone: "5491130034567", email: "crodriguez@empresa.com", company: "TechFlow SA", tags: ["Lead", "Whatsapp"], notes: "", createdAt: "2026-05-26T09:15:00Z" },
+        { id: "c-4", name: "Ana Martínez", phone: "5491130045678", email: "ana.martinez@outlook.com", company: "Martinez Design", tags: ["Cliente"], notes: "Paga siempre a término.", createdAt: "2026-05-25T16:00:00Z" },
+        { id: "c-5", name: "Luis Fernández", phone: "5491130056789", email: "luis.f@yahoo.com", company: "Fernández Group", tags: ["Prospecto", "Lead"], notes: "Llamar la semana que viene.", createdAt: "2026-05-24T11:20:00Z" },
+        { id: "c-6", name: "Laura López", phone: "5491130067890", email: "laura.lopez@gmail.com", company: "López Studio", tags: ["Cliente", "VIP", "Hot"], notes: "Top 5 compradores del mes.", createdAt: "2026-05-23T08:45:00Z" },
+        { id: "c-7", name: "Pedro Sánchez", phone: "5491130078901", email: "pedro.sanchez@corp.com", company: "Sánchez Industries", tags: ["Proveedor"], notes: "Distribuidor exclusivo zona norte.", createdAt: "2026-05-22T13:10:00Z" },
+        { id: "c-8", name: "Sofía Torres", phone: "5491130089012", email: "sofia.torres@mail.com", company: "Torres Moda", tags: ["Lead", "Whatsapp"], notes: "", createdAt: "2026-05-21T17:30:00Z" },
+        { id: "c-9", name: "Diego Ramírez", phone: "5491130090123", email: "diego.ramirez@gmail.com", company: "Ramirez Digital", tags: ["Cliente", "Inactivo"], notes: "No compra hace 3 meses. Reactivar.", createdAt: "2026-05-20T10:00:00Z" },
+        { id: "c-10", name: "Valentina Flores", phone: "5491130101234", email: "valen.flores@hotmail.com", company: "Flores Beauty", tags: ["Cliente", "Hot"], notes: "", createdAt: "2026-05-19T15:45:00Z" },
+        { id: "c-11", name: "Martín Acosta", phone: "5491130112345", email: "martin.acosta@gmail.com", company: "Acosta Motors", tags: ["Lead"], notes: "Presupuesto aprobado.", createdAt: "2026-05-18T09:00:00Z" },
+        { id: "c-12", name: "Camila Ruiz", phone: "5491130123456", email: "camila.ruiz@outlook.com", company: "Ruiz Consulting", tags: ["Cliente", "VIP"], notes: "Requiere factura A.", createdAt: "2026-05-17T12:20:00Z" },
+        { id: "c-13", name: "Julián Castro", phone: "5491130134567", email: "julian.castro@empresa.com", company: "Castro Tech", tags: ["Prospecto"], notes: "", createdAt: "2026-05-16T14:00:00Z" },
+        { id: "c-14", name: "Paula Medina", phone: "5491130145678", email: "paula.medina@gmail.com", company: "Medina Legal", tags: ["Cliente", "Whatsapp"], notes: "Contactar solo por WhatsApp.", createdAt: "2026-05-15T11:10:00Z" },
+        { id: "c-15", name: "Tomás Herrera", phone: "5491130156789", email: "tomas.herrera@mail.com", company: "Herrera Construcciones", tags: ["Lead", "Hot"], notes: "Obra nueva en Córdoba.", createdAt: "2026-05-14T16:30:00Z" },
+        { id: "c-16", name: "Lucía Silva", phone: "5491130167890", email: "lucia.silva@hotmail.com", company: "Silva Arquitectura", tags: ["Cliente"], notes: "", createdAt: "2026-05-13T08:00:00Z" },
+        { id: "c-17", name: "Nicolás Vargas", phone: "5491130178901", email: "nico.vargas@gmail.com", company: "Vargas Sports", tags: ["Inactivo"], notes: "Dado de baja temporalmente.", createdAt: "2026-05-12T13:45:00Z" },
+        { id: "c-18", name: "Emilia Rojas", phone: "5491130189012", email: "emilia.rojas@outlook.com", company: "Rojas Alimentos", tags: ["Cliente", "VIP", "Hot"], notes: "Pedido recurrente semanal.", createdAt: "2026-05-11T10:30:00Z" },
+        { id: "c-19", name: "Bruno Molina", phone: "5491130190123", email: "bruno.molina@corp.com", company: "Molina Seguros", tags: ["Lead"], notes: "", createdAt: "2026-05-10T17:00:00Z" },
+        { id: "c-20", name: "Antonella Cruz", phone: "5491130201234", email: "anto.cruz@gmail.com", company: "Cruz Fashion", tags: ["Cliente", "Whatsapp"], notes: "Influencer. Potencial embajadora.", createdAt: "2026-05-09T09:15:00Z" },
+        { id: "c-21", name: "Facundo Ortiz", phone: "5491130212345", email: "facu.ortiz@hotmail.com", company: "Ortiz Software", tags: ["Prospecto", "Lead"], notes: "Evaluando propuesta técnica.", createdAt: "2026-05-08T14:20:00Z" },
+        { id: "c-22", name: "Morena Luna", phone: "5491130223456", email: "morena.luna@gmail.com", company: "Luna Wellness", tags: ["Cliente"], notes: "", createdAt: "2026-05-07T11:00:00Z" },
+        { id: "c-23", name: "Santiago Reyes", phone: "5491130234567", email: "santi.reyes@outlook.com", company: "Reyes Transporte", tags: ["Proveedor", "VIP"], notes: "Logística nacional.", createdAt: "2026-05-06T16:45:00Z" },
+        { id: "c-24", name: "Victoria Peña", phone: "5491130245678", email: "vicky.pena@gmail.com", company: "Peña Educación", tags: ["Lead", "Hot"], notes: "Curso de capacitación corporativa.", createdAt: "2026-05-05T08:30:00Z" },
+        { id: "c-25", name: "Mateo Giménez", phone: "5491130256789", email: "mateo.gimenez@mail.com", company: "Giménez Audio", tags: ["Cliente", "Inactivo"], notes: "Migró a competencia. Rescatar.", createdAt: "2026-05-04T12:00:00Z" },
+        { id: "c-26", name: "Julieta Navarro", phone: "5491130267890", email: "juli.navarro@hotmail.com", company: "Navarro Deco", tags: ["Cliente", "VIP"], notes: "Compra por mayor.", createdAt: "2026-05-03T15:15:00Z" },
+        { id: "c-27", name: "Franco Ibáñez", phone: "5491130278901", email: "franco.ibanez@gmail.com", company: "Ibáñez Muebles", tags: ["Prospecto"], notes: "", createdAt: "2026-05-02T10:45:00Z" },
+        { id: "c-28", name: "Milagros Sosa", phone: "5491130289012", email: "mili.sosa@outlook.com", company: "Sosa Fitness", tags: ["Cliente", "Whatsapp", "Hot"], notes: "Franquicias.", createdAt: "2026-05-01T09:00:00Z" },
+        { id: "c-29", name: "Agustín Morales", phone: "5491130290123", email: "agus.morales@corp.com", company: "Morales Electrónica", tags: ["Lead"], notes: "Presupuesto enviado.", createdAt: "2026-04-30T14:30:00Z" },
+        { id: "c-30", name: "Rocío Mendoza", phone: "5491130301234", email: "rocio.mendoza@gmail.com", company: "Mendoza Turismo", tags: ["Cliente", "VIP", "Hot"], notes: "Paquetes corporativos.", createdAt: "2026-04-29T11:20:00Z" },
+      ]
+
+      // Filtrar por búsqueda
+      let filtered = demoContacts
+      if (search) {
+        const q = search.toLowerCase()
+        filtered = filtered.filter(c => 
+          c.name.toLowerCase().includes(q) || 
+          c.phone.includes(q) || 
+          c.email?.toLowerCase().includes(q) ||
+          c.company?.toLowerCase().includes(q)
+        )
+      }
+      // Filtrar por tags múltiples
+      if (selectedTags.length > 0) {
+        filtered = filtered.filter(c => 
+          selectedTags.some(tag => c.tags.includes(tag))
+        )
+      }
+
+      setContacts(filtered)
+      setLoading(false)
+      return
+    }
+
+    // CÓDIGO ORIGINAL
     try {
       const params = new URLSearchParams()
       if (search) params.append("search", search)
-      if (selectedTag) params.append("tag", selectedTag)
+      if (selectedTags.length > 0) {
+        selectedTags.forEach(t => params.append("tag", t))
+      }
       
       const res = await fetch(`/api/contacts?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -83,9 +148,22 @@ const [pendingImportData, setPendingImportData] = useState<any[]>([])
     } finally {
       setLoading(false)
     }
-  }, [search, selectedTag, token])
+  }, [search, selectedTags, token, isDemo])
 
-  const fetchTags = useCallback(async () => {
+   const fetchTags = useCallback(async () => {
+    if (isDemo) {
+      setTags([
+        { id: "tag-1", name: "Cliente", color: "#3b82f6" },
+        { id: "tag-2", name: "Lead", color: "#10b981" },
+        { id: "tag-3", name: "VIP", color: "#f59e0b" },
+        { id: "tag-4", name: "Proveedor", color: "#8b5cf6" },
+        { id: "tag-5", name: "Prospecto", color: "#ec4899" },
+        { id: "tag-6", name: "Inactivo", color: "#64748b" },
+        { id: "tag-7", name: "Hot", color: "#ef4444" },
+        { id: "tag-8", name: "Whatsapp", color: "#06b6d4" },
+      ])
+      return
+    }
     try {
       const res = await fetch("/api/tags", {
         headers: { Authorization: `Bearer ${token}` },
@@ -96,7 +174,7 @@ const [pendingImportData, setPendingImportData] = useState<any[]>([])
     } catch {
       // silent
     }
-  }, [token])
+  }, [token, isDemo])
 
   useEffect(() => {
     fetchContacts()
@@ -104,6 +182,7 @@ const [pendingImportData, setPendingImportData] = useState<any[]>([])
   }, [fetchContacts, fetchTags])
 
   const toggleSelect = (id: string) => {
+      if (isDemo) { toast.info("🎮 Eliminar contactos disponible en modo real"); return }
     const next = new Set(selectedIds)
     if (next.has(id)) next.delete(id)
     else next.add(id)
@@ -111,6 +190,7 @@ const [pendingImportData, setPendingImportData] = useState<any[]>([])
   }
 
   const selectAll = () => {
+      if (isDemo) { toast.info("🎮 Eliminar contactos disponible en modo real"); return }
     if (selectedIds.size === contacts.length) {
       setSelectedIds(new Set())
     } else {
@@ -119,6 +199,7 @@ const [pendingImportData, setPendingImportData] = useState<any[]>([])
   }
 
   const deleteSelected = async () => {
+      if (isDemo) { toast.info("🎮 Eliminar contactos disponible en modo real"); return }
   const ok = await confirm({
     title: "Eliminar contactos",
     description: `¿Eliminar ${selectedIds.size} contactos seleccionados? Esta acción no se puede deshacer.`,
@@ -143,6 +224,7 @@ const [pendingImportData, setPendingImportData] = useState<any[]>([])
   }
 
   const handleCreate = async (form: any) => {
+      if (isDemo) { toast.info("🎮 Eliminar contactos disponible en modo real"); return }
     try {
       const res = await fetch("/api/contacts", {
         method: "POST",
@@ -163,6 +245,7 @@ const [pendingImportData, setPendingImportData] = useState<any[]>([])
   }
 
   const handleEdit = async (form: any) => {
+      if (isDemo) { toast.info("🎮 Eliminar contactos disponible en modo real"); return }
     if (!showEdit) return
     try {
       const res = await fetch(`/api/contacts/${showEdit.id}`, {
@@ -184,6 +267,7 @@ const [pendingImportData, setPendingImportData] = useState<any[]>([])
   }
 
   const handleCSVImport = async (csvText: string) => {
+      if (isDemo) { toast.info("🎮 Eliminar contactos disponible en modo real"); return }
     setIsImporting(true)
     setImportProgress(0)
     
@@ -358,6 +442,7 @@ const handleContactFile = (file: File) => {
 }
 
 const confirmImportContacts = async () => {
+    if (isDemo) { toast.info("🎮 Eliminar contactos disponible en modo real"); return }
   if (pendingImportData.length === 0) return
   
   setImportFileLoading(true)
@@ -418,7 +503,7 @@ const onContactDrop = (e: React.DragEvent) => {
         <header className="h-16 bg-[var(--bg-card)]/60 backdrop-blur-md border-b border-[var(--border-color)]/60 flex items-center justify-between px-6 sticky top-0 z-30">
           <div>
             <h1 className="text-lg font-bold text-[var(--text-primary)]">Contactos</h1>
-            <p className="text-xs text-[var(--text-muted)]">{contacts.length} contactos encontrados</p>
+                      <p className="text-xs text-[var(--text-muted)]">{contacts.length} contactos encontrados {selectedTags.length > 0 && `· ${selectedTags.length} filtros`}</p>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setShowTagManager(true)} className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--border-color)] rounded-xl transition-all">
@@ -446,24 +531,34 @@ const onContactDrop = (e: React.DragEvent) => {
                 className="w-full bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50"
               />
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-1">
+                                   <div className="flex gap-2 overflow-x-auto pb-1">
               <button
-                onClick={() => setSelectedTag(null)}
-                className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all whitespace-nowrap ${!selectedTag ? 'bg-blue-600 text-[var(--text-primary)] border-blue-500' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-slate-600'}`}
+                onClick={() => setSelectedTags([])}
+                className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all whitespace-nowrap ${selectedTags.length === 0 ? 'bg-blue-600 text-[var(--text-primary)] border-blue-500' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-slate-600'}`}
               >
                 Todos
               </button>
-              {tags.map(tag => (
-                <button
-                  key={tag.id}
-                  onClick={() => setSelectedTag(selectedTag === tag.name ? null : tag.name)}
-                  className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all whitespace-nowrap flex items-center gap-1.5 ${selectedTag === tag.name ? 'text-[var(--text-primary)] border-white/30' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-slate-600'}`}
-                  style={selectedTag === tag.name ? { backgroundColor: tag.color + '30', borderColor: tag.color } : {}}
-                >
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tag.color }} />
-                  {tag.name}
-                </button>
-              ))}
+              {tags.map(tag => {
+                const isSelected = selectedTags.includes(tag.name)
+                return (
+                  <button
+                    key={tag.id}
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedTags(prev => prev.filter(t => t !== tag.name))
+                      } else {
+                        setSelectedTags(prev => [...prev, tag.name])
+                      }
+                    }}
+                    className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all whitespace-nowrap flex items-center gap-1.5 ${isSelected ? 'text-[var(--text-primary)] border-white/30' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-slate-600'}`}
+                    style={isSelected ? { backgroundColor: tag.color + '30', borderColor: tag.color } : {}}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tag.color }} />
+                    {tag.name}
+                    {isSelected && <span className="ml-1 text-[10px]">✓</span>}
+                  </button>
+                )
+              })}
             </div>
           </div>
 
@@ -549,11 +644,22 @@ const onContactDrop = (e: React.DragEvent) => {
                         </td>
                         <td className="p-4">
                           <div className="flex gap-1 flex-wrap">
-                            {contact.tags.map((t, i) => (
-                              <span key={i} className="px-2 py-0.5 bg-[#1E293B] text-[var(--text-secondary)] text-[10px] rounded-full border border-[var(--border-hover)]">
-                                {t}
-                              </span>
-                            ))}
+                            {contact.tags.map((t, i) => {
+  const tagObj = tags.find(tag => tag.name === t)
+  return (
+    <span 
+      key={i} 
+      className="px-2 py-0.5 text-[10px] rounded-full border"
+      style={{ 
+        backgroundColor: tagObj ? tagObj.color + '25' : 'var(--bg-input)', 
+        borderColor: tagObj ? tagObj.color + '50' : 'var(--border-color)',
+        color: tagObj ? tagObj.color : 'var(--text-secondary)'
+      }}
+    >
+      {t}
+    </span>
+  )
+})}
                             {contact.tags.length === 0 && <span className="text-xs text-slate-700">Sin tags</span>}
                           </div>
                         </td>
@@ -850,7 +956,9 @@ function TagManagerModal({ open, onClose, tags, onRefresh }: any) {
   const token = typeof window !== 'undefined' ? localStorage.getItem('mb_token') : ''
 
   const createTag = async () => {
+    
     if (!newTag.trim()) return
+    
     try {
       const res = await fetch("/api/tags", {
         method: "POST",

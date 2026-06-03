@@ -12,7 +12,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading, checked: authChecked } = useAuth()
   const { license, loading: licenseLoading, checked: licenseChecked, isActive } = useLicense()
 
-  const publicPaths = ["/login", "/setup", "/onboarding"]
+  const publicPaths = ["/login", "/setup", "/onboarding",  "/demo"]
   const isPublic = publicPaths.includes(pathname)
 
   useEffect(() => {

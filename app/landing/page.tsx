@@ -70,7 +70,7 @@ export default function LandingPage() {
               MÁS VENDIDO
             </div>
             <h3 className="text-lg font-bold text-blue-400">Pro</h3>
-            <div className="text-4xl font-extrabold text-[var(--text-primary)] my-4">$750</div>
+            <div className="text-4xl font-extrabold text-[var(--text-primary)] my-4">$250</div>
             <p className="text-[var(--text-secondary)] text-sm mb-6">Para agencias y equipos de ventas.</p>
             <ul className="space-y-3 text-sm text-slate-300 mb-8 flex-1">
               <li>✅ <strong>3 líneas WhatsApp</strong> + rotación</li>

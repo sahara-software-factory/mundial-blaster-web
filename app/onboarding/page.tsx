@@ -12,7 +12,7 @@ const AVATARS = [
   { id: "avatar5", emoji: "🧙", color: "bg-amber-500" },
   { id: "avatar6", emoji: "🤖", color: "bg-cyan-500" },
   { id: "avatar7", emoji: "👽", color: "bg-green-500" },
-  { id: "avatar8", emoji: "🎩", color: "bg-indigo-500" },
+  { id: "avatar8", emoji: "🎩", color: "bg-cyan-500" },
   { id: "avatar9", emoji: "🦁", color: "bg-orange-500" },
   { id: "avatar10", emoji: "🐺", color: "bg-slate-500" },
 ]

@@ -83,7 +83,7 @@ Esto elimina costos de storage y reclamos por "gasto sorpresa".
 ## Precio sugerido para esta beta
 
 - **Starter $500**: 1 línea, texto + imagen URL, delay configurable
-- **Pro $750**: 3 líneas, rotación, spintax, soporte 30 días
+- **Pro $250**: 3 líneas, rotación, spintax, soporte 30 días
 - **Agency $1200**: 10 líneas, código fuente incluido
 
 ---

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import { apiFetch } from "@/lib/api"
 
 interface User {
   id: string
@@ -9,6 +10,16 @@ interface User {
   email: string
   avatar: string
   role: string
+  affiliate_code?: string | null
+}
+
+const decodeToken = (token: string) => {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]))
+    return payload
+  } catch {
+    return null
+  }
 }
 
 export function useAuth() {
@@ -18,11 +29,9 @@ export function useAuth() {
   const [checked, setChecked] = useState(false)
 
   const getToken = () => {
-    if (typeof window === 'undefined') return null
-    return localStorage.getItem('mb_token')
+    if (typeof window === "undefined") return null
+    return localStorage.getItem("mb_token")
   }
-
-  
 
   const checkAuth = useCallback(async () => {
     setLoading(true)
@@ -35,17 +44,31 @@ export function useAuth() {
         return
       }
 
+      const payload = decodeToken(token)
+      if (payload?.is_demo) {
+        setUser({
+          id: payload.userId || "demo",
+          nombre: payload.nombre || "Usuario Demo",
+          email: payload.email || "demo@wabisend.com",
+          avatar: "",
+          role: "user",
+          affiliate_code: payload.affiliate_code || null,
+        })
+        setChecked(true)
+        setLoading(false)
+        return
+      }
+
       const res = await fetch("/api/auth/me", {
-        headers: { 
+        headers: {
           Authorization: `Bearer ${token}`,
-          "Cache-Control": "no-cache"
+          "Cache-Control": "no-cache",
         },
         cache: "no-store",
       })
 
       if (!res.ok) {
-        // Token inválido o expirado
-        localStorage.removeItem('mb_token')
+        localStorage.removeItem("mb_token")
         setUser(null)
         setChecked(true)
         setLoading(false)
@@ -55,7 +78,7 @@ export function useAuth() {
       const data = await res.json()
       setUser(data.user)
     } catch {
-      localStorage.removeItem('mb_token')
+      localStorage.removeItem("mb_token")
       setUser(null)
     } finally {
       setChecked(true)
@@ -64,26 +87,35 @@ export function useAuth() {
   }, [])
 
   const login = async (email: string, password: string) => {
-    const res = await fetch("/api/auth/login", {
+    const res = await apiFetch("/api/auth/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     })
 
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || "Error en login")
 
-    localStorage.setItem('mb_token', data.token)
+    localStorage.setItem("mb_token", data.token)
+    setUser(data.user)
+    return data
+  }
+
+  const loginDemo = async () => {
+    const res = await fetch("/api/demo/auth", { cache: "no-store" })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || "Error en demo")
+
+    localStorage.setItem("mb_token", data.token)
     setUser(data.user)
     return data
   }
 
   const logout = () => {
-  localStorage.removeItem('mb_token')
-  localStorage.removeItem('mb_license_cache')
-  setUser(null)
-  router.push("/login")
-}
+    localStorage.removeItem("mb_token")
+    localStorage.removeItem("mb_license_cache")
+    setUser(null)
+    router.push("/login")
+  }
 
   useEffect(() => {
     checkAuth()
@@ -95,6 +127,7 @@ export function useAuth() {
     checked,
     isAuthenticated: !!user,
     login,
+    loginDemo,
     logout,
     refetch: checkAuth,
   }

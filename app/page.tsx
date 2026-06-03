@@ -1,1710 +1,1515 @@
-    "use client"
+"use client"
 
-    import { useState, useEffect, useRef } from "react"
-    import { motion, AnimatePresence } from "framer-motion"
-    import { io } from "socket.io-client"
-    import { toast } from "sonner"
-    import { 
-    Send, 
-    Plus, 
-    QrCode, 
-    Power, 
-    Trash2, 
-    Play, 
-    Image as ImageIcon,
-    Clock,
-    Users,
-    Activity,
-    CheckCircle2,
-    Edit3,      // ← NUEVO
-    Tag,        // ← NUEVO
-    Zap,
-    RotateCcw,
-    Sparkles,
-    Eye,
-    Upload,
-    AlertTriangle,
-    X
-    } from "lucide-react"
-    import { QRModal } from "./components/qr-modal"
-    import { useRouter } from "next/navigation"
-    import { useLicense } from "@/hooks/useLicense"
-    import { useAuth } from "@/hooks/useAuth"
-    import { Sidebar } from "./components/ui/sidebar"
-    import { PremiumModal } from "./components/ui/modal"
-    import { ConfirmDialog } from "./components/ui/confirm-dialog"
-    import { useConfirm } from "@/hooks/useConfirm"
-import { CampaignLineSelector } from "./components/campaign-line-selector"
-    const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || ""
+import { useState, useEffect, useRef } from "react"
+import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion"
+import {
+  ArrowRight,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Database,
+  Globe,
+  HelpCircle,
+  Infinity,
+  Layers,
+  Lock,
+  MessageCircle,
+  MessageSquare,
+  Play,
+  Repeat,
+  ShieldCheck,
+  Sparkles,
+  Timer,
+  TrendingUp,
+  Users,
+  Zap,
+  BarChart3,
+  Smartphone,
+  FileText,
+  Mail,
+  ExternalLink,
+  Clock,
+  Calendar,
+  PieChart,
+  Send,
+  Tag,
+  Hash,
+  MousePointerClick,
+  CreditCard,
+  X
+} from "lucide-react"
+import Link from "next/link"
 
-    interface LineaWhatsApp {
-    id: string
-    phone: string
-    nombre: string
-    status: string
+/* ============================================================
+   WabiSend — Landing Page v1.0
+   Light mode profesional. Sin emojis. Solo Lucide.
+   ============================================================ */
+
+
+
+// const staggerContainer = {
+//   hidden: { opacity: 0, y: 30 },
+//   visible: {
+//     opacity: 1,
+//     y: 0,
+//     transition: {
+//       duration: 0.5,
+//       ease: "easeOut"
+//     }
+//   }
+// };
+
+
+
+
+
+
+const fadeIn = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.8 } },
+}
+
+const scaleIn = {
+  hidden: { opacity: 0, scale: 0.9 },
+  visible: { opacity: 1, scale: 1, transition: { duration: 0.6 } },
+}
+
+
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1 // Los hijos aparecen con 0.1s de diferencia
     }
+  }
+};
 
-    interface Contact {
-    id: string
-    name: string
-    phone: string
-    tags: string[]
+const fadeUp = {
+  hidden: { opacity: 0, y: 30 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.5,
+      ease: "easeOut"
     }
+  }
+};
 
-    interface TagItem {
-    id: string
-    name: string
-    color: string
-    }
 
-    type TabType = "plan" | "lines" | "campaign" | "logs"
 
-    export default function Dashboard() {
-    const router = useRouter()
-    const { license, loading: licenseLoading, checked: licenseChecked, isActive } = useLicense()
-    const { user, loading: authLoading, checked: authChecked, isAuthenticated, logout } = useAuth()
 
-    // Tabs
-    const [activeTab, setActiveTab] = useState<TabType>("plan")
-    
-    // Líneas
-    const [lines, setLines] = useState<LineaWhatsApp[]>([])
-    const [selectedLine, setSelectedLine] = useState<LineaWhatsApp | null>(null)
-    const hasConnectedLine = lines.some(l => l.status === "CONECTADA")
-    const selectedLineConnected = selectedLine?.status === "CONECTADA"
-    // QR
-    const [qrModalOpen, setQrModalOpen] = useState(false)
-    const [qrTargetLine, setQrTargetLine] = useState<LineaWhatsApp | null>(null)
-    
-    // Campaña
-    const [numbersText, setNumbersText] = useState("")
-    const [message, setMessage] = useState("")
-    const [imageUrl, setImageUrl] = useState("")
-    const [delayMin, setDelayMin] = useState(4000)
-    const [delayMax, setDelayMax] = useState(12000)
-    const [isSending, setIsSending] = useState(false)
-    const [numberSource, setNumberSource] = useState<"manual" | "contacts" | "tag">("manual")  // ← NUEVO
-    const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null)               // ← NUEVO
-    const { isOpen, options, confirm: askConfirm, onConfirm, onCancel } = useConfirm()
-
-    const [campaignName, setCampaignName] = useState("")
-    const [showImportNumbers, setShowImportNumbers] = useState(false)
-    const [importNumbersText, setImportNumbersText] = useState("")
-
-    const [isVerifying, setIsVerifying] = useState(false)
-const [duplicateNumbers, setDuplicateNumbers] = useState<string[]>([])
-const [verifyTimeout, setVerifyTimeout] = useState<NodeJS.Timeout | null>(null)
-    // Contactos + Tags (para campaña por tag)
-    const [contactList, setContactList] = useState<Contact[]>([])  // ← NUEVO
-    const [tags, setTags] = useState<TagItem[]>([])                 // ← NUEVO
-
-    // const campaignNameRef = useRef<HTMLInputElement>(null)
-    
-    // Logs
-    const [logs, setLogs] = useState<string[]>([])
-    // const [campaignName, setCampaignName] = useState("")
-    const [scheduleMode, setScheduleMode] = useState<"now" | "pending">("now")
-
-    const [showPreview, setShowPreview] = useState(false)
-
-    // UI
-    const [socketConnected, setSocketConnected] = useState(false)
-    const [showAddModal, setShowAddModal] = useState(false)
-    const [showSettings, setShowSettings] = useState(false)
-    const [showUpgrade, setShowUpgrade] = useState(false)
-    const [newPhone, setNewPhone] = useState("")
-    const [newName, setNewName] = useState("")
-    const [showUpgradeModal, setShowUpgradeModal] = useState(false)
-    const [upgradeKey, setUpgradeKey] = useState("")
-    const [upgrading, setUpgrading] = useState(false)
-    const isPro = license?.tier === 'pro' || license?.tier === 'business'
-    const token = typeof window !== 'undefined' ? localStorage.getItem('mb_token') || '' : '' 
-    const [templates, setTemplates] = useState<any[]>([])
-    const [showSpintaxHelp, setShowSpintaxHelp] = useState(false)
 
   
-const [importLoading, setImportLoading] = useState(false)
-const [importProgress, setImportProgress] = useState(0)
-const [dragActive, setDragActive] = useState(false)
-const [importedCount, setImportedCount] = useState(0)
-const [previewNumbers, setPreviewNumbers] = useState<string[]>([])
-const [pendingNumbers, setPendingNumbers] = useState<string[]>([])
-const [distributionMode, setDistributionMode] = useState<"single" | "round_robin">("single")
-const [selectedLineIds, setSelectedLineIds] = useState<string[]>([])
-        function resolveSpintax(text: string): string {
-  return text.replace(/\{\{([^}]+)\}\}/g, (match, content) => {
-    if (!content.includes('|')) return match
-    const variants = content.split("|").map((s: string) => s.trim()).filter(Boolean)
-    return variants.length ? variants[Math.floor(Math.random() * variants.length)] : ''
-  })
+/* ---------- Componentes ---------- */
+
+function Navbar() {
+  const [scrolled, setScrolled] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20)
+    window.addEventListener("scroll", onScroll)
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
+
+  const links = [
+    { label: "Funciones", href: "#features" },
+    { label: "Demo", href: "#demo" },
+    { label: "Precios", href: "#pricing" },
+    { label: "FAQ", href: "#faq" },
+  ]
+
+  return (
+    <motion.nav
+      initial={{ y: -100 }}
+      animate={{ y: 0 }}
+      transition={{ duration: 0.6, ease: "easeOut" }}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        scrolled
+          ? "bg-white/80 backdrop-blur-xl shadow-sm border-b border-slate-200/60"
+          : "bg-transparent"
+      }`}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16 lg:h-20">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2 group">
+  <img 
+    src="/images/logo_dark.png" 
+    alt="WabiSend" 
+    className="h-12 w-auto"
+  />
+</Link>
+
+          {/* Desktop links */}
+          <div className="hidden md:flex items-center gap-8">
+            {links.map((l) => (
+              <a
+                key={l.href}
+                href={l.href}
+                className="text-sm font-medium text-slate-600 hover:text-cyan-600 transition-colors"
+              >
+                {l.label}
+              </a>
+            ))}
+          </div>
+
+          {/* CTAs */}
+          <div className="hidden md:flex items-center gap-3">
+            <Link
+              href="/demo"
+              className="text-sm font-semibold text-slate-700 hover:text-cyan-600 transition-colors"
+            >
+              Ingresar a DEMO
+            </Link>
+            <Link
+              href="#pricing"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/20"
+            >
+              Conocer WabiSend <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          {/* Mobile toggle */}
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="md:hidden p-2 text-slate-700"
+          >
+            {mobileOpen ? <X className="w-6 h-6" /> : <MenuIcon />}
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile menu */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="md:hidden bg-white border-b border-slate-200 overflow-hidden"
+          >
+            <div className="px-4 py-6 space-y-4">
+              {links.map((l) => (
+                <a
+                  key={l.href}
+                  href={l.href}
+                  onClick={() => setMobileOpen(false)}
+                  className="block text-base font-medium text-slate-700"
+                >
+                  {l.label}
+                </a>
+              ))}
+              <div className="pt-4 flex flex-col gap-3">
+                <Link
+                  href="/demo"
+                  className="w-full text-center py-3 rounded-xl border border-slate-200 text-slate-700 font-semibold"
+                >
+                  Ingresar a DEMO
+                </Link>
+                <Link
+                  href="#pricing"
+                  className="w-full text-center py-3 rounded-xl bg-slate-900 text-white font-semibold"
+                >
+                  Conocer WabiSend
+                </Link>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.nav>
+  )
 }
 
-function generatePreview(text: string, targetName = "Juan Pérez", targetPhone = "5491123456789"): string {
-  let t = resolveSpintax(text)
-  t = t.replace(/\{\{nombre\}\}/gi, targetName).replace(/\{nombre\}/gi, targetName)
-  t = t.replace(/\{\{telefono\}\}/gi, targetPhone).replace(/\{telefono\}/gi, targetPhone)
-  return t
+function MenuIcon() {
+  return (
+    <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  )
 }
 
-        const fetchLines = async () => {
-  try {
-    const token = localStorage.getItem('mb_token') || ''
-    const res = await fetch("/api/lineas", { 
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store" 
-    })
-    const data = await res.json()
-    if (data.lines) setLines(data.lines)
-  } catch {
-    toast.error("Error cargando líneas")
-  }
-}
+function HeroBackground() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
 
-const addLine = async () => {
-  if (!newPhone.trim()) return toast.error("Escribí el número")
-  if (!isPro && lines.length >= 1) {
-    setShowUpgrade(true)
-    return
-  }
-  try {
-    const token = localStorage.getItem('mb_token') || ''
-    const res = await fetch("/api/lineas", {
-      method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ phone: newPhone.trim(), nombre: newName.trim() || "Nueva Línea" }),
-    })
-    const data = await res.json()
-    if (data.success && data.line) {
-      setShowAddModal(false)
-      setNewPhone("")
-      setNewName("")
-      await fetchLines()
-      setQrTargetLine(data.line)
-      setQrModalOpen(true)
-      toast.success("Línea creada. Escaneá el QR.")
-    } else if (res.status === 403) {
-      setShowUpgrade(true)
-    } else {
-      toast.error(data.error || "Error creando línea")
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    let w = window.innerWidth
+    let h = window.innerHeight
+    canvas.width = w
+    canvas.height = h
+
+    const particles: Array<{
+      x: number
+      y: number
+      vx: number
+      vy: number
+      size: number
+    }> = []
+
+    const count = Math.min(w < 768 ? 55 : 90, Math.floor((w * h) / 12000))
+
+    for (let i = 0; i < count; i++) {
+      particles.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        vx: (Math.random() - 0.5) * 0.7,
+        vy: (Math.random() - 0.5) * 0.7,
+        size: Math.random() * 2.5 + 1.5,
+      })
     }
-  } catch {
-    toast.error("Error de red")
-  }
+
+    let animId: number
+
+    function draw() {
+      ctx.clearRect(0, 0, w, h)
+
+      for (const p of particles) {
+        p.x += p.vx
+        p.y += p.vy
+        if (p.x < 0 || p.x > w) p.vx *= -1
+        if (p.y < 0 || p.y > h) p.vy *= -1
+
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
+        ctx.fillStyle = "rgba(79, 70, 229, 0.75)" // indigo-600, muy visible sobre blanco
+        ctx.fill()
+      }
+
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x
+          const dy = particles[i].y - particles[j].y
+          const dist = Math.sqrt(dx * dx + dy * dy)
+          if (dist < 140) {
+            ctx.beginPath()
+            ctx.moveTo(particles[i].x, particles[i].y)
+            ctx.lineTo(particles[j].x, particles[j].y)
+            ctx.strokeStyle = `rgba(124, 58, 237, ${0.3 * (1 - dist / 140)})`
+            ctx.lineWidth = 1.2
+            ctx.stroke()
+          }
+        }
+      }
+
+      animId = requestAnimationFrame(draw)
+    }
+
+    draw()
+
+    function handleResize() {
+      w = window.innerWidth
+      h = window.innerHeight
+      canvas.width = w
+      canvas.height = h
+    }
+
+    window.addEventListener("resize", handleResize)
+    return () => {
+      cancelAnimationFrame(animId)
+      window.removeEventListener("resize", handleResize)
+    }
+  }, [])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 z-0"
+      style={{ width: "100%", height: "100%" }}
+    />
+  )
 }
 
-    const openQrForLine = (line: LineaWhatsApp) => {
-  setQrTargetLine(line)
-  setQrModalOpen(true)
-  const token = localStorage.getItem('mb_token') || ''
-  fetch("/api/lineas/connect", {
-    method: "POST",
-    headers: { 
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`
+function Hero() {
+  return (
+    <section className="relative pt-32 pb-20 lg:pt-40 lg:pb-32 overflow-hidden bg-white">
+      {/* Canvas de partículas — ahora con z-0 para que se vea */}
+      <HeroBackground />
+
+      {/* Blobs fluidos que respiran */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-gradient-to-b from-indigo-100/80 via-violet-100/50 to-transparent rounded-full blur-3xl animate-[pulse_6s_ease-in-out_infinite]" />
+        <div className="absolute top-[20%] right-[-10%] w-[400px] h-[400px] bg-blue-200/40 rounded-full blur-3xl animate-[pulse_5s_ease-in-out_infinite_1s]" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-fuchsia-200/40 rounded-full blur-3xl animate-[pulse_7s_ease-in-out_infinite_2s]" />
+      </div>
+
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center max-w-3xl mx-auto">
+          {/* Badge */}
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.5 }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/90 backdrop-blur-md border border-cyan-100 text-cyan-700 text-sm font-medium mb-8 shadow-sm"
+          >
+            <Sparkles className="w-4 h-4" />
+            Licencia ilimitada · Pagás una vez
+          </motion.div>
+
+          {/* Headline */}
+          <motion.h1
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-slate-900 tracking-tight leading-[1.05]"
+          >
+            WhatsApp masivo{" "}
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-600">
+              sin límites
+            </span>
+          </motion.h1>
+
+          {/* Subheadline */}
+          <motion.p
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="mt-6 text-lg sm:text-xl text-slate-600 max-w-lg mx-auto leading-relaxed"
+          >
+            Plataforma self-hosted. Sin mensualidades, sin techo de envíos, sin que nadie toque tus datos.
+          </motion.p>
+
+          {/* CTAs */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
+          >
+            {/* Primary: Conocer WabiSend — plano, elegante */}
+            <Link
+              href="#pricing"
+              className="group inline-flex items-center gap-2 px-8 py-4 rounded-full bg-slate-900 text-white font-semibold text-base hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20 hover:shadow-slate-900/30 hover:-translate-y-0.5"
+            >
+              Conocer WabiSend
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </Link>
+
+            {/* DEMO: borde de gradiente que fluye infinitamente */}
+            <div className="relative inline-flex rounded-full p-[2.5px] overflow-hidden group cursor-pointer">
+  <motion.div
+    className="absolute inset-[-50%] rounded-full"
+    style={{
+      background: "conic-gradient(from 0deg, #6366f1, #8b5cf6, #d946ef, #a855f7, #6366f1)",
+    }}
+    animate={{ rotate: 360 }}
+    transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+  />
+  <Link
+    href="/demo"
+    className="relative inline-flex items-center gap-2 px-8 py-4 rounded-full bg-white text-slate-900 font-semibold text-base hover:bg-cyan-50 transition-colors z-10"
+  >
+    <Play className="w-4 h-4 text-cyan-600" />
+    Ingresar a DEMO
+  </Link>
+</div>
+          </motion.div>
+
+          {/* Trust */}
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
+            className="mt-6 text-sm text-slate-500 flex items-center justify-center gap-2"
+          >
+            <ShieldCheck className="w-4 h-4 text-emerald-500" />
+            Pago único · Base de datos propia · Sin suscripciones
+          </motion.p>
+        </div>
+
+        {/* Mockup con float */}
+        <motion.div
+          initial={{ opacity: 0, y: 60, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.8, delay: 0.4 }}
+          className="mt-16 lg:mt-20 max-w-5xl mx-auto"
+        >
+          <motion.div
+            animate={{ y: [0, -10, 0] }}
+            transition={{ duration: 5, repeat: 999999, ease: "easeInOut" }}
+            className="relative"
+          >
+            <div className="absolute -inset-4 bg-gradient-to-r from-cyan-500/20 via-sky-500/20 to-blue-500/20 rounded-[2.5rem] blur-2xl animate-pulse" />
+            <div className="relative bg-slate-900 rounded-t-2xl sm:rounded-t-3xl p-2 sm:p-3 shadow-2xl">
+              <div className="flex items-center gap-2 px-2 pb-3">
+                <div className="w-3 h-3 rounded-full bg-red-400" />
+                <div className="w-3 h-3 rounded-full bg-amber-400" />
+                <div className="w-3 h-3 rounded-full bg-emerald-400" />
+                <div className="flex-1 text-center">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-slate-800 text-slate-400 text-xs">
+                    <Lock className="w-3 h-3" />
+                    app.tudominio.com
+
+                  </div>
+                </div>
+              </div>
+              <div className="bg-slate-950 rounded-lg sm:rounded-xl overflow-hidden aspect-[2.2/1] relative">
+                <img
+                  src="/images/mockup_1.png"
+                  alt="Dashboard WabiSend"
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+              </div>
+            </div>
+            <div className="relative mx-auto w-[95%] sm:w-[90%]">
+              <div className="h-3 sm:h-4 bg-gradient-to-b from-slate-700 to-slate-800 rounded-b-xl sm:rounded-b-2xl shadow-xl" />
+              <div className="h-1 sm:h-1.5 bg-slate-600 rounded-b-lg mx-auto w-1/3" />
+            </div>
+          </motion.div>
+        </motion.div>
+      </div>
+    </section>
+  )
+}
+
+function Logos() {
+  const items = [
+    { icon: ShieldCheck, text: "Pagos seguros" },
+    { icon: Database, text: "Datos propios" },
+    { icon: Globe, text: "Desde cualquier país" },
+    { icon: Infinity, text: "Sin límites" },
+    { icon: Lock, text: "Privacidad total" },
+  ]
+
+  return (
+    <section className="py-12 border-y border-slate-100 bg-slate-50/50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <motion.p
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true, amount: 0.1 }}
+          className="text-center text-sm font-semibold text-slate-400 uppercase tracking-wider mb-8"
+        >
+          Diseñado para equipos que no aceptan mediocridad
+        </motion.p>
+        <motion.div
+          variants={staggerContainer}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.1 }}
+          className="flex flex-wrap justify-center gap-8 lg:gap-16"
+        >
+          {items.map((item, i) => (
+            <motion.div
+              key={i}
+              variants={staggerContainer}
+              className="flex items-center gap-2 text-slate-500"
+            >
+              <item.icon className="w-5 h-5 text-cyan-500" />
+              <span className="text-sm font-medium">{item.text}</span>
+            </motion.div>
+          ))}
+        </motion.div>
+      </div>
+    </section>
+  )
+}
+
+function Features() {
+  const features = [
+    {
+      icon: Send,
+      title: "Envío masivo real",
+      desc: "Conectá múltiples líneas de WhatsApp y distribuí el envío automáticamente. Sin caídas, sin saturación.",
+      color: "from-indigo-500 to-blue-500",
     },
-    body: JSON.stringify({ phone: line.phone }),
-  }).catch(() => {})
+    {
+      icon: Hash,
+      title: "Spintax inteligente",
+      desc: "Cada mensaje es único. Variaciones automáticas de texto para evitar bloqueos y mejorar entregabilidad.",
+      color: "from-sky-500 to-blue-500",
+    },
+    {
+      icon: Calendar,
+      title: "Programación avanzada",
+      desc: "Agendá campañas para días y horarios específicos. Dejá que WabiSend trabaje mientras dormís.",
+      color: "from-blue-500 to-cyan-500",
+    },
+    {
+      icon: BarChart3,
+      title: "Reportes en tiempo real",
+      desc: "Tracking de entregas, aperturas y respuestas. Métricas claras para saber qué funciona y qué no.",
+      color: "from-emerald-500 to-teal-500",
+    },
+    {
+      icon: Users,
+      title: "Contactos ilimitados",
+      desc: "Importá miles de contactos por CSV, organizalos con etiquetas y segmentalos sin restricciones.",
+      color: "from-amber-500 to-orange-500",
+    },
+    {
+      icon: Database,
+      title: "Tu base, tu servidor",
+      desc: "Los datos son tuyos. Instalado en tu infraestructura. Nada en la nube de terceros. Control total.",
+      color: "from-rose-500 to-red-500",
+    },
+  ]
+
+  return (
+    <section id="features" className="py-24 lg:py-32">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.1 }}
+          className="text-center max-w-3xl mx-auto mb-16"
+        >
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-50 text-cyan-700 text-xs font-bold uppercase tracking-wide">
+            <Zap className="w-3.5 h-3.5" />
+            Funciones
+          </span>
+          <h2 className="mt-4 text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900">
+            Todo lo que necesitás para escalar tus ventas
+          </h2>
+          <p className="mt-4 text-lg text-slate-600">
+            WabiSend no es un servicio mensual. Es un motor de comunicación que instalás una vez y explotás sin techo.
+          </p>
+        </motion.div>
+
+        <motion.div
+          variants={staggerContainer}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.1 }}
+          className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8"
+        >
+          {features.map((f, i) => (
+            <motion.div
+              key={i}
+              variants={staggerContainer}
+              custom={i}
+              className="group relative p-6 lg:p-8 rounded-2xl bg-white border border-slate-200 hover:border-cyan-200 hover:shadow-xl hover:shadow-cyan-500/5 transition-all duration-300"
+            >
+              <div
+                className={`w-12 h-12 rounded-xl bg-gradient-to-br ${f.color} flex items-center justify-center mb-5 shadow-lg shadow-cyan-500/10 group-hover:scale-110 transition-transform`}
+              >
+                <f.icon className="w-5 h-5 text-white" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 mb-2">{f.title}</h3>
+              <p className="text-slate-600 text-sm leading-relaxed">{f.desc}</p>
+            </motion.div>
+          ))}
+        </motion.div>
+      </div>
+    </section>
+  )
 }
 
-    const logoutLine = async (lineId: string) => {
-  const ok = await askConfirm({
-    title: "Desconectar línea",
-    description: "¿Seguro que querés desconectar esta línea de WhatsApp? Tendrás que escanear el QR nuevamente para reconectar.",
-    confirmText: "Desconectar",
-    cancelText: "Cancelar",
-    variant: "warning",
-  })
-  if (!ok) return
-  try {
-    const token = localStorage.getItem('mb_token') || ''
-    const res = await fetch("/api/lineas/logout", {
-      method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ lineId }),
+function SelfHosted() {
+  return (
+    <section className="py-24 lg:py-32 bg-slate-50/50 overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+          {/* Texto */}
+          <motion.div
+            initial={{ opacity: 0, x: -40 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 0.7 }}
+          >
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-50 text-cyan-700 text-xs font-bold uppercase tracking-wide">
+              <Globe className="w-3.5 h-3.5" />
+              Infraestructura
+            </span>
+            <h2 className="mt-6 text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 leading-tight">
+              Tu dominio.{" "}
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-600">
+                Tu marca.
+              </span>{" "}
+              Nuestro motor.
+            </h2>
+            <p className="mt-6 text-lg text-slate-600 leading-relaxed">
+              Instalá WabiSend en tu propio servidor con el dominio que elijas. Tus clientes ven tu nombre,
+              tu logo y tu identidad. Pero detrás del volante siempre está la potencia certificada de WabiSend.
+            </p>
+
+            <ul className="mt-8 space-y-4">
+              {[
+                { icon: Globe, text: "Dominio propio: app.tuempresa.com" },
+                { icon: Layers, text: "Logo y colores de tu marca" },
+                { icon: Lock, text: "Tus datos en tu base de datos" },
+                { icon: Sparkles, text: "Badge 'Powered by WabiSend' discreto y profesional" },
+              ].map((item, i) => (
+                <motion.li
+                  key={i}
+                  initial={{ opacity: 0, x: -20 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.1 * i }}
+                  className="flex items-start gap-3"
+                >
+                  <div className="w-6 h-6 rounded-full bg-cyan-100 flex items-center justify-center shrink-0 mt-0.5">
+                    <item.icon className="w-3.5 h-3.5 text-cyan-600" />
+                  </div>
+                  <span className="text-slate-700">{item.text}</span>
+                </motion.li>
+              ))}
+            </ul>
+          </motion.div>
+
+          {/* Visual: Browser mockup */}
+          <motion.div
+            initial={{ opacity: 0, x: 40 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 0.7 }}
+            className="relative"
+          >
+            <div className="absolute -inset-6 bg-gradient-to-r from-indigo-500/10 via-violet-500/10 to-fuchsia-500/10 rounded-3xl blur-2xl" />
+
+            {/* Browser frame */}
+            <div className="relative bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden">
+              {/* Browser header */}
+              <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
+                <div className="flex gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-red-400" />
+                  <div className="w-3 h-3 rounded-full bg-amber-400" />
+                  <div className="w-3 h-3 rounded-full bg-emerald-400" />
+                </div>
+                <div className="flex-1 mx-4">
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs text-slate-500">
+                    <Lock className="w-3 h-3" />
+                    app.tuempresa.com
+                  </div>
+                </div>
+              </div>
+
+              {/* Fake dashboard content */}
+              <div className="p-6 bg-white relative">
+                {/* Header fake */}
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-slate-800" />
+                    <span className="font-bold text-slate-900 text-sm">Tu Empresa</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="w-8 h-8 rounded-full bg-slate-100" />
+                    <div className="w-8 h-8 rounded-full bg-slate-100" />
+                  </div>
+                </div>
+
+                {/* Stats fake */}
+                <div className="grid grid-cols-3 gap-3 mb-6">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                      <div className="w-8 h-2 rounded bg-slate-200 mb-2" />
+                      <div className="w-16 h-4 rounded bg-slate-300" />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Chart fake */}
+                <div className="h-24 rounded-xl bg-slate-50 border border-slate-100 mb-6 flex items-end gap-1 px-4 pb-4">
+                  {[40, 65, 45, 80, 55, 90, 70].map((h, i) => (
+                    <div
+                      key={i}
+                      className="flex-1 rounded-t bg-gradient-to-t from-indigo-400 to-violet-400 opacity-60"
+                      style={{ height: `${h}%` }}
+                    />
+                  ))}
+                </div>
+
+                {/* Watermark WabiSend */}
+                <div className="absolute bottom-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/5 border border-slate-900/10">
+                  <div className="w-4 h-4 rounded bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
+                    <Send className="w-2 h-2 text-white" />
+                  </div>
+                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                    Powered by WabiSend
+                  </span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+
+
+
+function DemoSection() {
+  return (
+    <section id="demo" className="py-24 lg:py-32 bg-slate-900 text-white overflow-hidden relative">
+      {/* Background */}
+      <div className="absolute inset-0 -z-10">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-cyan-600/20 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-0 w-96 h-96 bg-sky-600/20 rounded-full blur-3xl" />
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+          <motion.div
+            initial={{ opacity: 0, x: -40 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, amount: 0.1 }}
+            transition={{ duration: 0.7 }}
+          >
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-cyan-300 text-xs font-bold uppercase tracking-wide border border-white/10">
+              <Play className="w-3.5 h-3.5" />
+              Probá antes de comprar
+            </span>
+            <h2 className="mt-6 text-3xl sm:text-4xl lg:text-5xl font-extrabold leading-tight">
+              No te quedes con la duda.{" "}
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-violet-400">
+                Probalo ahora.
+              </span>
+            </h2>
+            <p className="mt-6 text-lg text-slate-300 leading-relaxed">
+              Accedé al modo demo y manejá campañas, contactos y reportes con datos reales de
+              prueba. Sentí la velocidad. Ves la potencia. Después decidís.
+            </p>
+
+            <ul className="mt-8 space-y-4">
+              {[
+                "Dashboard completo con métricas en vivo",
+                "Simulación de envío masivo sin riesgo",
+                "Reportes de entrega, apertura y respuesta",
+                "Cero configuración. Cero compromiso.",
+              ].map((item, i) => (
+                <li key={i} className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  </div>
+                  <span className="text-slate-300">{item}</span>
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-10">
+              <Link
+                href="/demo"
+                className="group inline-flex items-center gap-2 px-8 py-4 rounded-full bg-white text-slate-900 font-semibold hover:bg-cyan-50 transition-colors shadow-xl"
+              >
+                Ingresar a DEMO
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
+          </motion.div>
+
+          {/* Mockup phone + desktop side by side */}
+          {/* Mockup phone + desktop side by side */}
+<motion.div
+  initial={{ opacity: 0, x: 40 }}
+  whileInView={{ opacity: 1, x: 0 }}
+  viewport={{ once: true, amount: 0.1 }}
+  transition={{ duration: 0.7 }}
+  className="relative"
+>
+  <div className="relative">
+    <div className="absolute -inset-8 bg-gradient-to-r from-cyan-500/20 to-violet-500/20 rounded-3xl blur-2xl" />
+
+    {/* Desktop mini mockup */}
+    <div className="relative bg-slate-800 rounded-2xl p-3 shadow-2xl border border-slate-700">
+      <div className="flex items-center gap-2 px-2 pb-2">
+        <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
+        <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+        <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+      </div>
+      <div className="bg-slate-900 rounded-lg aspect-video overflow-hidden aspect-[2.2/1]">
+        <img
+        
+          src="/images/mockup_2.png"
+          alt="Demo WabiSend Desktop"
+
+          className="w-full h-full object-cover "
+        />
+      </div>
+    </div>
+
+    {/* Phone mockup overlapping */}
+    <div className="absolute -bottom-8 -right-4 w-32 sm:w-40">
+      <div className="bg-slate-800 rounded-[1.5rem] p-2 shadow-2xl border border-slate-700">
+        <div className="bg-slate-900 rounded-[1.2rem] aspect-[9/16] overflow-hidden">
+          <img
+            src="/images/mockup_3.png"
+            alt="Demo WabiSend Mobile"
+            className="w-full h-full object-cover"
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+</motion.div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function Pricing() {
+  const plans = [
+    {
+      name: "Starter",
+      price: "$500",
+      desc: "Perfecto para emprendedores y equipos pequeños que quieren empezar a escalar.",
+      features: [
+        "1 licencia de por vida",
+        "Hasta 3 líneas de WhatsApp",
+        "Envíos masivos ilimitados",
+        "Spintax básico",
+        "Reportes estándar",
+        "Soporte por email",
+        "Actualizaciones 6 meses",
+      ],
+      cta: "Comprar Starter",
+      popular: false,
+    },
+    {
+      name: "Pro",
+      price: "$750",
+      desc: "Para agencias y equipos de ventas que necesitan potencia total sin techo.",
+      features: [
+        "1 licencia de por vida",
+        "Líneas de WhatsApp ilimitadas",
+        "Envíos masivos ilimitados",
+        "Spintax avanzado + variables",
+        "Programación de campañas",
+        "Reportes avanzados + export",
+        "Soporte prioritario WhatsApp",
+        "Actualizaciones de por vida",
+        "Multi-usuario (próximamente)",
+      ],
+      cta: "Comprar Pro",
+      popular: true,
+    },
+    {
+      name: "Business",
+      price: "$1.290",
+      desc: "Para agencias, resellers y equipos que venden el servicio a terceros. Sin techo.",
+      features: [
+        "Todo lo de Pro",
+        "Agentes / usuarios ilimitados",
+        "API pública + Webhooks",
+        "White-label completo",
+        "Blacklist global + Whitelist",
+        "Backup automático diario",
+        "IA para generar mensajes",
+        "Soporte 1-a-1 dedicado",
+        "Acceso anticipado a betas",
+        "Instalación remota incluida",
+      ],
+      cta: "Hablar con ventas",
+      popular: false,
+      highlight: true,
+    },
+  ]
+
+  return (
+    <section id="pricing" className="py-24 lg:py-32 bg-slate-50/50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.1 }}
+          className="text-center max-w-3xl mx-auto mb-16"
+        >
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold uppercase tracking-wide">
+            <CreditCard className="w-3.5 h-3.5" />
+            Precios
+          </span>
+          <h2 className="mt-4 text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900">
+            Pagás una vez. Usás para siempre.
+          </h2>
+          <p className="mt-4 text-lg text-slate-600">
+            Sin suscripciones mensuales. Sin sorpresas en la tarjeta. Sin que te corten el servicio
+            si no pagás a tiempo. WabiSend es tuyo.
+          </p>
+        </motion.div>
+
+        <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto items-start">
+          {plans.map((plan, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.1 }}
+              transition={{ delay: i * 0.12 }}
+              className={`relative rounded-2xl p-8 lg:p-10 ${
+                plan.highlight
+                  ? "bg-gradient-to-b from-slate-900 to-slate-800 border-2 border-cyan-500 shadow-xl shadow-cyan-500/10 text-white"
+                  : plan.popular
+                  ? "bg-white border-2 border-cyan-500 shadow-xl shadow-cyan-500/10"
+                  : "bg-white border border-slate-200"
+              }`}
+            >
+              {/* Badge */}
+              {plan.popular && (
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                  <span className="inline-flex items-center gap-1 px-4 py-1.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-xs font-bold shadow-lg">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Más elegido
+                  </span>
+                </div>
+              )}
+              {plan.highlight && (
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                  <span className="inline-flex items-center gap-1 px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold shadow-lg">
+                    <Zap className="w-3.5 h-3.5" />
+                    Sin techo
+                  </span>
+                </div>
+              )}
+
+              <div className="mb-6">
+                <h3 className={`text-xl font-bold ${plan.highlight ? "text-white" : "text-slate-900"}`}>
+                  {plan.name}
+                </h3>
+                <p className={`mt-2 text-sm ${plan.highlight ? "text-slate-300" : "text-slate-500"}`}>
+                  {plan.desc}
+                </p>
+              </div>
+
+              <div className="mb-8">
+                <span className={`text-4xl lg:text-5xl font-extrabold ${plan.highlight ? "text-white" : "text-slate-900"}`}>
+                  {plan.price}
+                </span>
+                <span className={`ml-2 ${plan.highlight ? "text-slate-400" : "text-slate-500"}`}>USD</span>
+                <p className={`text-sm mt-1 ${plan.highlight ? "text-slate-400" : "text-slate-400"}`}>
+                  Pago único. Sin mensualidades.
+                </p>
+              </div>
+
+              <ul className="space-y-3 mb-8">
+                {plan.features.map((f, j) => (
+                  <li key={j} className="flex items-start gap-3">
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                      plan.highlight ? "bg-emerald-500/20" : "bg-emerald-50"
+                    }`}>
+                      <Check className={`w-3 h-3 ${plan.highlight ? "text-emerald-400" : "text-emerald-600"}`} />
+                    </div>
+                    <span className={`text-sm ${plan.highlight ? "text-slate-300" : "text-slate-700"}`}>{f}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                className={`w-full py-3.5 rounded-xl font-semibold text-sm transition-all ${
+                  plan.highlight
+                    ? "bg-white text-slate-900 hover:bg-cyan-50 shadow-lg"
+                    : plan.popular
+                    ? "bg-slate-900 text-white hover:bg-slate-800 shadow-lg shadow-slate-900/20"
+                    : "bg-slate-100 text-slate-900 hover:bg-slate-200"
+                }`}
+              >
+                {plan.cta}
+              </button>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Trust note */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true, amount: 0.1 }}
+          className="mt-12 text-center"
+        >
+          <p className="text-sm text-slate-500 inline-flex items-center gap-2 flex-wrap justify-center">
+            <Lock className="w-4 h-4 text-slate-400" />
+            Pagos procesados de forma segura. Licencia vinculada a tu dominio.
+            <HelpCircle className="w-4 h-4 text-slate-400" />
+          </p>
+        </motion.div>
+      </div>
+    </section>
+  )
+}
+
+function Testimonials() {
+  const testimonials = [
+    {
+      name: "Martín R. Aguirre",
+      role: "Dueño de agencia digital",
+      text: "Pasamos de pagar $400 mensuales en una plataforma que nos limitaba a tener WabiSend instalado en nuestro servidor. En dos meses ya recuperamos la inversión y ahora enviamos sin miedo.",
+      rating: 5,
+    },
+    {
+      name: "Luciana Fernández",
+      role: "E-commerce de indumentaria",
+      text: "La programación de campañas cambió mi negocio. Armo todo un domingo y la semana se envía sola. Los reportes me dicen exactamente quién abrió y quién respondió.",
+      rating: 5,
+    },
+    {
+      name: "Diego Castellanos",
+      role: "Consultor inmobiliario",
+      text: "Tenía una base de 8.000 contactos y ninguna herramienta me dejaba importarlos sin cobrarme extra. Con WabiSend los subí en 5 minutos y empecé a convertir el mismo día.",
+      rating: 5,
+    },
+    {
+      name: "Carolina Méndez",
+      role: "Marketing Lead en SaaS",
+      text: "El spintax avanzado es una locura. Nuestros mensajes no se repiten y la tasa de respuesta subió un 40%. Además, mis datos están en MI base de datos. Eso no tiene precio.",
+      rating: 5,
+    },
+    {
+      name: "Juan Pablo Sosa",
+      role: "Emprendedor en cripto",
+      text: "Probé 4 herramientas antes de WabiSend. Todas me pedían suscripción y terminaban bloqueándome. Acá controlo todo yo. La licencia ilimitada es real.",
+      rating: 5,
+    },
+    {
+      name: "Valentina Ríos",
+      role: "Coach de negocios",
+      text: "Enviar recordatorios de webinars a 3.000 personas usaba toda mi tarde. Ahora lo programo en 10 minutos y me dedico a lo que realmente importa: vender.",
+      rating: 5,
+    },
+  ]
+
+  const [current, setCurrent] = useState(0)
+  const total = testimonials.length
+
+  const next = () => setCurrent((c) => (c + 1) % total)
+  const prev = () => setCurrent((c) => (c - 1 + total) % total)
+
+  useEffect(() => {
+    const timer = setInterval(next, 6000)
+    return () => clearInterval(timer)
+  }, [])
+
+  return (
+    <section className="py-24 lg:py-32">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.1 }}
+          className="text-center max-w-3xl mx-auto mb-16"
+        >
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-bold uppercase tracking-wide">
+            <MessageSquare className="w-3.5 h-3.5" />
+            Opiniones
+          </span>
+          <h2 className="mt-4 text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900">
+            Lo que dicen los que ya lo usan
+          </h2>
+          <p className="mt-4 text-lg text-slate-600">
+            No nos creas a nosotros. Creéle a quienes dejaron de perder plata en plataformas
+            caras y limitadas.
+          </p>
+        </motion.div>
+
+        <div className="relative max-w-4xl mx-auto">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={current}
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
+              transition={{ duration: 0.4 }}
+              className="bg-white rounded-2xl border border-slate-200 p-8 lg:p-12 shadow-xl shadow-slate-900/5"
+            >
+              <div className="flex gap-1 mb-6">
+                {Array.from({ length: testimonials[current].rating }).map((_, i) => (
+                  <svg key={i} className="w-5 h-5 text-amber-400 fill-current" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                ))}
+              </div>
+              <p className="text-xl lg:text-2xl text-slate-800 font-medium leading-relaxed">
+                "{testimonials[current].text}"
+              </p>
+              <div className="mt-8 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white font-bold text-lg">
+                  {testimonials[current].name.charAt(0)}
+                </div>
+                <div>
+                  <p className="font-bold text-slate-900">{testimonials[current].name}</p>
+                  <p className="text-sm text-slate-500">{testimonials[current].role}</p>
+                </div>
+              </div>
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Controls */}
+          <div className="flex items-center justify-center gap-4 mt-8">
+            <button
+              onClick={prev}
+              className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <div className="flex gap-2">
+              {testimonials.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrent(i)}
+                  className={`w-2.5 h-2.5 rounded-full transition-all ${
+                    i === current ? "bg-cyan-600 w-8" : "bg-slate-300"
+                  }`}
+                />
+              ))}
+            </div>
+            <button
+              onClick={next}
+              className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function FAQ() {
+  const faqs = [
+    {
+      q: "¿WabiSend es una suscripción mensual?",
+      a: "No. WabiSend funciona con licencia de pago único. Comprás una vez y usás el software para siempre en tu propio servidor. No hay cargos mensuales ocultos ni límites de uso.",
+    },
+    {
+      q: "¿Dónde se guardan mis contactos y datos?",
+      a: "En TU base de datos. WabiSend se instala en tu infraestructura (VPS, Railway, o el servidor que prefieras). Tus datos nunca pasan por nuestros servidores. Tenés control total, privacidad absoluta y cero dependencia de terceros.",
+    },
+    {
+      q: "¿Cuántos mensajes puedo enviar por mes?",
+      a: "Ilimitados. La única restricción es la capacidad de tus líneas de WhatsApp y los límites propios de WhatsApp. WabiSend no te pone techo. Enviá 1.000 o 1.000.000, es lo mismo para nosotros.",
+    },
+    {
+      q: "¿Necesito saber programar para usarlo?",
+      a: "No. La interfaz es 100% visual. Conectás tu línea escaneando un QR, subís tus contactos por CSV, escribís el mensaje y enviás. Si sabés programar, podés personalizar aún más. Si no, funciona igual.",
+    },
+    {
+      q: "¿Qué pasa si WhatsApp me bloquea el número?",
+      a: "WabiSend incluye recomendaciones de uso seguro, delays configurables entre mensajes, spintax para variar el contenido y rotación de líneas. Seguí las buenas prácticas y el riesgo se minimiza drásticamente. De todos modos, siempre podés conectar una nueva línea en minutos.",
+    },
+    {
+      q: "¿Puedo usar WabiSend en varios equipos?",
+      a: "Sí. Al ser web-based, accedés desde cualquier navegador. La licencia está vinculada a tu dominio, no a un dispositivo. Tu equipo completo puede trabajar simultáneamente.",
+    },
+    {
+      q: "¿Qué costos de mantenimiento tengo?",
+      a: "Solo los de tu servidor y base de datos. Con Railway + Neon, estamos hablando de menos de $10 mensuales para operar a gran escala. Comparado con las suscripciones de la competencia, es ridículo.",
+    },
+    {
+      q: "¿Incluye actualizaciones?",
+      a: "El plan Pro incluye actualizaciones de por vida. El plan Starter incluye 6 meses. Después podés renovar el plan de actualizaciones o quedarte con la versión que tenés.",
+    },
+  ]
+
+  const [open, setOpen] = useState<number | null>(0)
+
+  return (
+    <section id="faq" className="py-24 lg:py-32 bg-slate-50/50">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.1 }}
+          className="text-center mb-16"
+        >
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-50 text-violet-700 text-xs font-bold uppercase tracking-wide">
+            <HelpCircle className="w-3.5 h-3.5" />
+            Preguntas frecuentes
+          </span>
+          <h2 className="mt-4 text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900">
+            Sacate las dudas de una vez
+          </h2>
+          <p className="mt-4 text-lg text-slate-600">
+            Si no encontrás lo que buscás, escribinos por WhatsApp y te respondemos al instante.
+          </p>
+        </motion.div>
+
+        <motion.div
+          variants={staggerContainer}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.1 }}
+          className="space-y-4"
+        >
+          {faqs.map((faq, i) => (
+            <motion.div
+              key={i}
+              variants={staggerContainer}
+              className="bg-white rounded-xl border border-slate-200 overflow-hidden"
+            >
+              <button
+                onClick={() => setOpen(open === i ? null : i)}
+                className="w-full flex items-center justify-between p-5 lg:p-6 text-left"
+              >
+                <span className="font-semibold text-slate-900 pr-4">{faq.q}</span>
+                <ChevronDown
+                  className={`w-5 h-5 text-slate-400 shrink-0 transition-transform ${
+                    open === i ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+              <AnimatePresence>
+                {open === i && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="px-5 lg:px-6 pb-5 lg:pb-6 text-slate-600 leading-relaxed">
+                      {faq.a}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          ))}
+        </motion.div>
+      </div>
+    </section>
+  )
+}
+
+function CTAFinal() {
+  return (
+    <section className="py-24 lg:py-32">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.1 }}
+          className="relative rounded-3xl overflow-hidden bg-slate-900 text-white text-center p-10 lg:p-16"
+        >
+          {/* Background */}
+          <div className="absolute inset-0 -z-10">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-cyan-600/30 rounded-full blur-3xl" />
+            <div className="absolute bottom-0 right-0 w-64 h-64 bg-sky-600/30 rounded-full blur-3xl" />
+          </div>
+
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold">
+            Dejá de pagar alquiler por tu propia herramienta
+          </h2>
+          <p className="mt-6 text-lg text-slate-300 max-w-2xl mx-auto">
+            Cada mes que pasás pagando suscripciones, estás regalando plata. WabiSend se paga una vez
+            y empieza a generar retorno desde el primer envío masivo.
+          </p>
+
+          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link
+              href="#pricing"
+              className="group inline-flex items-center gap-2 px-8 py-4 rounded-full bg-white text-slate-900 font-semibold hover:bg-cyan-50 transition-colors shadow-xl"
+            >
+              Conocer WabiSend
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </Link>
+            <Link
+              href="/demo"
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-white/10 text-white font-semibold border border-white/20 hover:bg-white/20 transition-colors"
+            >
+              <Play className="w-4 h-4" />
+              Probar DEMO
+            </Link>
+          </div>
+
+          <p className="mt-6 text-sm text-slate-400 flex items-center justify-center gap-2">
+            <ShieldCheck className="w-4 h-4" />
+            Garantía de satisfacción 7 días. Si no te convence, te devolvemos el 100%.
+          </p>
+        </motion.div>
+      </div>
+    </section>
+  )
+}
+
+function Footer() {
+  const columns = [
+    {
+      title: "Producto",
+      links: [
+        { label: "Funciones", href: "#features" },
+        { label: "Demo", href: "/demo" },
+        { label: "Precios", href: "#pricing" },
+        { label: "Roadmap", href: "#" },
+      ],
+    },
+    {
+      title: "Recursos",
+      links: [
+        { label: "Documentación", href: "#" },
+        { label: "Guía de inicio", href: "#" },
+        { label: "Blog", href: "#" },
+        { label: "Changelog", href: "#" },
+      ],
+    },
+    {
+      title: "Legal",
+      links: [
+        { label: "Términos del servicio", href: "#" },
+        { label: "Política de privacidad", href: "#" },
+        { label: "Licencia de uso", href: "#" },
+        { label: "Venta no autorizada", href: "#" },
+      ],
+    },
+    {
+      title: "Soporte",
+      links: [
+        { label: "Centro de ayuda", href: "#" },
+        { label: "Contacto", href: "#" },
+        { label: "WhatsApp", href: "#" },
+        { label: "Status", href: "#" },
+      ],
+    },
+  ]
+
+  return (
+    <footer className="bg-slate-900 text-slate-400 py-16 lg:py-20 border-t border-slate-800">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-6 gap-10 lg:gap-8">
+          {/* Brand */}
+          <div className="lg:col-span-2">
+            <Link href="/" className="flex items-center gap-2 group">
+  <img 
+    src="/images/logo_light.png" 
+    alt="WabiSend" 
+    className="h-12 w-auto"
+  />
+</Link>
+            <p className="text-sm leading-relaxed max-w-xs">
+              Plataforma de envío masivo por WhatsApp con licencia ilimitada. Control total de
+              tus datos. Sin suscripciones mensuales.
+            </p>
+            <div className="mt-6 flex items-center gap-4">
+              <a href="#" className="hover:text-white transition-colors">
+                <Globe className="w-5 h-5" />
+              </a>
+              <a href="#" className="hover:text-white transition-colors">
+                <MessageCircle className="w-5 h-5" />
+              </a>
+              <a href="#" className="hover:text-white transition-colors">
+                <Mail className="w-5 h-5" />
+              </a>
+            </div>
+          </div>
+
+          {/* Links */}
+          {columns.map((col, i) => (
+            <div key={i}>
+              <h4 className="text-sm font-bold text-white uppercase tracking-wider mb-4">
+                {col.title}
+              </h4>
+              <ul className="space-y-3">
+                {col.links.map((link, j) => (
+                  <li key={j}>
+                    <a
+                      href={link.href}
+                      className="text-sm hover:text-white transition-colors"
+                    >
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-16 pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-xs">
+            &copy; {new Date().getFullYear()} WabiSend. Todos los derechos reservados.
+          </p>
+          <div className="flex items-center gap-6 text-xs">
+            <a href="#" className="hover:text-white transition-colors">
+              Términos
+            </a>
+            <a href="#" className="hover:text-white transition-colors">
+              Privacidad
+            </a>
+            <a href="#" className="hover:text-white transition-colors">
+              Cookies
+            </a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  )
+}
+
+function WhatsAppFloat() {
+
+    const getWhatsAppLink = () => {
+  const ref = typeof window !== 'undefined' ? localStorage.getItem("wabisend_ref") : null
+  const base = "https://wa.me/5490000000000?text="
+  if (ref) {
+    return base + encodeURIComponent(`Hola, quiero WabiSend. Me enviaron con el código: ${ref}`)
+  }
+  return base + encodeURIComponent("Hola, quiero saber más sobre WabiSend")
+}
+
+ useEffect(() => {
+  const params = new URLSearchParams(window.location.search)
+  const ref = params.get("ref")
+  
+  if (ref) {
+    localStorage.setItem("wabisend_ref", ref)
+    
+    // 🔒 Anti-duplicado: solo trackear una vez por sesión
+    const trackedKey = `wabisend_tracked_${ref}`
+    if (sessionStorage.getItem(trackedKey)) return
+    
+    sessionStorage.setItem(trackedKey, "1")
+    
+    fetch(`https://old-bar-56fe.cursosluckylabmarketing.workers.dev/track?ref=${ref}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" }
     })
-    if (res.ok) {
-      fetchLines()
-      if (selectedLine?.id === lineId) setSelectedLine(null)
-      toast.success("Línea desconectada")
-    } else {
-      toast.error("Error al desconectar")
-    }
-  } catch {
-    toast.error("Error de red")
-  }
-}
-
-  const sendCampaign = async () => {
-    
-  if (!selectedLine) return toast.error("Seleccioná una línea primero")
-  if (selectedLine.status !== "CONECTADA") return toast.error("La línea seleccionada no está conectada")
-  
-  const rawNumbers = numbersText.split("\n").map(n => n.trim()).filter(Boolean)
-  const targets = rawNumbers.map(n => ({ phone: n.replace(/\D/g, ""), name: "" }))
-  if (targets.length === 0) return toast.error("No hay números válidos")
-
-  setIsSending(true)
-  setLogs(prev => [...prev, `🚀 ${scheduleMode === 'now' ? 'Campaña iniciada' : 'Campaña guardada'}: ${targets.length} números`])
-
-  try {
-    const res = await fetch("/api/campaigns", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        lineId: selectedLine.id,
-        targets,
-        message,
-        imageUrl: imageUrl || undefined,
-        delayMin,
-        distribution_mode: distributionMode,
-        selected_lines: selectedLineIds, // Array de UUIDs
-        delayMax,
-        name: campaignName.trim() || undefined,
-        schedule: scheduleMode
-      }),
+    .then(res => res.json())
+    .then(data => {
+      console.log("Track affiliate:", data)
     })
-    const data = await res.json()
-    if (data.success) {
-      if (scheduleMode === 'pending') {
-        toast.success("Campaña guardada en espera")
-        setLogs(prev => [...prev, `⏸️ Campaña ${data.campaignId} guardada para ejecutar después`])
-      } else {
-        setLogs(prev => [...prev, `✅ Campaña ${data.campaignId} | Total: ${data.total}`])
-        toast.success(`Campaña iniciada: ${data.total} números`)
-      }
-      setActiveTab("logs")
-    } else {
-      setLogs(prev => [...prev, `❌ Error: ${data.error}`])
-      toast.error(data.error || "Error en campaña")
-    }
-  } catch {
-    setLogs(prev => [...prev, `❌ Error de red`])
-    toast.error("Error de red")
-  } finally {
-    setIsSending(false)
-  }
-}
-
-const extractNumbersFromSheet = (data: any[][]): string[] => {
-  const numbers: string[] = []
-  data.forEach((row: any[]) => {
-    row.forEach((cell: any) => {
-      const str = String(cell || '').trim()
-      // Buscar números de teléfono: mínimo 8 dígitos, opcional +
-      const cleaned = str.replace(/\D/g, '')
-      if (cleaned.length >= 8) numbers.push(cleaned)
+    .catch(err => {
+      console.error("Track error:", err)
     })
-  })
-  return [...new Set(numbers)] // eliminar duplicados
-}
-
-const handleNumberFile = (file: File) => {
-  if (!file) return
-  setImportLoading(true)
-  setImportProgress(0)
-
-  const reader = new FileReader()
-  let progress = 0
-  const interval = setInterval(() => {
-    progress += Math.random() * 12
-    setImportProgress(Math.min(progress, 85))
-  }, 150)
-
-  reader.onload = (e) => {
-    clearInterval(interval)
-    setImportProgress(100)
-    
-    const buffer = e.target?.result
-    let numbers: string[] = []
-
-    try {
-      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-        const XLSX = require('xlsx')
-        const workbook = XLSX.read(buffer, { type: 'array' })
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
-        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 })
-        numbers = extractNumbersFromSheet(jsonData as any[][])
-      } else {
-        // CSV o TXT
-        const text = String(buffer || '')
-        const raw = text.split(/[\n\r,\s\t;]+/).map(n => n.trim()).filter(Boolean)
-        numbers = raw.map(n => n.replace(/\D/g, '')).filter(n => n.length >= 8)
-        numbers = [...new Set(numbers)]
-      }
-    } catch (err) {
-      console.error('Error parseando archivo:', err)
-      toast.error('Error leyendo el archivo. Asegurate de que sea un formato válido.')
-      setImportLoading(false)
-      return
-    }
-
-    setTimeout(() => {
-      setImportedCount(numbers.length)
-      setPreviewNumbers(numbers.slice(0, 20))
-      setPendingNumbers(numbers)
-      setImportLoading(false)
-      setImportProgress(0)
-      
-      if (numbers.length === 0) {
-        toast.error('No se encontraron números válidos en el archivo')
-      }
-    }, 400)
-  }
-
-  reader.onerror = () => {
-    clearInterval(interval)
-    setImportLoading(false)
-    toast.error('Error leyendo el archivo')
-  }
-
-  if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-    reader.readAsArrayBuffer(file)
-  } else {
-    reader.readAsText(file)
-  }
-}
-
-const confirmImportNumbers = () => {
-  if (pendingNumbers.length === 0) return
-  
-  const current = numbersText.split("\n").map(n => n.trim()).filter(Boolean)
-  const merged = [...new Set([...current, ...pendingNumbers])]
-  setNumbersText(merged.join("\n"))
-  
-  toast.success(`${pendingNumbers.length} números agregados a la campaña`)
-  setShowImportNumbers(false)
-  setImportedCount(0)
-  setPreviewNumbers([])
-  setPendingNumbers([])
-}
-
-const handleImportNumbers = (text: string) => {
-  const raw = text.split(/[\n,\s;]+/).map(n => n.trim()).filter(Boolean)
-  const cleaned = raw.map(n => n.replace(/\D/g, '')).filter(n => n.length >= 8)
-  const unique = [...new Set(cleaned)]
-  
-  if (unique.length === 0) {
-    toast.error("No se encontraron números válidos")
-    return
-  }
-  
-  setImportedCount(unique.length)
-  setPreviewNumbers(unique.slice(0, 20))
-  setPendingNumbers(unique)
-}
-
-const onDrag = (e: React.DragEvent) => {
-  e.preventDefault()
-  e.stopPropagation()
-  if (e.type === "dragenter" || e.type === "dragover") setDragActive(true)
-  else if (e.type === "dragleave") setDragActive(false)
-}
-
-const onDrop = (e: React.DragEvent) => {
-  e.preventDefault()
-  e.stopPropagation()
-  setDragActive(false)
-  if (e.dataTransfer.files?.[0]) handleNumberFile(e.dataTransfer.files[0])
-}
-
-const verifyNumbers = (text: string) => {
-  const raw = text.split("\n").map(n => n.trim()).filter(Boolean)
-  const cleaned = raw.map(n => n.replace(/\D/g, '')).filter(n => n.length >= 8)
-  
-  const seen = new Map<string, number>()
-  cleaned.forEach(n => seen.set(n, (seen.get(n) || 0) + 1))
-  
-  const dups = Array.from(seen.entries())
-    .filter(([_, count]) => count > 1)
-    .map(([num]) => num)
-  
-  setDuplicateNumbers(dups)
-  setIsVerifying(false)
-}
-
-useEffect(() => {
-  if (verifyTimeout) clearTimeout(verifyTimeout)
-  
-  const raw = numbersText.trim()
-  if (!raw) {
-    setDuplicateNumbers([])
-    setIsVerifying(false)
-    return
-  }
-  
-  setIsVerifying(true)
-  const t = setTimeout(() => verifyNumbers(raw), 3000)
-  setVerifyTimeout(t)
-  
-  return () => clearTimeout(t)
-}, [numbersText])
-
-
-
-const removeAllDuplicates = () => {
-  const raw = numbersText.split("\n").map(n => n.trim()).filter(Boolean)
-  const seen = new Set<string>()
-  const cleaned: string[] = []
-  
-  raw.forEach(n => {
-    const clean = n.replace(/\D/g, '')
-    if (!seen.has(clean)) {
-      seen.add(clean)
-      cleaned.push(n) // mantenemos formato original
-    }
-  })
-  
-  setNumbersText(cleaned.join("\n"))
-  setDuplicateNumbers([]) // limpiar inmediatamente
-  toast.success(`${raw.length - cleaned.length} duplicados eliminados. ${cleaned.length} únicos restantes.`)
-}
-
-const removeSpecificNumber = (phoneToRemove: string) => {
-  const raw = numbersText.split("\n").map(n => n.trim()).filter(Boolean)
-  const cleaned = raw.filter(n => n.replace(/\D/g, '') !== phoneToRemove)
-  setNumbersText(cleaned.join("\n"))
-}
-
-
-    const statusColor = (status: string) => {
-        if (status === "CONECTADA") return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-        if (status === "PENDING") return "bg-amber-500/10 text-amber-400 border-amber-500/30"
-        return "bg-red-500/10 text-red-400 border-red-500/30"
-    }
-
-    const statusDot = (status: string) => {
-        if (status === "CONECTADA") return "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]"
-        if (status === "PENDING") return "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]"
-        return "bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.5)]"
-    }
-
-useEffect(() => {
-  const cloned = localStorage.getItem('mb_clone_campaign')
-  if (!cloned) return
-  
-  try {
-    const data = JSON.parse(cloned)
-    console.log('🔄 Clonando campaña:', data)
-    localStorage.removeItem('mb_clone_campaign')
-    
-    setActiveTab('campaign')
-    setNumberSource('manual')
-    setMessage(data.message || '')
-    setImageUrl(data.image_url || '')
-    setCampaignName(data.name || '') // ← AHORA CON STATE
-    
-    if (data.targets && Array.isArray(data.targets) && data.targets.length > 0) {
-      const phones = data.targets.map((t: any) => t.phone).filter(Boolean).join('\n')
-      setNumbersText(phones)
-    } else {
-      setNumbersText('')
-    }
-    
-    toast.success('Campaña clonada. Editá y enviá cuando quieras.')
-  } catch (e) {
-    console.error('❌ Error cargando clone:', e)
   }
 }, [])
     
-    useEffect(() => {
-        if (licenseLoading || authLoading || !licenseChecked || !authChecked) return
-        if (!isActive) { 
-        router.push("/setup")
-        return 
-        }
-        if (!isAuthenticated) { 
-        router.push("/login")
-        return 
-        }
-    }, [licenseLoading, authLoading, licenseChecked, authChecked, isActive, isAuthenticated, router])
-
-    useEffect(() => {
-        if (isActive && isAuthenticated) fetchLines()
-    }, [isActive, isAuthenticated])
-
-    useEffect(() => {
-        if (!SOCKET_URL || !isActive) return
-        const socket = io(SOCKET_URL)
-        socket.on("connect", () => setSocketConnected(true))
-        socket.on("disconnect", () => setSocketConnected(false))
-        return () => { socket.disconnect() }
-    }, [isActive])
-
-    // Cargar contactos y tags cuando se necesiten para campaña
-    useEffect(() => {
-    if ((numberSource === "contacts" || numberSource === "tag") && isAuthenticated) {
-        fetch("/api/contacts", { 
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store" 
-        })
-        .then(r => r.json())
-        .then(data => setContactList(data.contacts || []))
-        .catch(() => {})
-        
-        fetch("/api/tags/stats", {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store"
-        })
-        .then(r => r.json())
-        .then(data => setTags(data.tags || []))
-        .catch(() => {})
-    }
-    }, [numberSource, isAuthenticated, token])
-
-    useEffect(() => {
-  if (!isAuthenticated) return
-  fetch("/api/templates", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" })
-    .then(r => r.json())
-    .then(data => setTemplates(data.templates || []))
-    .catch(() => {})
-}, [isAuthenticated, token])
-
-// Helper: insertar spintax en el textarea
-const insertSpintax = (type: 'saludo' | 'despedida' | 'emoji' | 'nombre') => {
-  const presets: Record<string, string> = {
-    saludo: "{{Hola|Buenas|Hey|Qué tal|Saludos}}",
-    despedida: "{{Saludos|Un abrazo|Atentamente|Gracias|Nos vemos}}",
-    emoji: "{{👋|✨|🚀|💪|🔥|👍|🎯}}",
-    nombre: "{{nombre|amigo|cliente|crack}}"
-  }
-  setMessage(prev => prev ? `${prev} ${presets[type]}` : presets[type])
-}
-
-const copyMessage = async () => {
-  if (!message) return
-  await navigator.clipboard.writeText(message)
-  toast.success("Mensaje copiado")
-}
-
-        if (licenseLoading || authLoading || !licenseChecked || !authChecked) {
-        return (
-        <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
-            <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full" />
-        </div>
-        )
-    }
-    if (!isActive || !isAuthenticated) return null
-
-
-    if (!isAuthenticated) {
-        return (
-        <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col items-center justify-center gap-4">
-            <p className="text-[var(--text-secondary)]">Sesión expirada. Redirigiendo al login...</p>
-            <button 
-            onClick={() => router.push("/login")}
-            className="px-4 py-2 bg-blue-600 text-white rounded-xl"
-            >
-            Ir al login
-            </button>
-        </div>
-        )
-    }
-
-    if (!isActive) {
-        return (
-        <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col items-center justify-center gap-4">
-            <p className="text-[var(--text-secondary)]">Licencia requerida. Redirigiendo...</p>
-            <button 
-            onClick={() => router.push("/setup")}
-            className="px-4 py-2 bg-blue-600 text-white rounded-xl"
-            >
-            Activar licencia
-            </button>
-        </div>
-        )
-    }
-
-
-
-    const tabs = [
-        { id: "plan" as TabType, label: "Plan", icon: Activity },
-        { id: "lines" as TabType, label: "Líneas", icon: Users },
-        { id: "campaign" as TabType, label: "Campaña", icon: Send },
-        { id: "logs" as TabType, label: "Logs", icon: CheckCircle2 },
-    ]
-
-    return (
-        <div className="min-h-screen bg-[var(--bg-primary)] dark:bg-[var(--bg-primary)] bg-gray-50 text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900 flex">
-        <Sidebar onUpgrade={() => setShowUpgradeModal(true)} onSettings={() => setShowSettings(true)} />
-        
-        {/* Main content with sidebar offset */}
-        <div className="flex-1 min-w-0" style={{ marginLeft: 'var(--sidebar-width)', transition: 'margin-left 0.3s ease' }}>
-            
-            {/* Header */}
-            <header className="h-16 bg-[var(--bg-card)]/60 dark:bg-[var(--bg-card)]/60 bg-white/80 backdrop-blur-md border-b border-[var(--border-color)]/60 dark:border-[var(--border-color)]/60 border-gray-200 flex items-center justify-between px-6 sticky top-0 z-30">
-            <div className="flex items-center gap-4">
-                <div className={`h-2 w-2 rounded-full animate-pulse ${socketConnected ? 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.6)]' : 'bg-red-400'}`} />
-                <span className={`text-sm ${socketConnected ? 'text-emerald-400' : 'text-red-400'}`}>
-                {socketConnected ? 'Servidor activo' : 'Desconectado'}
-                </span>
-            </div>
-            <div className="flex items-center gap-3">
-                {!isPro && (
-                <button onClick={() => setShowUpgrade(true)} className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-[var(--text-primary)] text-xs font-bold rounded-lg shadow-lg shadow-amber-500/25 flex items-center gap-1.5">
-                    <Zap size={14} /> Upgrade
-                </button>
-                )}
-                <div className="flex items-center gap-2 pl-3 border-l border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200">
-                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-slate-700 to-slate-600 flex items-center justify-center text-sm text-[var(--text-primary)]">
-                    {user?.nombre?.charAt(0)?.toUpperCase() || "U"}
-                </div>
-                <div className="hidden sm:block">
-                    <p className="text-sm font-medium text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900">{user?.nombre}</p>
-                    <p className="text-xs text-[var(--text-muted)]">{user?.email}</p>
-                </div>
-                </div>
-            </div>
-            </header>
-
-            {/* Tabs */}
-            <div className="px-6 pt-6">
-            <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-                {tabs.map((tab) => {
-                const Icon = tab.icon
-                return (
-                    <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
-                        activeTab === tab.id
-                        ? 'bg-blue-600 text-[var(--text-primary)] shadow-lg shadow-blue-500/25'
-                        : 'bg-[var(--bg-card)] dark:bg-[var(--bg-card)] bg-white text-[var(--text-secondary)] dark:text-[var(--text-secondary)] text-gray-600 border border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 hover:border-blue-500/30'
-                    }`}
-                    >
-                    <Icon size={16} />
-                    {tab.label}
-                    </button>
-                )
-                })}
-            </div>
-
-            {/* Content */}
-            <AnimatePresence mode="wait">
-                <motion.div
-                key={activeTab}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
-                className="max-w-5xl"
-                >
-                {/* TAB: PLAN */}
-                {activeTab === "plan" && (
-                    <div className="space-y-6">
-                    <div className="bg-[var(--bg-card)] dark:bg-[var(--bg-card)] bg-white border border-[var(--border-color)]/60 dark:border-[var(--border-color)]/60 border-gray-200 rounded-2xl p-6">
-                        <div className="flex items-center justify-between mb-6">
-                        <div>
-                            <h2 className="text-xl font-bold text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900">Tu Plan</h2>
-                            <p className="text-sm text-[var(--text-muted)] mt-1">Configuración actual del sistema</p>
-                        </div>
-                        <span className={`px-3 py-1.5 rounded-full text-xs font-bold border ${
-                            isPro 
-                            ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' 
-                            : 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-                        }`}>
-                            {isPro ? '✦ PRO' : 'STARTER'}
-                        </span>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <PlanFeature icon={Users} label="Líneas WhatsApp" value={`${lines.length} / ${license?.maxLines || 1}`} active />
-                        <PlanFeature icon={Send} label="Envíos mensuales" value="Ilimitados" active />
-                        <PlanFeature icon={Activity} label="Spintax" value={isPro ? "Avanzado por línea" : "Básico (3 variantes)"} active />
-                        <PlanFeature icon={RotateCcw} label="Rotación líneas" value={isPro ? "Round Robin" : "No disponible"} active={isPro} pro={!isPro} />
-                        <PlanFeature icon={CheckCircle2} label="Historial campañas" value={isPro ? "Ilimitado + Exportar" : "30 días"} active />
-                        <PlanFeature icon={Clock} label="Delay configurable" value={isPro ? "1-60s libre" : "5-15s fijo"} active={isPro} pro={!isPro} />
-                        </div>
-
-                        {!isPro && (
-                        <div className="mt-6 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-                            <p className="text-sm text-amber-400 flex items-center gap-2">
-                            <Zap size={16} /> Desbloqueá todas las funciones con el plan Pro por $750 USD
-                            </p>
-                        </div>
-                        )}
-                    </div>
-                    </div>
-                )}
-
-                {/* TAB: LÍNEAS */}
-                {activeTab === "lines" && (
-                    <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-bold text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900">Líneas WhatsApp</h2>
-                        <button 
-                        onClick={() => setShowAddModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] text-sm font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all"
-                        >
-                        <Plus size={16} /> Agregar línea
-                        </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {lines.map((line) => (
-                        <motion.div
-                            key={line.id}
-                            layout
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className={`p-5 rounded-2xl border transition-all cursor-pointer ${
-                            selectedLine?.id === line.id
-                                ? "border-blue-500/50 bg-blue-500/10 shadow-[0_0_20px_rgba(59,130,246,0.15)]"
-                                : "border-[var(--border-color)]/60 dark:border-[var(--border-color)]/60 border-gray-200 bg-[var(--bg-card)] dark:bg-[var(--bg-card)] bg-white hover:border-[var(--border-hover)] dark:hover:border-[var(--border-hover)] hover:border-gray-300"
-                            }`}
-                            onClick={() => setSelectedLine(line)}
-                        >
-                            <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center gap-3">
-                                <div className={`h-2.5 w-2.5 rounded-full ${statusDot(line.status)}`} />
-                                <div>
-                                <p className="font-bold text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900 text-sm">{line.nombre}</p>
-                                <p className="text-xs text-[var(--text-muted)] font-mono">{line.phone}</p>
-                                </div>
-                            </div>
-                            <span className={`px-2 py-0.5 text-[10px] rounded-full border ${statusColor(line.status)}`}>
-                                {line.status}
-                            </span>
-                            </div>
-                            
-                            <div className="flex gap-2 mt-4">
-                            {line.status !== "CONECTADA" && (
-                                <button 
-                                onClick={(e) => { e.stopPropagation(); openQrForLine(line) }}
-                                className="flex-1 flex items-center justify-center gap-1.5 text-xs py-2 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
-                                >
-                                <QrCode size={14} /> Conectar
-                                </button>
-                            )}
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); logoutLine(line.id) }}
-                                className="flex items-center justify-center gap-1.5 text-xs px-3 py-2 bg-red-500/10 text-red-400 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition-colors"
-                            >
-                                <Power size={14} />
-                            </button>
-                            </div>
-                        </motion.div>
-                        ))}
-                        
-                        {lines.length === 0 && (
-                        <div className="col-span-full py-12 border border-dashed border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-300 rounded-2xl text-center">
-                            <Users size={32} className="mx-auto text-[var(--text-muted)] mb-3" />
-                            <p className="text-[var(--text-muted)] text-sm">No hay líneas conectadas</p>
-                            <button onClick={() => setShowAddModal(true)} className="mt-3 text-sm text-blue-400 hover:text-blue-300 font-medium">
-                            + Conectar primera línea
-                            </button>
-                        </div>
-                        )}
-                    </div>
-                    </div>
-                )}
-
-                {/* TAB: CAMPAÑA */}
-                {activeTab === "campaign" && (
-                    
-                    <div className="max-w-3xl space-y-6">
-                    <div className="bg-[var(--bg-card)] dark:bg-[var(--bg-card)] bg-white border border-[var(--border-color)]/60 dark:border-[var(--border-color)]/60 border-gray-200 rounded-2xl p-6">
-                        <div className="flex items-center justify-between mb-6">
-                        <div>
-                            <h2 className="text-xl font-bold text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900">Nueva Campaña</h2>
-                            <p className="text-sm text-[var(--text-muted)] mt-1">Dispará mensajes masivos por WhatsApp</p>
-                        </div>
-                        {selectedLineConnected ? (
-  <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-    <div className={`h-1.5 w-1.5 rounded-full ${statusDot(selectedLine.status)}`} />
-    <span className="text-xs text-blue-400 font-medium">{selectedLine.nombre}</span>
-  </div>
-) : lines.length === 0 ? (
-  <span className="text-xs text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20">
-    No hay líneas creadas
-  </span>
-) : !hasConnectedLine ? (
-  <span className="text-xs text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/20">
-    Conectá una línea primero
-  </span>
-) : (
-  <span className="text-xs text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/20">
-    Seleccioná una línea conectada
-  </span>
-)}
-                        </div>
-
-                        <div className="space-y-5">
-                        {/* Origen de números */}
-    <div className="flex gap-2 mb-3">
-    {[
-        { id: "manual", label: "Manual", icon: Edit3 },
-        { id: "contacts", label: "Contactos", icon: Users },
-        { id: "tag", label: "Por Tag", icon: Tag },
-    ].map(src => {
-        const Icon = src.icon
-        return (
-        <button
-            key={src.id}
-            onClick={() => setNumberSource(src.id as any)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${numberSource === src.id ? 'bg-blue-600 text-white border-blue-500' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)]'}`}
-        >
-            <Icon size={12} /> {src.label}
-        </button>
-        )
-    })}
-    </div>
-
-    {/* Filtro por tag */}
-    {numberSource === "tag" && (
-    <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
-        {tags.map((t: any) => (
-        <button
-            key={t.id}
-            onClick={() => setSelectedTagFilter(selectedTagFilter === t.name ? null : t.name)}
-            className={`px-2 py-1 rounded-lg text-[10px] font-medium border transition-all whitespace-nowrap ${selectedTagFilter === t.name ? 'text-white' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)]'}`}
-            style={selectedTagFilter === t.name ? { backgroundColor: t.color, borderColor: t.color } : {}}
-        >
-            {t.name}
-        </button>
-        ))}
-    </div>
-    )}
-
-    {/* Nombre + Scheduling */}
-{/* Nombre de campaña + Modo de ejecución */}
-<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-  <div>
-    <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5 block">
-      Nombre de campaña
-    </label>
-    <input
-  type="text"
-  value={campaignName}
-  onChange={e => setCampaignName(e.target.value)}
-  placeholder="Ej: Promo Mayo 2026"
-  className="w-full bg-[var(--bg-input)] dark:bg-[var(--bg-input)] bg-gray-50 border border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 rounded-xl p-3 text-sm text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900 placeholder:text-slate-700 dark:placeholder:text-slate-700 placeholder:text-gray-400 focus:outline-none focus:border-blue-500/50 transition-all"
-/>
-  </div>
-  <div>
-    <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5 block">
-      Ejecución
-    </label>
-    <div className="flex gap-2">
-      <button
-        type="button"
-        onClick={() => setScheduleMode("now")}
-        className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${
-          scheduleMode === "now"
-            ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/25'
-            : 'bg-[var(--bg-input)] dark:bg-[var(--bg-input)] bg-gray-50 text-[var(--text-secondary)] border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 hover:border-slate-600'
-        }`}
-      >
-        ⚡ Enviar ahora
-      </button>
-      <button
-        type="button"
-        onClick={() => setScheduleMode("pending")}
-        className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${
-          scheduleMode === "pending"
-            ? 'bg-amber-600 text-white border-amber-500 shadow-lg shadow-amber-500/25'
-            : 'bg-[var(--bg-input)] dark:bg-[var(--bg-input)] bg-gray-50 text-[var(--text-secondary)] border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 hover:border-slate-600'
-        }`}
-      >
-        ⏸️ Guardar para después
-      </button>
-    </div>
-  </div>
-</div>
-
-    {/* Textarea de números */}
-
-    {/* <div className="flex items-center justify-between mb-2">
-  <span className="text-xs text-[var(--text-muted)]">
-    {numbersText.split("\n").filter(Boolean).length} números seleccionados
-  </span>
-  <button
-    onClick={() => setShowImportNumbers(true)}
-    className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-600/30 transition-colors"
-  >
-    <Upload size={12} /> Importar números
-  </button>
-</div> */}
-    {numberSource === "manual" && (
-  <div className="space-y-2">
-    <div className="flex items-center justify-between mb-1">
-      <span className="text-xs text-[var(--text-muted)]">
-        {numbersText.split("\n").filter(Boolean).length} números
-        {duplicateNumbers.length > 0 && (
-          <span className="text-red-400 ml-2 font-medium">• {duplicateNumbers.length} duplicado{duplicateNumbers.length > 1 ? 's' : ''}</span>
-        )}
-      </span>
-      <button
-        onClick={() => setShowImportNumbers(true)}
-        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-600/30 transition-colors"
-      >
-        <Upload size={12} /> Importar números
-      </button>
-    </div>
-
-    <CampaignLineSelector
-  mode={distributionMode}
-  onModeChange={setDistributionMode}
-  selectedIds={selectedLineIds}
-  onSelectionChange={setSelectedLineIds}
-/>
-    
-    <div className="relative">
-      <textarea
-        value={numbersText}
-        onChange={e => setNumbersText(e.target.value)}
-        placeholder="5491123456789&#10;5491165432109&#10;..."
-        rows={6}
-        className={`w-full bg-[var(--bg-input)] dark:bg-[var(--bg-input)] bg-gray-50 border rounded-xl p-4 text-sm text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900 placeholder:text-slate-700 dark:placeholder:text-slate-700 placeholder:text-gray-400 focus:outline-none focus:shadow-[0_0_15px_rgba(59,130,246,0.1)] transition-all resize-none font-mono ${
-          duplicateNumbers.length > 0
-            ? 'border-red-500/50 focus:border-red-500'
-            : 'border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 focus:border-blue-500/50'
-        }`}
-      />
-      {isVerifying && (
-        <div className="absolute bottom-3 right-3 flex items-center gap-1.5 text-[10px] text-blue-400 bg-[var(--bg-card)]/80 backdrop-blur-sm px-2 py-1 rounded-lg border border-blue-500/20">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-            className="h-3 w-3 border border-blue-400 border-t-transparent rounded-full"
-          />
-          Verificando números...
-        </div>
-      )}
-    </div>
-
-    {/* Validación de duplicados en textarea general */}
-    {duplicateNumbers.length > 0 && (
-      <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl space-y-2">
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-red-400 font-medium flex items-center gap-1.5">
-            <AlertTriangle size={12} /> {duplicateNumbers.length} número{duplicateNumbers.length > 1 ? 's' : ''} duplicado{duplicateNumbers.length > 1 ? 's' : ''}
-          </p>
-          <button
-            onClick={removeAllDuplicates}
-            className="text-[10px] px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white rounded-lg font-bold transition-colors flex items-center gap-1"
-          >
-            <Trash2 size={10} /> Eliminar todos los duplicados
-          </button>
-        </div>
-        <p className="text-[10px] text-red-400/60">
-          Se mantendrá solo la primera ocurrencia de cada número.
-        </p>
-      </div>
-    )}
-    
-    {duplicateNumbers.length === 0 && !isVerifying && numbersText && (
-      <div className="flex items-center gap-1 text-xs text-emerald-400">
-        <CheckCircle2 size={12} /> Todo ok para salir
-      </div>
-    )}
-  </div>
-)}
-
-    <span className="text-xs text-[var(--text-muted)] mt-2 block">
-    {numbersText.split("\n").filter(Boolean).length} números seleccionados
-    </span>
-
-                       <div>
-  <div className="flex items-center justify-between mb-2">
-    <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-2">
-      <Send size={14} /> Mensaje
-    </label>
-    <div className="flex items-center gap-2">
-      {/* Selector de Templates */}
-      <select
-        value=""
-        onChange={e => {
-          const t = templates.find(x => x.id === e.target.value)
-          if (t) setMessage(t.content)
-        }}
-        className="bg-[var(--bg-input)] border border-[var(--border-color)] rounded-lg px-2 py-1 text-[11px] text-[var(--text-secondary)] focus:outline-none focus:border-blue-500"
-      >
-        <option value="">📄 Cargar template...</option>
-        {templates.map(t => (
-          <option key={t.id} value={t.id}>{t.name}</option>
-        ))}
-      </select>
-      <button
-        type="button"
-        onClick={copyMessage}
-        className="flex items-center gap-1 text-[10px] px-2 py-1 bg-[var(--bg-input)] border border-[var(--border-color)] rounded-lg text-[var(--text-muted)] hover:text-blue-400 hover:border-blue-500/30 transition-colors"
-      >
-        📋 Copiar
-      </button>
-    </div>
-  </div>
-  
-  <textarea
-    value={message}
-    onChange={e => setMessage(e.target.value)}
-    placeholder="Escribí tu mensaje aquí... Usá los botones de abajo para insertar Spintax automáticamente."
-    rows={4}
-    className="w-full bg-[var(--bg-input)] dark:bg-[var(--bg-input)] bg-gray-50 border border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 rounded-xl p-4 text-sm text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900 placeholder:text-slate-700 dark:placeholder:text-slate-700 placeholder:text-gray-400 focus:outline-none focus:border-blue-500/50 focus:shadow-[0_0_15px_rgba(59,130,246,0.1)] transition-all resize-none"
-  />
-  
-  <div className="flex items-center gap-3 mt-2">
-  <button
-    type="button"
-    onClick={() => setShowPreview(true)}
-    className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
-  >
-    <Eye size={12} /> Ver preview
-  </button>
-  <span className="text-[10px] text-[var(--text-muted)] bg-[var(--bg-input)] px-2 py-1 rounded border border-[var(--border-color)]">
-  {`Spintax: {{hola|buenas|hey}}`}
-</span>
-  <button
-    type="button"
-    onClick={() => setShowSpintaxHelp(true)}
-    className="text-[10px] px-2 py-1 rounded-lg bg-[var(--bg-input)] text-[var(--text-muted)] border border-[var(--border-color)] hover:text-blue-400 hover:border-blue-500/30 transition-colors flex items-center gap-1"
-  >
-    <Sparkles size={10} /> ¿Qué es Spintax?
-  </button>
-</div>
-  
-  {/* Barra de herramientas Spintax */}
-  <div className="flex flex-wrap items-center gap-2 mt-3">
-    <span className="text-[10px] text-[var(--text-muted)]">Insertar:</span>
-    <button type="button" onClick={() => insertSpintax('saludo')} className="text-[10px] px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors">
-      👋 Saludo
-    </button>
-    <button type="button" onClick={() => insertSpintax('despedida')} className="text-[10px] px-2 py-1 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition-colors">
-      ✌️ Despedida
-    </button>
-    <button type="button" onClick={() => insertSpintax('emoji')} className="text-[10px] px-2 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-colors">
-      🔥 Emoji
-    </button>
-    <button type="button" onClick={() => insertSpintax('nombre')} className="text-[10px] px-2 py-1 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors">
-      🏷️ Nombre
-    </button>
-    <div className="flex-1" />
-    <button
-      type="button"
-      onClick={() => setShowSpintaxHelp(true)}
-      className="text-[10px] px-2 py-1 rounded-lg bg-[var(--bg-input)] text-[var(--text-muted)] border border-[var(--border-color)] hover:text-blue-400 hover:border-blue-500/30 transition-colors flex items-center gap-1"
+  return (
+    <motion.a
+      href={getWhatsAppLink()}
+      target="_blank"
+      rel="noopener noreferrer"
+      initial={{ scale: 0 }}
+      animate={{ scale: 1 }}
+      transition={{ delay: 1.5, type: "spring" }}
+      whileHover={{ scale: 1.1 }}
+      whileTap={{ scale: 0.95 }}
+      className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-5 py-3 rounded-full bg-emerald-500 text-white font-semibold text-sm shadow-xl shadow-emerald-500/30 hover:bg-emerald-600 transition-colors"
     >
-      <Sparkles size={10} /> ¿Qué es Spintax?
-    </button>
-    {!isPro && (
-      <span className="text-[10px] text-amber-400 flex items-center gap-1">
-        <Zap size={10} /> Avanzado en Pro
-      </span>
-    )}
-  </div>
-</div>
+      <MessageCircle className="w-5 h-5" />
+      <span className="hidden sm:inline">Soporte</span>
+    </motion.a>
+  )
+}
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div className="sm:col-span-2">
-                            <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-2 block flex items-center gap-2">
-                                <ImageIcon size={14} /> URL de imagen (opcional)
-                            </label>
-                            <input
-                                type="text"
-                                value={imageUrl}
-                                onChange={e => setImageUrl(e.target.value)}
-                                placeholder="https://tusitio.com/imagen.jpg"
-                                className="w-full bg-[var(--bg-input)] dark:bg-[var(--bg-input)] bg-gray-50 border border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 rounded-xl p-3 text-sm text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900 placeholder:text-slate-700 dark:placeholder:text-slate-700 placeholder:text-gray-400 focus:outline-none focus:border-blue-500/50 transition-all"
-                            />
-                            </div>
-                            <div>
-                            <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-2 block flex items-center gap-2">
-                                <Clock size={14} /> Delay (ms)
-                            </label>
-                            <div className="flex items-center gap-2">
-                                <input
-                                type="number"
-                                value={delayMin}
-                                onChange={e => setDelayMin(Number(e.target.value))}
-                                className="w-full bg-[var(--bg-input)] dark:bg-[var(--bg-input)] bg-gray-50 border border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 rounded-xl p-3 text-sm text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900 focus:outline-none focus:border-blue-500/50 transition-all"
-                                />
-                                <span className="text-[var(--text-muted)]">-</span>
-                                <input
-                                type="number"
-                                value={delayMax}
-                                onChange={e => setDelayMax(Number(e.target.value))}
-                                className="w-full bg-[var(--bg-input)] dark:bg-[var(--bg-input)] bg-gray-50 border border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 rounded-xl p-3 text-sm text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900 focus:outline-none focus:border-blue-500/50 transition-all"
-                                />
-                            </div>
-                            </div>
-                        </div>
+/* ============================================================
+   PAGE
+   ============================================================ */
 
-                      <motion.button
-  whileHover={{ scale: 1.01 }}
-  whileTap={{ scale: 0.99 }}
-  onClick={sendCampaign}
-  disabled={isSending || !selectedLineConnected || isVerifying || duplicateNumbers.length > 0}
-  className={`w-full font-bold py-4 rounded-xl transition-all relative overflow-hidden ${
-    isSending || !selectedLineConnected || isVerifying || duplicateNumbers.length > 0
-      ? "bg-[#1E293B] dark:bg-[#1E293B] bg-gray-200 text-[var(--text-muted)] dark:text-[var(--text-muted)] text-gray-400 cursor-not-allowed"
-      : scheduleMode === 'pending'
-      ? "bg-gradient-to-r from-amber-600 to-orange-500 text-[var(--text-primary)] shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40"
-      : "bg-gradient-to-r from-blue-600 to-blue-500 text-[var(--text-primary)] shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40"
-  }`}
->
-  {isSending ? (
-    <span className="flex items-center justify-center gap-2">
-      <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
-      {scheduleMode === 'pending' ? 'Guardando...' : 'Enviando...'}
-    </span>
-  ) : isVerifying ? (
-    <span className="flex items-center justify-center gap-2">
-      <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
-      Verificando...
-    </span>
-  ) : duplicateNumbers.length > 0 ? (
-    <span className="flex items-center justify-center gap-2 text-red-300">
-      <AlertTriangle size={18} /> Eliminá duplicados para continuar
-    </span>
-  ) : !selectedLine ? (
-    <span className="flex items-center justify-center gap-2">
-      <Users size={18} /> Seleccioná una línea en la pestaña "Líneas"
-    </span>
-  ) : !selectedLineConnected ? (
-    <span className="flex items-center justify-center gap-2">
-      <Power size={18} /> Conectá la línea para {scheduleMode === 'pending' ? 'guardar' : 'enviar'}
-    </span>
-  ) : (
-    <span className="flex items-center justify-center gap-2">
-      {scheduleMode === 'pending' ? <Clock size={18} /> : <Play size={18} />}
-      {scheduleMode === 'pending' ? 'Guardar' : 'Disparar'} {numbersText.split("\n").filter(Boolean).length} mensajes
-    </span>
-  )}
-</motion.button>
-                        </div>
-                    </div>
-                    </div>
-                )}
-
-                {/* TAB: LOGS */}
-                {activeTab === "logs" && (
-                    <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-bold text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900">Logs en vivo</h2>
-                        <div className="flex items-center gap-2">
-                        {!isPro && (
-                            <span className="text-[10px] font-bold px-2 py-1 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                            <Zap size={10} className="inline" /> PRO
-                            </span>
-                        )}
-                        <button 
-                            onClick={() => isPro ? setLogs([]) : setShowUpgrade(true)}
-                            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
-                            isPro 
-                                ? 'border-red-500/30 text-red-400 hover:bg-red-500/10' 
-                                : 'border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 text-[var(--text-muted)] cursor-not-allowed'
-                            }`}
-                        >
-                            <Trash2 size={14} /> Limpiar
-                        </button>
-                        </div>
-                    </div>
-
-                    <div className="bg-[var(--bg-card)] dark:bg-[var(--bg-card)] bg-white border border-[var(--border-color)]/60 dark:border-[var(--border-color)]/60 border-gray-200 rounded-2xl p-4">
-                        <div className="bg-[var(--bg-input)] dark:bg-[var(--bg-input)] bg-gray-50 rounded-xl p-4 h-[500px] overflow-y-auto font-mono text-xs space-y-1.5 border border-[var(--border-color)]/40 dark:border-[var(--border-color)]/40 border-gray-200">
-                        <AnimatePresence initial={false}>
-                            {logs.length === 0 ? (
-                            <div className="h-full flex flex-col items-center justify-center text-[var(--text-muted)]">
-                                <Activity size={24} className="mb-2" />
-                                <span>Esperando acciones...</span>
-                            </div>
-                            ) : (
-                            logs.map((log, i) => (
-                                <motion.div 
-                                key={i} 
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                className={`${
-                                    log.includes("✅") ? "text-emerald-400" : 
-                                    log.includes("❌") ? "text-red-400" : 
-                                    log.includes("🚀") ? "text-blue-400" : "text-[var(--text-secondary)]"
-                                }`}
-                                >
-                                <span className="text-[var(--text-muted)] mr-2">{new Date().toLocaleTimeString()}</span>
-                                {log}
-                                </motion.div>
-                            ))
-                            )}
-                        </AnimatePresence>
-                        </div>
-                    </div>
-                    </div>
-                )}
-                </motion.div>
-            </AnimatePresence>
-            </div>
-        </div>
-
-        {/* MODALS */}
-        {/* MODAL: Vista previa del mensaje */}
-        {/* MODAL: Importar números para campaña */}
-{/* MODAL: Importar números para campaña */}
-<PremiumModal open={showImportNumbers} onClose={() => !importLoading && setShowImportNumbers(false)} title="Importar Números">
-  <div className="space-y-4">
-    {/* Warning */}
-    <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-      <p className="text-xs text-amber-400 font-medium flex items-start gap-2">
-        <AlertTriangle size={14} className="shrink-0 mt-0.5" />
-        <span>
-          Estos números se usarán <strong>solo para esta campaña</strong> y <strong>NO se guardarán como contactos</strong>. 
-          Para reutilizarlos, agregalos a Contactos.
-        </span>
-      </p>
-    </div>
-
-    {importLoading ? (
-      <div className="space-y-4 py-6">
-        <div className="w-full h-3 bg-[#1E293B] rounded-full overflow-hidden">
-          <motion.div 
-            initial={{ width: 0 }}
-            animate={{ width: `${importProgress}%` }}
-            transition={{ ease: "easeOut" }}
-            className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full"
-          />
-        </div>
-        <div className="text-center space-y-1">
-          <p className="text-sm text-[var(--text-secondary)] font-medium">
-            {importProgress < 100 ? 'Procesando archivo...' : '¡Listo!'}
-          </p>
-          <p className="text-xs text-[var(--text-muted)]">
-            {importProgress < 100 ? `${Math.round(importProgress)}%` : `${importedCount} números encontrados`}
-          </p>
-        </div>
-      </div>
-    ) : importedCount > 0 ? (
-      /* Preview de números encontrados */
-      <div className="space-y-4">
-        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-          <p className="text-sm text-emerald-400 font-medium flex items-center gap-2">
-            <CheckCircle2 size={16} />
-            {importedCount} números válidos encontrados
-          </p>
-        </div>
-        <div className="bg-[var(--bg-input)] rounded-xl p-3 h-32 overflow-y-auto border border-[var(--border-color)]">
-          <div className="flex flex-wrap gap-1.5">
-            {previewNumbers.map((num, i) => (
-              <span key={i} className="text-[10px] px-2 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono">
-                {num}
-              </span>
-            ))}
-            {importedCount > previewNumbers.length && (
-              <span className="text-[10px] px-2 py-1 rounded-full bg-[var(--border-color)] text-[var(--text-muted)]">
-                +{importedCount - previewNumbers.length} más
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="flex gap-3">
-          <button 
-            onClick={() => { setImportedCount(0); setPreviewNumbers([]) }}
-            className="flex-1 py-2.5 bg-[var(--bg-input)] text-[var(--text-primary)] rounded-xl text-sm font-medium hover:bg-[var(--border-hover)] transition-colors"
-          >
-            Cancelar
-          </button>
-          <button 
-            onClick={confirmImportNumbers}
-            className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] rounded-xl text-sm font-bold transition-colors"
-          >
-            Agregar a campaña
-          </button>
-        </div>
-      </div>
-    ) : (
-      <>
-        {/* Dropzone */}
-        <div
-          onDragEnter={onDrag}
-          onDragLeave={onDrag}
-          onDragOver={onDrag}
-          onDrop={onDrop}
-          onClick={() => document.getElementById('number-file-input')?.click()}
-          className={`relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
-            dragActive 
-              ? 'border-blue-500 bg-blue-500/5' 
-              : 'border-[var(--border-color)] hover:border-[var(--border-hover)] hover:bg-[var(--bg-input)]'
-          }`}
-        >
-          <input
-            id="number-file-input"
-            type="file"
-            accept=".xlsx,.csv,.txt"
-            className="hidden"
-            onChange={(e) => e.target.files?.[0] && handleNumberFile(e.target.files[0])}
-          />
-          <div className="mx-auto h-12 w-12 rounded-xl bg-blue-500/10 flex items-center justify-center mb-3">
-            <Upload size={24} className="text-blue-400" />
-          </div>
-          <p className="text-sm text-[var(--text-primary)] font-medium mb-1">
-            Arrastrá un archivo o hacé clic para seleccionar
-          </p>
-          <p className="text-xs text-[var(--text-muted)]">
-            Excel (.xlsx), CSV o TXT
-          </p>
-        </div>
-
-        {/* Alternativa: pegar */}
-        <div className="relative">
-  <textarea
-    value={numbersText}
-    onChange={e => setNumbersText(e.target.value)}
-    placeholder="5491123456789&#10;5491165432109&#10;..."
-    rows={6}
-    className={`w-full bg-[var(--bg-input)] dark:bg-[var(--bg-input)] bg-gray-50 border rounded-xl p-4 text-sm text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900 placeholder:text-slate-700 dark:placeholder:text-slate-700 placeholder:text-gray-400 focus:outline-none focus:shadow-[0_0_15px_rgba(59,130,246,0.1)] transition-all resize-none font-mono ${
-      duplicateNumbers.length > 0
-        ? 'border-red-500/50 focus:border-red-500'
-        : 'border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 focus:border-blue-500/50'
-    }`}
-  />
-  {isVerifying && (
-    <div className="absolute bottom-3 right-3 flex items-center gap-1.5 text-[10px] text-blue-400 bg-[var(--bg-card)]/80 backdrop-blur-sm px-2 py-1 rounded-lg border border-blue-500/20">
-      <motion.div
-        animate={{ rotate: 360 }}
-        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-        className="h-3 w-3 border border-blue-400 border-t-transparent rounded-full"
-      />
-      Verificando números...
-    </div>
-  )}
-</div>
-
-{/* Contador + Duplicados */}
-<div className="flex flex-col gap-2 mt-2">
-  <div className="flex items-center justify-between">
-    <span className="text-xs text-[var(--text-muted)]">
-      {numbersText.split("\n").filter(Boolean).length} números
-    </span>
-    {duplicateNumbers.length === 0 && !isVerifying && numbersText && (
-      <span className="text-xs text-emerald-400 flex items-center gap-1">
-        <CheckCircle2 size={10} /> Todo ok para salir
-      </span>
-    )}
-  </div>
-  {duplicateNumbers.length > 0 && (
-  <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl space-y-3">
-    {/* Header */}
-    <div className="flex items-center justify-between">
-      <p className="text-xs text-red-400 font-medium flex items-center gap-1.5">
-        <AlertTriangle size={12} /> {duplicateNumbers.length} número{duplicateNumbers.length > 1 ? 's' : ''} duplicado{duplicateNumbers.length > 1 ? 's' : ''}
-      </p>
-      <button
-        onClick={removeAllDuplicates}
-        className="text-[10px] px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white rounded-lg font-bold transition-colors flex items-center gap-1"
-      >
-        <Trash2 size={10} /> Eliminar duplicados
-      </button>
-    </div>
-    
-    {/* Lista de duplicados clickeables */}
-    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-      {duplicateNumbers.map((num, i) => (
-        <button
-          key={i}
-          onClick={() => removeSpecificNumber(num)}
-          className="group flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 font-mono hover:bg-red-500/30 transition-colors"
-          title="Clic para eliminar todas las ocurrencias de este número"
-        >
-          {num}
-          <X size={10} className="opacity-60 group-hover:opacity-100" />
-        </button>
-      ))}
-    </div>
-    
-    <p className="text-[10px] text-red-400/60">
-      💡 Clic en un número para eliminarlo completamente, o usá "Eliminar duplicados" para dejar solo la primera ocurrencia de cada uno.
-    </p>
-  </div>
-)}
-</div>
-      </>
-    )}
-  </div>
-</PremiumModal>
-<PremiumModal open={showPreview} onClose={() => setShowPreview(false)} title="Vista previa del mensaje">
-  <div className="space-y-4">
-    <p className="text-xs text-[var(--text-muted)]">
-      Estas son 3 simulaciones de cómo llegaría el mensaje a tus contactos:
-    </p>
-    
-    <div className="space-y-3">
-      {[1, 2, 3].map(i => {
-        const preview = generatePreview(message)
-        return (
-          <div key={i} className="p-4 bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)] relative">
-            <span className="absolute -top-2 left-3 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              Variante {i}
-            </span>
-            <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap mt-1 font-mono">
-              {preview}
-            </p>
-          </div>
-        )
-      })}
-    </div>
-
-    <div className="flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
-      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-      <span>Datos de ejemplo: <strong>Juan Pérez</strong> — <strong>5491123456789</strong></span>
-    </div>
-  </div>
-</PremiumModal> 
-
-        <PremiumModal open={showAddModal} onClose={() => setShowAddModal(false)} title="Agregar Línea">
-            <div className="space-y-4">
-            <div>
-                <label className="block text-sm text-[var(--text-secondary)] mb-1">Número (con código país)</label>
-                <input type="text" value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="5491123456789" className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-[var(--text-primary)] focus:outline-none focus:border-blue-500" />
-            </div>
-            <div>
-                <label className="block text-sm text-[var(--text-secondary)] mb-1">Nombre (opcional)</label>
-                <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Línea Principal" className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-[var(--text-primary)] focus:outline-none focus:border-blue-500" />
-            </div>
-            {!isPro && lines.length >= 1 && (
-                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-                <p className="text-sm text-amber-400 flex items-center gap-2">
-                    <Zap size={14} /> Tu plan Starter permite 1 línea. Upgrade a Pro para 3 líneas.
-                </p>
-                </div>
-            )}
-            <div className="flex gap-3">
-                <button onClick={() => setShowAddModal(false)} className="flex-1 py-2.5 bg-[#1E293B] hover:bg-[#334155] text-[var(--text-primary)] rounded-xl transition-colors">Cancelar</button>
-                <button onClick={addLine} disabled={!isPro && lines.length >= 1} className={`flex-1 py-2.5 rounded-xl font-bold transition-colors ${!isPro && lines.length >= 1 ? 'bg-[#1E293B] text-[var(--text-muted)] cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)]'}`}>Guardar</button>
-            </div>
-            </div>
-        </PremiumModal>
-
-        {/* MODAL: Ayuda Spintax */}
-<PremiumModal open={showSpintaxHelp} onClose={() => setShowSpintaxHelp(false)} title="¿Qué es Spintax?">
-  <div className="space-y-4 text-sm">
-    <p className="text-[var(--text-secondary)]">
-      <strong className="text-[var(--text-primary)]">Spintax</strong> es una técnica que permite que cada mensaje sea <span className="text-emerald-400">ligeramente diferente</span>, evitando que WhatsApp detecte patrones repetidos y te baneé.
-    </p>
-    
-    <div className="bg-[var(--bg-input)] rounded-xl p-4 border border-[var(--border-color)] space-y-3">
-      <p className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider">Sintaxis</p>
-      <code className="block text-xs font-mono text-blue-400 bg-blue-500/5 p-2 rounded-lg border border-blue-500/10">
-        {"{{"}opción 1|opción 2|opción 3{"}}"}
-      </code>
-      <p className="text-xs text-[var(--text-muted)]">
-        WhatsApp recibe solo UNA de las opciones, elegida al azar.
-      </p>
-    </div>
-
-    <div className="space-y-2">
-      <p className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider">Ejemplo práctico</p>
-      <div className="grid grid-cols-1 gap-2">
-        <div className="p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-lg">
-          <p className="text-[10px] text-emerald-400 mb-1">Template</p>
-          <p className="text-xs font-mono text-[var(--text-primary)]">
-            {"{{"}Hola|Buenas|Hey{"}}"} {"{{"}Juan|amigo|crack{"}}"}, tenemos 50% OFF. {"{{"}Escribí YA|No te lo pierdas|Aprovechá hoy{"}}"}
-          </p>
-        </div>
-        <div className="p-3 bg-blue-500/5 border border-blue-500/10 rounded-lg">
-          <p className="text-[10px] text-blue-400 mb-1">Resultado posible 1</p>
-          <p className="text-xs text-[var(--text-primary)]">"Hola Juan, tenemos 50% OFF. Escribí YA"</p>
-        </div>
-        <div className="p-3 bg-purple-500/5 border border-purple-500/10 rounded-lg">
-          <p className="text-[10px] text-purple-400 mb-1">Resultado posible 2</p>
-          <p className="text-xs text-[var(--text-primary)]">"Buenas crack, tenemos 50% OFF. Aprovechá hoy"</p>
-        </div>
-      </div>
-    </div>
-
-    <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
-      <p className="text-xs text-amber-400 flex items-start gap-2">
-        <Zap size={14} className="shrink-0 mt-0.5" />
-        <span>
-          <strong>Consejo Pro:</strong> Mientras más variantes uses, menos probable es que te reporten como spam. 
-          Combiná Spintax + delays aleatorios entre 1-60s para máxima protección.
-        </span>
-      </p>
-    </div>
-  </div>
-</PremiumModal>
-
-        <PremiumModal open={showSettings} onClose={() => setShowSettings(false)} title="Configuración">
-            <form onSubmit={async (e) => {
-            e.preventDefault()
-            const form = new FormData(e.currentTarget)
-            const token = localStorage.getItem('mb_token')
-            try {
-                const res = await fetch("/api/auth/me", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                body: JSON.stringify({
-                    nombre: form.get("nombre"),
-                    email: form.get("email"),
-                    current_password: form.get("current_password") || undefined,
-                    new_password: form.get("new_password") || undefined,
-                }),
-                })
-                const data = await res.json()
-                if (!res.ok) throw new Error(data.error)
-                toast.success("Perfil actualizado")
-                setShowSettings(false)
-            } catch (err: any) {
-                toast.error(err.message)
-            }
-            }} className="space-y-4">
-            <div>
-                <label className="block text-sm text-[var(--text-secondary)] mb-1">Nombre</label>
-                <input name="nombre" defaultValue={user?.nombre || ""} className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-[var(--text-primary)] focus:outline-none focus:border-blue-500" />
-            </div>
-            <div>
-                <label className="block text-sm text-[var(--text-secondary)] mb-1">Email</label>
-                <input name="email" type="email" defaultValue={user?.email || ""} className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-[var(--text-primary)] focus:outline-none focus:border-blue-500" />
-            </div>
-            <div className="border-t border-[var(--border-color)] pt-4">
-                <p className="text-xs text-[var(--text-muted)] mb-3">Cambiar contraseña (opcional)</p>
-                <div>
-                <label className="block text-sm text-[var(--text-secondary)] mb-1">Contraseña actual</label>
-                <input name="current_password" type="password" className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-[var(--text-primary)] focus:outline-none focus:border-blue-500" />
-                </div>
-                <div className="mt-3">
-                <label className="block text-sm text-[var(--text-secondary)] mb-1">Nueva contraseña</label>
-                <input name="new_password" type="password" minLength={6} className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-[var(--text-primary)] focus:outline-none focus:border-blue-500" />
-                </div>
-            </div>
-            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] font-bold py-3 rounded-xl transition-colors">Guardar cambios</button>
-            </form>
-        </PremiumModal>
-
-        <PremiumModal open={showUpgrade} onClose={() => setShowUpgrade(false)} title="Upgrade a Pro">
-            <div className="text-center space-y-4">
-            <div className="text-5xl mb-2">🚀</div>
-            <h3 className="text-xl font-bold text-[var(--text-primary)]">Desbloqueá el poder completo</h3>
-            <div className="space-y-2 text-left bg-[var(--bg-input)] rounded-xl p-4 border border-[var(--border-color)]">
-                <FeatureListItem text="3 líneas WhatsApp simultáneas" />
-                <FeatureListItem text="Rotación Round-Robin inteligente" />
-                <FeatureListItem text="Spintax avanzado por línea" />
-                <FeatureListItem text="Historial de campañas ilimitado" />
-                <FeatureListItem text="Repetir campañas exitosas (1 click)" />
-                <FeatureListItem text="Soporte prioritario por WhatsApp" />
-            </div>
-            <p className="text-2xl font-bold text-[var(--text-primary)]">$750 <span className="text-sm font-normal text-[var(--text-muted)]">USD / único</span></p>
-            <button onClick={() => toast.info("Contactá a ventas para upgrade")} className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-[var(--text-primary)] font-bold py-3 rounded-xl shadow-lg shadow-amber-500/25 transition-all">Quiero upgrade</button>
-            <button onClick={() => setShowUpgrade(false)} className="text-sm text-[var(--text-muted)] hover:text-slate-300">Ahora no</button>
-            </div>
-        </PremiumModal>
-
-        
-
-    <AnimatePresence>
-    {showUpgradeModal && (
-        <PremiumModal open={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} title="Upgrade a Pro">
-        <div className="text-center space-y-4">
-            <div className="text-5xl mb-2">✦</div>
-            <h3 className="text-xl font-bold text-white">Upgrade a Pro</h3>
-            <p className="text-sm text-[var(--text-secondary)]">
-            Pegá acá tu licencia Pro para desbloquear instantáneamente todas las funciones.
-            </p>
-            
-            <div className="p-4 bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)]">
-            <p className="text-xs text-[var(--text-muted)] mb-2">Tu plan actual</p>
-            <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
-                Starter
-            </span>
-            </div>
-
-            <textarea
-            value={upgradeKey}
-            onChange={e => setUpgradeKey(e.target.value)}
-            placeholder="eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
-            rows={4}
-            className="input-field font-mono text-xs resize-none"
-            />
-
-            {upgrading ? (
-            <div className="flex items-center justify-center gap-2 py-3">
-                <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="h-5 w-5 border-2 border-amber-400 border-t-transparent rounded-full" />
-                <span className="text-sm text-amber-400">Activando Pro...</span>
-            </div>
-            ) : (
-            <button
-                onClick={async () => {
-                if (!upgradeKey.trim()) return toast.error("Pegá la licencia")
-                setUpgrading(true)
-                try {
-                    const res = await fetch("/api/setup/activate", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ licenseKey: upgradeKey.trim() }),
-                    })
-                    const data = await res.json()
-                    if (!res.ok) throw new Error(data.error || "Licencia inválida")
-                    
-                    // Verificar que sea Pro
-                    if (data.tier !== 'pro' && data.tier !== 'business') {
-                    throw new Error("Esta licencia no es Pro. Contactá a ventas.")
-                    }
-                    
-                    toast.success("🎉 ¡Felicitaciones! Tenés Pro activado de por vida.")
-                    setShowUpgradeModal(false)
-                    
-                    // Recarga completa para que useLicense lea la nueva licencia
-                    setTimeout(() => {
-                            router.push("/")
-
-                    }, 1500)
-                    
-                } catch (e: any) {
-                    toast.error(e.message)
-                    setUpgrading(false)
-                }
-                }}
-                disabled={!upgradeKey.trim()}
-                className={`w-full font-bold py-3 rounded-xl transition-all ${
-                upgradeKey.trim()
-                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40'
-                    : 'bg-[var(--bg-input)] text-[var(--text-muted)] cursor-not-allowed'
-                }`}
-            >
-                ✦ Activar Pro
-            </button>
-            )}
-
-            <p className="text-xs text-[var(--text-muted)]">
-            ¿No tenés licencia Pro? <button onClick={() => toast.info("Contactá a ventas")} className="text-amber-400 hover:underline">Comprar ahora</button>
-            </p>
-        </div>
-        </PremiumModal>
-    )}
-    </AnimatePresence>
-        
-
-        <QRModal open={qrModalOpen}  onOpenChange={(v) => setQrModalOpen(v)}  line={qrTargetLine} />
-        <ConfirmDialog open={isOpen} onClose={onCancel} onConfirm={onConfirm} {...options} />
-
-        </div>
-    )
-    }
-
-    function PlanFeature({ icon: Icon, label, value, active, pro }: { icon: any, label: string, value: string, active?: boolean, pro?: boolean }) {
-    return (
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--bg-input)]/50 dark:bg-[var(--bg-input)]/50 bg-gray-50/50 border border-[var(--border-color)]/30 dark:border-[var(--border-color)]/30 border-gray-200/50">
-        <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${active ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-800/50 text-[var(--text-muted)]'}`}>
-            <Icon size={16} />
-        </div>
-        <div className="flex-1">
-            <p className="text-xs text-[var(--text-muted)]">{label}</p>
-            <p className={`text-sm font-medium ${active ? 'text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900' : 'text-[var(--text-muted)]'}`}>{value}</p>
-        </div>
-        {pro && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">PRO</span>}
-        </div>
-    )
-    }
-
-    
-
-    function FeatureListItem({ text }: { text: string }) {
-    return (
-        <div className="flex items-center gap-2 text-sm text-slate-300">
-        <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
-        {text}
-        </div>
-    )
-    }
+export default function LandingPage() {
+  return (
+    <main className="min-h-screen bg-white text-slate-900">
+      <Navbar />
+      <Hero />
+      <Logos />
+      <Features />
+      <SelfHosted />
+      <DemoSection />
+      <Pricing />
+      <Testimonials />
+      <FAQ />
+      <CTAFinal />
+      <Footer />
+      <WhatsAppFloat />
+    </main>
+  )
+}

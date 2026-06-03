@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic'
 
+import { demoResponse, isDemoRequest } from "@/lib/demo-api"
 import { NextRequest, NextResponse } from "next/server"
 
 const BACKEND_URL = (process.env.NEXT_PUBLIC_WHATSAPP_SERVER_URL || "").replace(/\/$/, "")
@@ -27,6 +28,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if (isDemoRequest(req)) {
+    return demoResponse({ tags: [] }) // o datos mock si querés
+  }
   try {
     const body = await req.json()
     const token = req.headers.get("authorization") || ""

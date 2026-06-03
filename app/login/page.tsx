@@ -18,7 +18,7 @@ export default function LoginPage() {
   // Si ya está logueado, mandar al dashboard
   useEffect(() => {
     if (checked && user) {
-      window.location.href = "/"
+      window.location.href = "/dashboard"
     }
   }, [checked, user])
 
@@ -30,7 +30,7 @@ export default function LoginPage() {
     try {
       await login(email, password)
       // 🔥 Fuerza recarga completa para evitar race conditions de hooks
-      window.location.href = "/"
+      window.location.href = "/dashboard"
     } catch (e: any) {
       setError(e.message)
       setLoading(false)

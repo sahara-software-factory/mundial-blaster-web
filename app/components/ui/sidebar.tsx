@@ -15,12 +15,17 @@ import {
   Sun,
   Moon,
   Zap,
-  Tag
+  Tag,
+  Globe,
+  Sparkles,
+  Lock,
+  DollarSign
 } from "lucide-react"
 import { useTheme } from "./theme-provider"
 import { useAuth } from "@/hooks/useAuth"
 import { useLicense } from "@/hooks/useLicense"
 import { useRouter, usePathname } from "next/navigation"
+import { useUpgradeModal } from "../UpgradeModalProvider"
 
 interface SidebarProps {
   onSettings: () => void
@@ -33,7 +38,8 @@ const SidebarItem = memo(function SidebarItem({
   active, 
   locked, 
   collapsed, 
-  onClick 
+  onClick,
+  tourId,
 }: {
   icon: any
   label: string
@@ -41,24 +47,39 @@ const SidebarItem = memo(function SidebarItem({
   locked: boolean
   collapsed: boolean
   onClick: () => void
+  tourId?: string
 }) {
+  const isGold = label === 'Ganá plata'
+
   return (
     <button
+      data-tour={tourId}
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all relative group ${
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all relative group overflow-hidden ${
         active 
-          ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
-          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--border-color)]/50'
+          ? isGold
+            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-[0_0_12px_rgba(16,185,129,0.2)]' 
+            : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+          : isGold
+            ? 'text-emerald-400 border border-transparent hover:border-emerald-500/40 hover:shadow-[0_0_20px_rgba(16,185,129,0.35)] hover:scale-[1.02] hover:bg-gradient-to-r hover:from-emerald-500/20 hover:via-amber-500/10 hover:to-emerald-500/20'
+            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--border-color)]/50'
       } ${locked ? 'opacity-60' : 'cursor-pointer'}`}
       title={label}
     >
-      <Icon size={20} className="shrink-0" />
+      {/* Efecto shine sweep para "Ganá plata" */}
+      {isGold && !active && (
+        <span className="absolute inset-0 -translate-x-[100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out bg-gradient-to-r from-transparent via-emerald-400/30 to-transparent z-0 pointer-events-none" />
+      )}
+      
+      <Icon size={20} className={`shrink-0 relative z-10 ${isGold && !active ? 'group-hover:animate-[pulse_1s_ease-in-out_infinite]' : ''}`} />
       {!collapsed && (
         <>
-          <span className="font-medium truncate">{label}</span>
+          <span className={`font-medium truncate relative z-10 ${isGold && !active ? 'group-hover:text-emerald-300' : ''}`}>
+            {label}
+          </span>
           {locked && (
-            <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1">
-              <Zap size={8} /> PRO
+            <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1 relative z-10">
+              <Lock size={8} /> BUSINESS
             </span>
           )}
         </>
@@ -74,32 +95,45 @@ export function Sidebar({ onSettings, onUpgrade }: SidebarProps) {
   const { license } = useLicense()
   const router = useRouter()
   const pathname = usePathname()
+  const { openUpgrade } = useUpgradeModal()
 
-  // === DESPUÉS ===
-const [confirmedTier, setConfirmedTier] = useState<'starter' | 'pro' | 'loading'>('loading')
-
-useEffect(() => {
-  // Solo actualizamos cuando license ya no es null/undefined
-  if (license && license.tier) {
-    const isPro = license.tier === 'pro' || license.tier === 'business'
-    setConfirmedTier(isPro ? 'pro' : 'starter')
-  }
-}, [license?.tier]) // solo reacciona cuando el tier cambia realmente
-
-const isPro = confirmedTier === 'pro'
-const isLoadingTier = confirmedTier === 'loading'
+  const [confirmedTier, setConfirmedTier] = useState<'starter' | 'pro' | 'business' | 'loading'>('loading')
 
   useEffect(() => {
-  document.documentElement.style.setProperty('--sidebar-width', collapsed ? '72px' : '240px')
-}, [collapsed])
+    if (license && license.tier) {
+      const tier = license.tier
+      if (tier === 'business') setConfirmedTier('business')
+      else if (tier === 'pro') setConfirmedTier('pro')
+      else setConfirmedTier('starter')
+    }
+  }, [license?.tier])
+
+  const isBusiness = confirmedTier === 'business'
+  const isPro = confirmedTier === 'pro'
+  const isLoadingTier = confirmedTier === 'loading'
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--sidebar-width', collapsed ? '72px' : '240px')
+  }, [collapsed])
 
   const menuItems = [
-    { id: "campaigns", icon: Send, label: "Campañas", path: "/" },
-    { id: "contacts", icon: Users, label: "Contactos", path: "/contacts", locked: !isPro },
-    { id: "reports", icon: BarChart3, label: "Reportes", path: "/reports", locked: !isPro },
-    { id: "templates", icon: RotateCcw, label: "Templates", path: "/templates", locked: !isPro },
-    { id: "tags", icon: Tag, label: "Tags", path: "/tags", locked: !isPro },
-
+    { id: "landing", icon: Globe, label: "Volver al sitio", path: "/", tourId: undefined },
+    { id: "campaigns", icon: Send, label: "Campañas", path: "/dashboard", tourId: "nav-campaigns" },
+    { id: "contacts", icon: Users, label: "Contactos", path: "/dashboard/contacts", tourId: "nav-contacts" },
+    { id: "reports", icon: BarChart3, label: "Reportes", path: "/dashboard/reports", tourId: "nav-reports" },
+    { id: "templates", icon: RotateCcw, label: "Templates", path: "/dashboard/templates", tourId: "nav-templates" },
+    { id: "tags", icon: Tag, label: "Tags", path: "/dashboard/tags", tourId: "nav-tags" },
+     
+    { 
+      id: "ai", 
+      icon: Sparkles, 
+      label: "IA", 
+      path: "/dashboard/ai", 
+      tourId: undefined,
+      locked: !isBusiness,
+      businessOnly: true 
+    },
+    { id: "affiliates", icon: DollarSign, label: "Ganá plata", path: "/dashboard/affiliates", tourId: "nav-affiliates" },
   ]
 
   return (
@@ -107,56 +141,86 @@ const isLoadingTier = confirmedTier === 'loading'
       initial={false}
       animate={{ width: collapsed ? 72 : 240 }}
       style={{ width: 'var(--sidebar-width)' }}
-  className="fixed left-0 top-0 h-screen bg-[var(--bg-card)] dark:bg-[var(--bg-card)] bg-white border-r border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 flex flex-col z-40 transition-all duration-300"
+      className="fixed left-0 top-0 h-screen bg-[var(--bg-card)] dark:bg-[var(--bg-card)] bg-white border-r border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 flex flex-col z-40 transition-all duration-300"
     >
-      {/* Logo */}
-      <div className="h-16 flex items-center gap-3 px-4 border-b border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200">
-        <div className="h-8 w-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center font-bold text-[var(--text-primary)] shadow-lg shadow-blue-500/30 shrink-0">
-          <Zap size={18} />
-        </div>
-        {!collapsed && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <h1 className="text-sm font-bold text-[var(--text-primary)] dark:text-[var(--text-primary)] text-gray-900">Mundial Blaster</h1>
-            {isLoadingTier ? (
-  <div className="h-3 w-12 bg-gray-700/40 rounded animate-pulse" />
-) : isPro ? (
-  <span className="text-[10px] font-bold text-amber-400 flex items-center gap-1">
-    <Zap size={10} /> PRO
-  </span>
-) : (
-  <span className="text-[10px] text-blue-400 font-medium">Starter</span>
-)}
-          </motion.div>
-        )}
-      </div>
-
-     <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-  {menuItems.map((item) => (
-    <SidebarItem
-      key={item.id}
-      icon={item.icon}
-      label={item.label}
-      active={pathname === item.path}
-      locked={!!item.locked}  
-      collapsed={collapsed}
-      onClick={() => !item.locked ? router.push(item.path) : onUpgrade?.()}
+{/* Logo */}
+<div className="h-16 flex items-center justify-center px-2 border-b border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200">
+  {collapsed ? (
+    <img 
+      src="/images/isotipo.png" 
+      alt="WabiSend" 
+      className="h-10 w-auto shrink-0"
     />
-  ))}
-  
-  {/* Upgrade button - solo si no es Pro y no está colapsado */}
-  {!isPro && !collapsed && (
-    <button
-      onClick={() => onUpgrade?.()}
-      className="mt-4 w-full flex items-center gap-3 px-3 py-3 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-amber-400 hover:from-amber-500/30 hover:to-orange-500/30 transition-all"
-    >
-      <Zap size={20} />
-      <div className="text-left">
-        <p className="text-xs font-bold">Upgrade a Pro</p>
-        <p className="text-[10px] opacity-60">Desbloqueá todo</p>
+  ) : (
+    <div className="relative mt-3 flex items-center">
+      <img 
+        src={theme === "dark" ? "/images/logo_light.png" : "/images/logo_dark.png"} 
+        alt="WabiSend" 
+        className="h-12 w-auto shrink-0"
+      />
+      {/* Badge flotante arriba a la derecha del logo */}
+      <div className="absolute -top-2 -right-2">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.8 }} 
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.2 }}
+        >
+          {isLoadingTier ? (
+            <div className="h-3 w-10 bg-gray-700/40 rounded animate-pulse" />
+          ) : isBusiness ? (
+            <span className="text-[9px] font-bold text-purple-400 flex items-center gap-0.5 whitespace-nowrap bg-purple-500/10 px-1.5 py-0.5 rounded-full border border-purple-500/20">
+              <Sparkles size={8} /> BUSINESS
+            </span>
+          ) : isPro ? (
+            <span className="text-[9px] font-bold text-amber-400 flex items-center gap-0.5 whitespace-nowrap bg-amber-500/10 px-1.5 py-0.5 rounded-full border border-amber-500/20">
+              <Zap size={8} /> PRO
+            </span>
+          ) : (
+            <span className="text-[9px] text-blue-400 font-medium whitespace-nowrap bg-blue-500/10 px-1.5 py-0.5 rounded-full border border-blue-500/20">
+              Starter
+            </span>
+          )}
+        </motion.div>
       </div>
-    </button>
+    </div>
   )}
-</nav>
+</div>
+
+      <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
+        {menuItems.map((item) => (
+          <SidebarItem
+            key={item.id}
+            icon={item.icon}
+            label={item.label}
+            active={pathname === item.path || pathname.startsWith(item.path + '/')}
+            locked={!!item.locked}
+            collapsed={collapsed}
+            onClick={() => {
+  if (item.locked) {
+    openUpgrade('business')  // ← PASAR 'business'
+    return
+  }
+  router.push(item.path)
+}}
+            tourId={item.tourId}
+          />
+        ))}
+
+        {!isBusiness && !isPro && !collapsed && (
+          <button
+  onClick={() => openUpgrade('pro')}
+  className="mt-4 w-full flex items-center gap-3 px-3 py-3 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-amber-400 hover:from-amber-500/30 hover:to-orange-500/30 transition-all"
+>
+  <Zap size={20} />
+  <div className="text-left">
+    <p className="text-xs font-bold">Upgrade a Pro</p>
+    <p className="text-[10px] opacity-60">Desbloqueá todo</p>
+  </div>
+</button>
+        )}
+
+        
+      </nav>
 
       {/* Bottom */}
       <div className="p-3 border-t border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 space-y-1">

@@ -12,6 +12,14 @@ interface LicenseData {
 
 const STORAGE_KEY = "mb_license_cache"
 
+const decodeToken = (token: string) => {
+  try {
+    return JSON.parse(atob(token.split(".")[1]))
+  } catch {
+    return null
+  }
+}
+
 function getCachedLicense(): LicenseData | null {
   if (typeof window === "undefined") return null
   try {
@@ -30,19 +38,37 @@ function setCachedLicense(data: LicenseData | null) {
 }
 
 export function useLicense() {
-  // Estado inicial: lee del cache local para evitar flash
   const [license, setLicense] = useState<LicenseData | null>(getCachedLicense)
-  const [loading, setLoading] = useState(!getCachedLicense()) // solo loading si no hay cache
+  const [loading, setLoading] = useState(!getCachedLicense())
   const [checked, setChecked] = useState(false)
   const fetchingRef = useRef(false)
 
   const checkLicense = useCallback(async (force = false) => {
-  
     if (fetchingRef.current && !force) return
     fetchingRef.current = true
 
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("mb_token") : null
+
+      if (token) {
+        const payload = decodeToken(token)
+        if (payload?.is_demo) {
+          const demoLicense: LicenseData = {
+            active: true,
+            tier: "pro",
+            maxLines: 2,
+            label: "Pro (Demo)",
+            features: ["basic_spintax", "30d_history", "basic_delay"],
+          }
+          setLicense(demoLicense)
+          setCachedLicense(demoLicense)
+          setLoading(false)
+          setChecked(true)
+          fetchingRef.current = false
+          return
+        }
+      }
+
       const headers: Record<string, string> = {}
       if (token) headers.Authorization = `Bearer ${token}`
 
@@ -64,54 +90,6 @@ export function useLicense() {
       fetchingRef.current = false
     }
   }, [])
-
-//   const checkLicense = useCallback(async (force = false) => {
-//   if (fetchingRef.current && !force) return
-//   fetchingRef.current = true
-
-//   // 🔥 BYPASS LOCALHOST: Siempre Pro en desarrollo
-//   const isLocalhost = typeof window !== 'undefined' && 
-//     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-  
-//   if (isLocalhost) {
-//     const mockLicense: LicenseData = { 
-//       active: true, 
-//       tier: 'pro', 
-//       maxLines: 3, 
-//       label: 'Local Dev',
-//       features: { unlimited: true }
-//     }
-//     setLicense(mockLicense)
-//     setCachedLicense(mockLicense)
-//     setLoading(false)
-//     setChecked(true)
-//     fetchingRef.current = false
-//     return
-//   }
-
-//   try {
-//     const token = typeof window !== "undefined" ? localStorage.getItem("mb_token") : null
-//     const headers: Record<string, string> = {}
-//     if (token) headers.Authorization = `Bearer ${token}`
-
-//     const res = await fetch("/api/license/status", {
-//       cache: "no-store",
-//       headers,
-//     })
-
-//     const data: LicenseData = await res.json()
-//     setLicense(data)
-//     setCachedLicense(data)
-//   } catch {
-//     const fallback: LicenseData = { active: false }
-//     setLicense(fallback)
-//     setCachedLicense(fallback)
-//   } finally {
-//     setLoading(false)
-//     setChecked(true)
-//     fetchingRef.current = false
-//   }
-// }, [])
 
   useEffect(() => {
     checkLicense()

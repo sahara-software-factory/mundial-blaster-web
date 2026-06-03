@@ -12,10 +12,11 @@ import {
   Palette
 } from "lucide-react"
 import { toast } from "sonner"
-import { Sidebar } from "../components/ui/sidebar"
-import { PremiumModal } from "../components/ui/modal"
+import { Sidebar } from "../../components/ui/sidebar"
+import { PremiumModal } from "../../components/ui/modal"
 import { useConfirm } from "@/hooks/useConfirm"
-import { ConfirmDialog } from "../components/ui/confirm-dialog"
+import { ConfirmDialog } from "../../components/ui/confirm-dialog"
+import { useDemoMode } from "@/hooks/useDemo"
 
 interface TagItem {
   id: string
@@ -43,9 +44,27 @@ const [selectedTagColor, setSelectedTagColor] = useState("")
 const [tagContacts, setTagContacts] = useState<any[]>([])
 const [loadingContacts, setLoadingContacts] = useState(false)
 const token = typeof window !== 'undefined' ? localStorage.getItem('mb_token') : ''
+const { isDemo } = useDemoMode()
 
   const fetchTags = useCallback(async () => {
     setLoading(true)
+
+    if (isDemo) {
+      // DEMO: 8 tags con counts reales basados en los 30 contactos demo
+      setTags([
+        { id: "tag-1", name: "Cliente", color: "#3b82f6", count: 17 },
+        { id: "tag-2", name: "Lead", color: "#10b981", count: 11 },
+        { id: "tag-3", name: "VIP", color: "#f59e0b", count: 7 },
+        { id: "tag-4", name: "Hot", color: "#ef4444", count: 8 },
+        { id: "tag-5", name: "Prospecto", color: "#ec4899", count: 4 },
+        { id: "tag-6", name: "Inactivo", color: "#64748b", count: 3 },
+        { id: "tag-7", name: "Whatsapp", color: "#06b6d4", count: 5 },
+        { id: "tag-8", name: "Proveedor", color: "#8b5cf6", count: 2 },
+      ])
+      setLoading(false)
+      return
+    }
+
     try {
       const res = await fetch("/api/tags/stats", {
         headers: { Authorization: `Bearer ${token}` },
@@ -58,33 +77,75 @@ const token = typeof window !== 'undefined' ? localStorage.getItem('mb_token') :
     } finally {
       setLoading(false)
     }
-  }, [token])
+  }, [token, isDemo])
 
   useEffect(() => {
     fetchTags()
   }, [fetchTags])
 
   const openTagContacts = async (tag: TagItem) => {
-  setSelectedTagName(tag.name)
-  setSelectedTagColor(tag.color)
-  setShowTagContacts(true)
-  setLoadingContacts(true)
-  try {
-    const res = await fetch(`/api/contacts?tag=${encodeURIComponent(tag.name)}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    })
-    const data = await res.json()
-    setTagContacts(data.contacts || [])
-  } catch {
-    toast.error("Error cargando contactos")
-    setTagContacts([])
-  } finally {
-    setLoadingContacts(false)
+    setSelectedTagName(tag.name)
+    setSelectedTagColor(tag.color)
+    setShowTagContacts(true)
+    setLoadingContacts(true)
+
+    if (isDemo) {
+      // DEMO: Contactos filtrados por tag (mismos 30 del demo)
+      const allDemoContacts = [
+        { id: "c-1", name: "Juan Pérez", phone: "5491130012345", email: "juan.perez@gmail.com", tags: ["Cliente", "VIP"] },
+        { id: "c-2", name: "María González", phone: "5491130023456", email: "maria.g@hotmail.com", tags: ["Cliente", "Hot"] },
+        { id: "c-3", name: "Carlos Rodríguez", phone: "5491130034567", email: "crodriguez@empresa.com", tags: ["Lead", "Whatsapp"] },
+        { id: "c-4", name: "Ana Martínez", phone: "5491130045678", email: "ana.martinez@outlook.com", tags: ["Cliente"] },
+        { id: "c-5", name: "Luis Fernández", phone: "5491130056789", email: "luis.f@yahoo.com", tags: ["Prospecto", "Lead"] },
+        { id: "c-6", name: "Laura López", phone: "5491130067890", email: "laura.lopez@gmail.com", tags: ["Cliente", "VIP", "Hot"] },
+        { id: "c-7", name: "Pedro Sánchez", phone: "5491130078901", email: "pedro.sanchez@corp.com", tags: ["Proveedor"] },
+        { id: "c-8", name: "Sofía Torres", phone: "5491130089012", email: "sofia.torres@mail.com", tags: ["Lead", "Whatsapp"] },
+        { id: "c-9", name: "Diego Ramírez", phone: "5491130090123", email: "diego.ramirez@gmail.com", tags: ["Cliente", "Inactivo"] },
+        { id: "c-10", name: "Valentina Flores", phone: "5491130101234", email: "valen.flores@hotmail.com", tags: ["Cliente", "Hot"] },
+        { id: "c-11", name: "Martín Acosta", phone: "5491130112345", email: "martin.acosta@gmail.com", tags: ["Lead"] },
+        { id: "c-12", name: "Camila Ruiz", phone: "5491130123456", email: "camila.ruiz@outlook.com", tags: ["Cliente", "VIP"] },
+        { id: "c-13", name: "Julián Castro", phone: "5491130134567", email: "julian.castro@empresa.com", tags: ["Prospecto"] },
+        { id: "c-14", name: "Paula Medina", phone: "5491130145678", email: "paula.medina@gmail.com", tags: ["Cliente", "Whatsapp"] },
+        { id: "c-15", name: "Tomás Herrera", phone: "5491130156789", email: "tomas.herrera@mail.com", tags: ["Lead", "Hot"] },
+        { id: "c-16", name: "Lucía Silva", phone: "5491130167890", email: "lucia.silva@hotmail.com", tags: ["Cliente"] },
+        { id: "c-17", name: "Nicolás Vargas", phone: "5491130178901", email: "nico.vargas@gmail.com", tags: ["Inactivo"] },
+        { id: "c-18", name: "Emilia Rojas", phone: "5491130189012", email: "emilia.rojas@outlook.com", tags: ["Cliente", "VIP", "Hot"] },
+        { id: "c-19", name: "Bruno Molina", phone: "5491130190123", email: "bruno.molina@corp.com", tags: ["Lead"] },
+        { id: "c-20", name: "Antonella Cruz", phone: "5491130201234", email: "anto.cruz@gmail.com", tags: ["Cliente", "Whatsapp"] },
+        { id: "c-21", name: "Facundo Ortiz", phone: "5491130212345", email: "facu.ortiz@hotmail.com", tags: ["Prospecto", "Lead"] },
+        { id: "c-22", name: "Morena Luna", phone: "5491130223456", email: "morena.luna@gmail.com", tags: ["Cliente"] },
+        { id: "c-23", name: "Santiago Reyes", phone: "5491130234567", email: "santi.reyes@outlook.com", tags: ["Proveedor", "VIP"] },
+        { id: "c-24", name: "Victoria Peña", phone: "5491130245678", email: "vicky.pena@gmail.com", tags: ["Lead", "Hot"] },
+        { id: "c-25", name: "Mateo Giménez", phone: "5491130256789", email: "mateo.gimenez@mail.com", tags: ["Cliente", "Inactivo"] },
+        { id: "c-26", name: "Julieta Navarro", phone: "5491130267890", email: "juli.navarro@hotmail.com", tags: ["Cliente", "VIP"] },
+        { id: "c-27", name: "Franco Ibáñez", phone: "5491130278901", email: "franco.ibanez@gmail.com", tags: ["Prospecto"] },
+        { id: "c-28", name: "Milagros Sosa", phone: "5491130289012", email: "mili.sosa@outlook.com", tags: ["Cliente", "Whatsapp", "Hot"] },
+        { id: "c-29", name: "Agustín Morales", phone: "5491130290123", email: "agus.morales@corp.com", tags: ["Lead"] },
+        { id: "c-30", name: "Rocío Mendoza", phone: "5491130301234", email: "rocio.mendoza@gmail.com", tags: ["Cliente", "VIP", "Hot"] },
+      ]
+      const filtered = allDemoContacts.filter(c => c.tags.includes(tag.name))
+      setTagContacts(filtered)
+      setLoadingContacts(false)
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/contacts?tag=${encodeURIComponent(tag.name)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      })
+      const data = await res.json()
+      setTagContacts(data.contacts || [])
+    } catch {
+      toast.error("Error cargando contactos")
+      setTagContacts([])
+    } finally {
+      setLoadingContacts(false)
+    }
   }
-}
 
   const createTag = async () => {
+       if (isDemo) { toast.info("🎮 Crear tags disponible en modo real"); return }
     if (!newTagName.trim()) return toast.error("Nombre requerido")
     try {
       const res = await fetch("/api/tags", {
@@ -107,6 +168,8 @@ const token = typeof window !== 'undefined' ? localStorage.getItem('mb_token') :
   }
 
 const deleteTag = async (id: string) => {
+    if (isDemo) { toast.info("🎮 Eliminar tags disponible en modo real"); return }
+
   const ok = await askConfirm({
     title: "Eliminar etiqueta",
     description: "¿Eliminar esta etiqueta? Se quitará de todos los contactos que la tengan.",

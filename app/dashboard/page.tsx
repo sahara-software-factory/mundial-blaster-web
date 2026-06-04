@@ -640,7 +640,7 @@ const [editCampaignId, setEditCampaignId] = useState<string | null>(null)
           const text = String(buffer || '')
           const raw = text.split(/[\n\r,\s\t;]+/).map(n => n.trim()).filter(Boolean)
           numbers = raw.map(n => n.replace(/\D/g, '')).filter(n => n.length >= 8)
-          numbers = [...new Set(numbers)]
+          numbers = Array.from(new Set(numbers))
         }
       } catch (err) {
         console.error('Error parseando archivo:', err)
@@ -675,7 +675,7 @@ const [editCampaignId, setEditCampaignId] = useState<string | null>(null)
   const confirmImportNumbers = () => {
     if (pendingNumbers.length === 0) return
     const current = numbersText.split("\n").map(n => n.trim()).filter(Boolean)
-    const merged = [...new Set([...current, ...pendingNumbers])]
+    const merged = Array.from(new Set([...current, ...pendingNumbers]))
     setNumbersText(merged.join("\n"))
     toast.success(`${pendingNumbers.length} números agregados`)
     setShowImportNumbers(false)
@@ -762,7 +762,7 @@ useEffect(() => {
       counts[clean] = (counts[clean] || 0) + 1
     }
     const dups = filtered.filter(n => counts[n.replace(/\D/g, '')] > 1)
-    setDuplicateNumbers([...new Set(dups)])
+    setDuplicateNumbers(Array.from(new Set(dups)))
   }
 
    useEffect(() => {

@@ -1704,7 +1704,7 @@ useEffect(() => {
                                   onClick={() => {
                                     const allPhones = contactList.map(c => c.phone)
                                     const current = numbersText.split("\n").map(n => n.trim()).filter(Boolean)
-                                    const merged = [...new Set([...current, ...allPhones])]
+                                    const merged = Array.from(new Set([...current, ...allPhones]))
                                     setNumbersText(merged.join("\n"))
                                     toast.success(`${allPhones.length} contactos agregados`)
                                   }}
@@ -1781,7 +1781,7 @@ useEffect(() => {
                                     onClick={() => {
                                       const phones = filteredByTag.map(c => c.phone)
                                       const current = numbersText.split("\n").map(n => n.trim()).filter(Boolean)
-                                      const merged = [...new Set([...current, ...phones])]
+                                      const merged = Array.from(new Set([...current, ...phones]))
                                       setNumbersText(merged.join("\n"))
                                       toast.success(`${phones.length} números agregados del tag`)
                                     }}

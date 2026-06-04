@@ -1787,7 +1787,7 @@ useEffect(() => {
                                     }}
                                     className="text-[10px] px-2 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors"
                                   >
-                                    Agregar todos
+                                     Agregar todos
                                   </button>
                                 </div>
                               )}

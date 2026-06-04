@@ -16,15 +16,26 @@ import {
   X,
   Search,
   TrendingUp,
-  AlertCircle
+  AlertCircle,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Sidebar } from "../../../components/ui/sidebar"
 import { useAuth } from "@/hooks/useAuth"
 import Link from "next/link"
 
-const WORKER_URL = "https://old-bar-56fe.cursosluckylabmarketing.workers.dev"
+const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || "https://old-bar-56fe.cursosluckylabmarketing.workers.dev"
 const ADMIN_EMAIL = "yas479304@gmail.com"
+
+interface Sale {
+  id: string
+  tier: string
+  amount: number
+  commission: number
+  status: string
+  created_at: string
+  buyer_name?: string
+  buyer_email?: string
+}
 
 interface AffiliateRow {
   code: string
@@ -33,16 +44,7 @@ interface AffiliateRow {
   total_earned: number
   total_paid: number
   pending: number
-  sales_list: Array<{
-    id: string
-    tier: string
-    amount: number
-    commission: number
-    status: string
-    created_at: string
-    buyer_name?: string
-    buyer_email?: string
-  }>
+  sales_list: Sale[]
 }
 
 export default function AdminAffiliatesPage() {
@@ -52,26 +54,26 @@ export default function AdminAffiliatesPage() {
   const [search, setSearch] = useState("")
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
-  const [selectedAffiliate, setSelectedAffiliate] = useState<string>("")
   const [payModalOpen, setPayModalOpen] = useState(false)
   const [payCode, setPayCode] = useState("")
+  const [paySaleId, setPaySaleId] = useState("")
 
-  // Form registrar venta
   const [saleForm, setSaleForm] = useState({
     code: "",
     tier: "pro",
     amount: 750,
     buyer_name: "",
-    buyer_email: ""
+    buyer_email: "",
   })
 
   const isAdmin = user?.email === ADMIN_EMAIL
+  
 
   const fetchAll = useCallback(async (silent = false) => {
     try {
       const res = await fetch(`${WORKER_URL}/admin/affiliates`, {
         cache: "no-store",
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
       })
       if (!res.ok) throw new Error("Error del worker")
       const data = await res.json()
@@ -85,13 +87,11 @@ export default function AdminAffiliatesPage() {
     }
   }, [])
 
-  // Carga inicial
   useEffect(() => {
     if (isAdmin) fetchAll()
     else setLoading(false)
   }, [isAdmin, fetchAll])
 
-  // Polling cada 10s
   useEffect(() => {
     if (!isAdmin) return
     const interval = setInterval(() => fetchAll(true), 10000)
@@ -104,9 +104,9 @@ export default function AdminAffiliatesPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.NEXT_PUBLIC_WORKER_SECRET || "WABI_SECRET_2026_NUNCA_LO_COMPARTAS"}`
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_WORKER_SECRET || "WABI_SECRET_2026_NUNCA_LO_COMPARTAS"}`,
         },
-        body: JSON.stringify(saleForm)
+        body: JSON.stringify(saleForm),
       })
       const data = await res.json()
       if (data.success) {
@@ -128,15 +128,16 @@ export default function AdminAffiliatesPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.NEXT_PUBLIC_WORKER_SECRET || "WABI_SECRET_2026_NUNCA_LO_COMPARTAS"}`
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_WORKER_SECRET || "WABI_SECRET_2026_NUNCA_LO_COMPARTAS"}`,
         },
-        body: JSON.stringify({ code: payCode })
+        body: JSON.stringify({ code: payCode, sale_id: paySaleId }),
       })
       const data = await res.json()
       if (data.success) {
         toast.success("Marcado como pagado")
         setPayModalOpen(false)
         setPayCode("")
+        setPaySaleId("")
         fetchAll(true)
       } else {
         toast.error(data.error || "Error")
@@ -146,13 +147,12 @@ export default function AdminAffiliatesPage() {
     }
   }
 
-  // Stats globales
   const totalClicks = affiliates.reduce((sum, a) => sum + (a.clicks || 0), 0)
   const totalSales = affiliates.reduce((sum, a) => sum + (a.sales || 0), 0)
   const totalPending = affiliates.reduce((sum, a) => sum + (a.pending || 0), 0)
   const totalPaid = affiliates.reduce((sum, a) => sum + (a.total_paid || 0), 0)
 
-  const filtered = affiliates.filter(a =>
+  const filtered = affiliates.filter((a) =>
     a.code.toLowerCase().includes(search.toLowerCase())
   )
 
@@ -160,7 +160,7 @@ export default function AdminAffiliatesPage() {
     return (
       <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] flex">
         <Sidebar onSettings={() => {}} />
-        <div className="flex-1 flex items-center justify-center" style={{ marginLeft: 'var(--sidebar-width)' }}>
+        <div className="flex-1 flex items-center justify-center" style={{ marginLeft: "var(--sidebar-width)" }}>
           <div className="animate-pulse text-[var(--text-muted)]">Cargando admin...</div>
         </div>
       </div>
@@ -171,7 +171,7 @@ export default function AdminAffiliatesPage() {
     return (
       <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] flex">
         <Sidebar onSettings={() => {}} />
-        <div className="flex-1 flex items-center justify-center" style={{ marginLeft: 'var(--sidebar-width)' }}>
+        <div className="flex-1 flex items-center justify-center" style={{ marginLeft: "var(--sidebar-width)" }}>
           <div className="text-center p-10">
             <AlertCircle size={48} className="mx-auto text-red-400 mb-4" />
             <h2 className="text-xl font-bold mb-2">Acceso restringido</h2>
@@ -188,9 +188,7 @@ export default function AdminAffiliatesPage() {
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] flex">
       <Sidebar onSettings={() => {}} />
-      <div className="flex-1 min-w-0" style={{ marginLeft: 'var(--sidebar-width)', transition: 'margin-left 0.3s ease' }}>
-        
-        {/* Header */}
+      <div className="flex-1 min-w-0" style={{ marginLeft: "var(--sidebar-width)", transition: "margin-left 0.3s ease" }}>
         <header className="h-16 bg-[var(--bg-card)] border-b border-[var(--border-color)] flex items-center justify-between px-6 sticky top-0 z-30">
           <div className="flex items-center gap-3">
             <h1 className="text-lg font-bold flex items-center gap-2">
@@ -204,7 +202,7 @@ export default function AdminAffiliatesPage() {
           <div className="flex items-center gap-3">
             {lastRefresh && (
               <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1">
-                <RefreshCw size={10} /> {lastRefresh.toLocaleTimeString('es')}
+                <RefreshCw size={10} /> {lastRefresh.toLocaleTimeString("es")}
               </span>
             )}
             <button
@@ -224,8 +222,6 @@ export default function AdminAffiliatesPage() {
         </header>
 
         <main className="p-6 lg:p-10 max-w-7xl mx-auto space-y-8">
-
-          {/* Stats globales */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard icon={MousePointerClick} label="Clicks totales" value={totalClicks} color="text-blue-400" bg="bg-blue-500/10" />
             <StatCard icon={ShoppingCart} label="Ventas totales" value={totalSales} color="text-purple-400" bg="bg-purple-500/10" />
@@ -233,7 +229,6 @@ export default function AdminAffiliatesPage() {
             <StatCard icon={Clock} label="Pendiente global" value={`$${totalPending}`} color="text-amber-400" bg="bg-amber-500/10" />
           </div>
 
-          {/* Buscador */}
           <div className="relative">
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
             <input
@@ -245,7 +240,6 @@ export default function AdminAffiliatesPage() {
             />
           </div>
 
-          {/* Tabla maestra */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -256,9 +250,7 @@ export default function AdminAffiliatesPage() {
                 <TrendingUp size={16} className="text-cyan-400" />
                 Todos los afiliados
               </h3>
-              <span className="text-xs text-[var(--text-muted)]">
-                {filtered.length} resultados
-              </span>
+              <span className="text-xs text-[var(--text-muted)]">{filtered.length} resultados</span>
             </div>
 
             {filtered.length > 0 ? (
@@ -299,7 +291,7 @@ export default function AdminAffiliatesPage() {
                             <div className="flex items-center justify-end gap-2">
                               <button
                                 onClick={() => {
-                                  setSaleForm(prev => ({ ...prev, code: aff.code }))
+                                  setSaleForm((prev) => ({ ...prev, code: aff.code }))
                                   setModalOpen(true)
                                 }}
                                 className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
@@ -307,16 +299,20 @@ export default function AdminAffiliatesPage() {
                               >
                                 <Plus size={14} className="text-emerald-400" />
                               </button>
-                              <button
-                                onClick={() => {
-                                  setPayCode(aff.code)
-                                  setPayModalOpen(true)
-                                }}
-                                className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
-                                title="Marcar como pagado"
-                              >
-                                <CheckCircle2 size={14} className="text-blue-400" />
-                              </button>
+                              {aff.sales_list?.some((s) => s.status === "pending") && (
+                                <button
+                                  onClick={() => {
+                                    setPayCode(aff.code)
+                                    const pendingSale = aff.sales_list.find((s) => s.status === "pending")
+                                    setPaySaleId(pendingSale?.id || "")
+                                    setPayModalOpen(true)
+                                  }}
+                                  className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
+                                  title="Marcar como pagado"
+                                >
+                                  <CheckCircle2 size={14} className="text-blue-400" />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </motion.tr>
@@ -333,73 +329,78 @@ export default function AdminAffiliatesPage() {
             )}
           </motion.div>
 
-          {/* Detalle de ventas por afiliado */}
-          {filtered.map((aff) => (
-            aff.sales_list && aff.sales_list.length > 0 && (
-              <motion.div
-                key={`detail-${aff.code}`}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl overflow-hidden"
-              >
-                <div className="p-5 border-b border-[var(--border-color)] flex items-center justify-between">
-                  <h3 className="text-sm font-bold flex items-center gap-2">
-                    <ShoppingCart size={16} className="text-purple-400" />
-                    Ventas de {aff.code}
-                  </h3>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-[var(--border-color)] text-left">
-                        <th className="p-4 text-xs font-bold text-[var(--text-secondary)] uppercase">Fecha</th>
-                        <th className="p-4 text-xs font-bold text-[var(--text-secondary)] uppercase">Plan</th>
-                        <th className="p-4 text-xs font-bold text-[var(--text-secondary)] uppercase">Cliente</th>
-                        <th className="p-4 text-xs font-bold text-[var(--text-secondary)] uppercase text-right">Venta</th>
-                        <th className="p-4 text-xs font-bold text-[var(--text-secondary)] uppercase text-right">Comisión</th>
-                        <th className="p-4 text-xs font-bold text-[var(--text-secondary)] uppercase">Estado</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {aff.sales_list.map((sale) => (
-                        <tr key={sale.id} className="border-b border-[var(--border-color)]/30">
-                          <td className="p-4 text-sm text-[var(--text-secondary)]">
-                            {new Date(sale.created_at).toLocaleDateString('es')}
-                          </td>
-                          <td className="p-4">
-                            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
-                              sale.tier === 'business' ? 'bg-purple-500/10 text-purple-400' :
-                              sale.tier === 'pro' ? 'bg-amber-500/10 text-amber-400' :
-                              'bg-blue-500/10 text-blue-400'
-                            }`}>
-                              {sale.tier}
-                            </span>
-                          </td>
-                          <td className="p-4 text-sm text-[var(--text-secondary)]">
-                            {sale.buyer_name || "—"} <br />
-                            <span className="text-[10px] text-[var(--text-muted)]">{sale.buyer_email || ""}</span>
-                          </td>
-                          <td className="p-4 text-sm font-bold text-[var(--text-primary)] text-right">${sale.amount}</td>
-                          <td className="p-4 text-sm font-bold text-emerald-400 text-right">+${sale.commission}</td>
-                          <td className="p-4">
-                            {sale.status === 'paid' ? (
-                              <span className="flex items-center gap-1 text-xs text-emerald-400">
-                                <CheckCircle2 size={12} /> Pagado
-                              </span>
-                            ) : (
-                              <span className="flex items-center gap-1 text-xs text-amber-400">
-                                <Clock size={12} /> Pendiente
-                              </span>
-                            )}
-                          </td>
+          {filtered.map(
+            (aff) =>
+              aff.sales_list &&
+              aff.sales_list.length > 0 && (
+                <motion.div
+                  key={`detail-${aff.code}`}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl overflow-hidden"
+                >
+                  <div className="p-5 border-b border-[var(--border-color)] flex items-center justify-between">
+                    <h3 className="text-sm font-bold flex items-center gap-2">
+                      <ShoppingCart size={16} className="text-purple-400" />
+                      Ventas de {aff.code}
+                    </h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-[var(--border-color)] text-left">
+                          <th className="p-4 text-xs font-bold text-[var(--text-secondary)] uppercase">Fecha</th>
+                          <th className="p-4 text-xs font-bold text-[var(--text-secondary)] uppercase">Plan</th>
+                          <th className="p-4 text-xs font-bold text-[var(--text-secondary)] uppercase">Cliente</th>
+                          <th className="p-4 text-xs font-bold text-[var(--text-secondary)] uppercase text-right">Venta</th>
+                          <th className="p-4 text-xs font-bold text-[var(--text-secondary)] uppercase text-right">Comisión</th>
+                          <th className="p-4 text-xs font-bold text-[var(--text-secondary)] uppercase">Estado</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </motion.div>
-            )
-          ))}
+                      </thead>
+                      <tbody>
+                        {aff.sales_list.map((sale) => (
+                          <tr key={sale.id} className="border-b border-[var(--border-color)]/30">
+                            <td className="p-4 text-sm text-[var(--text-secondary)]">
+                              {new Date(sale.created_at).toLocaleDateString("es")}
+                            </td>
+                            <td className="p-4">
+                              <span
+                                className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
+                                  sale.tier === "business"
+                                    ? "bg-purple-500/10 text-purple-400"
+                                    : sale.tier === "pro"
+                                    ? "bg-amber-500/10 text-amber-400"
+                                    : "bg-blue-500/10 text-blue-400"
+                                }`}
+                              >
+                                {sale.tier}
+                              </span>
+                            </td>
+                            <td className="p-4 text-sm text-[var(--text-secondary)]">
+                              {sale.buyer_name || "—"} <br />
+                              <span className="text-[10px] text-[var(--text-muted)]">{sale.buyer_email || ""}</span>
+                            </td>
+                            <td className="p-4 text-sm font-bold text-[var(--text-primary)] text-right">${sale.amount}</td>
+                            <td className="p-4 text-sm font-bold text-emerald-400 text-right">+${sale.commission}</td>
+                            <td className="p-4">
+                              {sale.status === "paid" ? (
+                                <span className="flex items-center gap-1 text-xs text-emerald-400">
+                                  <CheckCircle2 size={12} /> Pagado
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1 text-xs text-amber-400">
+                                  <Clock size={12} /> Pendiente
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </motion.div>
+              )
+          )}
         </main>
       </div>
 
@@ -423,18 +424,23 @@ export default function AdminAffiliatesPage() {
                   <Plus size={20} className="text-emerald-400" />
                   Registrar venta
                 </h3>
-                <button onClick={() => setModalOpen(false)} className="p-1 hover:bg-[var(--bg-hover)] rounded-lg transition-colors">
+                <button
+                  onClick={() => setModalOpen(false)}
+                  className="p-1 hover:bg-[var(--bg-hover)] rounded-lg transition-colors"
+                >
                   <X size={18} className="text-[var(--text-muted)]" />
                 </button>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs font-bold text-[var(--text-secondary)] uppercase mb-1 block">Código afiliado</label>
+                  <label className="text-xs font-bold text-[var(--text-secondary)] uppercase mb-1 block">
+                    Código afiliado
+                  </label>
                   <input
                     type="text"
                     value={saleForm.code}
-                    onChange={(e) => setSaleForm(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
+                    onChange={(e) => setSaleForm((prev) => ({ ...prev, code: e.target.value.toUpperCase() }))}
                     className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl px-4 py-3 text-sm font-mono text-[var(--text-primary)] focus:outline-none focus:border-emerald-500/50"
                     placeholder="WS-XXXXXX"
                   />
@@ -444,7 +450,7 @@ export default function AdminAffiliatesPage() {
                   <label className="text-xs font-bold text-[var(--text-secondary)] uppercase mb-1 block">Plan</label>
                   <select
                     value={saleForm.tier}
-                    onChange={(e) => setSaleForm(prev => ({ ...prev, tier: e.target.value }))}
+                    onChange={(e) => setSaleForm((prev) => ({ ...prev, tier: e.target.value }))}
                     className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-emerald-500/50"
                   >
                     <option value="starter">Starter ($500)</option>
@@ -458,28 +464,32 @@ export default function AdminAffiliatesPage() {
                   <input
                     type="number"
                     value={saleForm.amount}
-                    onChange={(e) => setSaleForm(prev => ({ ...prev, amount: Number(e.target.value) }))}
+                    onChange={(e) => setSaleForm((prev) => ({ ...prev, amount: Number(e.target.value) }))}
                     className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-emerald-500/50"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-[var(--text-secondary)] uppercase mb-1 block">Nombre comprador</label>
+                  <label className="text-xs font-bold text-[var(--text-secondary)] uppercase mb-1 block">
+                    Nombre comprador
+                  </label>
                   <input
                     type="text"
                     value={saleForm.buyer_name}
-                    onChange={(e) => setSaleForm(prev => ({ ...prev, buyer_name: e.target.value }))}
+                    onChange={(e) => setSaleForm((prev) => ({ ...prev, buyer_name: e.target.value }))}
                     className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-emerald-500/50"
                     placeholder="Opcional"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-[var(--text-secondary)] uppercase mb-1 block">Email comprador</label>
+                  <label className="text-xs font-bold text-[var(--text-secondary)] uppercase mb-1 block">
+                    Email comprador
+                  </label>
                   <input
                     type="email"
                     value={saleForm.buyer_email}
-                    onChange={(e) => setSaleForm(prev => ({ ...prev, buyer_email: e.target.value }))}
+                    onChange={(e) => setSaleForm((prev) => ({ ...prev, buyer_email: e.target.value }))}
                     className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-emerald-500/50"
                     placeholder="Opcional"
                   />
@@ -523,7 +533,8 @@ export default function AdminAffiliatesPage() {
               <CheckCircle2 size={48} className="mx-auto text-blue-400 mb-4" />
               <h3 className="text-lg font-bold mb-2">Marcar como pagado</h3>
               <p className="text-sm text-[var(--text-muted)] mb-6">
-                ¿Confirmás que pagaste las comisiones pendientes de <span className="font-mono font-bold text-cyan-400">{payCode}</span>?
+                ¿Confirmás que pagaste las comisiones pendientes de{" "}
+                <span className="font-mono font-bold text-cyan-400">{payCode}</span>?
               </p>
               <div className="flex gap-3">
                 <button

@@ -46,14 +46,14 @@ export function useAuth() {
 
       const payload = decodeToken(token)
       if (payload?.is_demo) {
-        setUser({
-          id: payload.userId || "demo",
-          nombre: payload.nombre || "Usuario Demo",
-          email: payload.email || "demo@wabisend.com",
-          avatar: "",
-          role: "user",
-          affiliate_code: payload.affiliate_code || null,
-        })
+  setUser({
+    id: payload.userId || "demo",
+    nombre: payload.nombre || "Usuario Demo",
+    email: payload.email || "demo@wabisend.com",
+    avatar: "",
+    role: "business", // ← CAMBIADO A BUSINESS
+    affiliate_code: payload.affiliate_code || null,
+  })
         setChecked(true)
         setLoading(false)
         return

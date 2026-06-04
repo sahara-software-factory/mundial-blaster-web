@@ -5,11 +5,14 @@ import { ToastProvider } from "../components/ui/toast-provider"
 import { UpgradeModalProvider } from "../components/UpgradeModalProvider"
 import { Sidebar } from "../components/ui/sidebar"
 import { AuthGuard } from "../components/AuthGuard"
+import { DemoTour } from "../components/demo-tour"
+import { DemoSalesCTA } from "../components/demo-sales-cta"
 import { useAuth } from "@/hooks/useAuth"
+import { useDemoMode } from "@/hooks/useDemo"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
-  const isDemo = user?.email === "demo@wabisend.com" || user?.id === "demo"
+  const { isDemo } = useDemoMode()
 
   return (
     <ThemeProvider>
@@ -22,6 +25,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {children}
             </main>
           </div>
+
+          {/* Tour + CTA solo en modo demo */}
+          {isDemo && (
+            <>
+              <DemoTour />
+              <DemoSalesCTA />
+            </>
+          )}
         </AuthGuard>
       </UpgradeModalProvider>
     </ThemeProvider>

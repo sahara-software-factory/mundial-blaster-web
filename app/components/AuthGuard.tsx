@@ -36,7 +36,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
     // 4. Ya logueado y va a login → dashboard
     if (user && pathname === "/login") {
-      router.push("/")
+      router.push("/dashboard")
     }
   }, [authLoading, licenseLoading, authChecked, licenseChecked, isActive, user, pathname, router])
 

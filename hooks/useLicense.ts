@@ -54,12 +54,12 @@ export function useLicense() {
         const payload = decodeToken(token)
         if (payload?.is_demo) {
           const demoLicense: LicenseData = {
-            active: true,
-            tier: "pro",
-            maxLines: 2,
-            label: "Pro (Demo)",
-            features: ["basic_spintax", "30d_history", "basic_delay"],
-          }
+  active: true,
+  tier: "business", // ← CAMBIADO A BUSINESS
+  maxLines: Infinity,
+  label: "Business (Demo)",
+  features: ["basic_spintax", "30d_history", "basic_delay", "ai", "webhooks", "white_label"],
+}
           setLicense(demoLicense)
           setCachedLicense(demoLicense)
           setLoading(false)

@@ -12,7 +12,7 @@ import {
   Database,
   Globe,
   HelpCircle,
-  Infinity,
+  Infinity as InfinityIcon,
   Layers,
   Lock,
   MessageCircle,
@@ -272,7 +272,7 @@ function HeroBackground() {
 
     let animId: number
 
-    function draw() {
+    const draw = () => {
       ctx.clearRect(0, 0, w, h)
 
       for (const p of particles) {
@@ -283,7 +283,7 @@ function HeroBackground() {
 
         ctx.beginPath()
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
-        ctx.fillStyle = "rgba(79, 70, 229, 0.75)" // indigo-600, muy visible sobre blanco
+        ctx.fillStyle = "rgba(79, 70, 229, 0.75)"
         ctx.fill()
       }
 
@@ -306,14 +306,14 @@ function HeroBackground() {
       animId = requestAnimationFrame(draw)
     }
 
-    draw()
-
-    function handleResize() {
+    const handleResize = () => {
       w = window.innerWidth
       h = window.innerHeight
       canvas.width = w
       canvas.height = h
     }
+
+    draw()
 
     window.addEventListener("resize", handleResize)
     return () => {
@@ -478,7 +478,7 @@ function Logos() {
     { icon: ShieldCheck, text: "Pagos seguros" },
     { icon: Database, text: "Datos propios" },
     { icon: Globe, text: "Desde cualquier país" },
-    { icon: Infinity, text: "Sin límites" },
+    { icon: InfinityIcon, text: "Sin límites" },
     { icon: Lock, text: "Privacidad total" },
   ]
 

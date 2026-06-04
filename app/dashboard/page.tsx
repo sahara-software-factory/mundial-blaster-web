@@ -608,7 +608,7 @@ const [editCampaignId, setEditCampaignId] = useState<string | null>(null)
         if (cleaned.length >= 8) numbers.push(cleaned)
       })
     })
-    return [...new Set(numbers)]
+    return Array.from(new Set(numbers))
   }
 
   const handleNumberFile = (file: File) => {

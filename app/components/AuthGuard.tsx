@@ -2,17 +2,24 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter, usePathname } from "next/navigation"
+import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import { useLicense } from "@/hooks/useLicense"
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { user, loading: authLoading, checked: authChecked } = useAuth()
   const { license, loading: licenseLoading, checked: licenseChecked, isActive } = useLicense()
 
-  const publicPaths = ["/login", "/setup", "/onboarding",  "/demo"]
+  // 🔥 BYPASS AGRESIVO: ?preview=1 en la URL saltea TODO
+  const isPreview = searchParams?.get("preview") === "1"
+  if (isPreview && pathname === "/onboarding") {
+    return <>{children}</>
+  }
+
+  const publicPaths = ["/login", "/setup", "/onboarding", "/demo"]
   const isPublic = publicPaths.includes(pathname)
 
   useEffect(() => {
@@ -25,9 +32,10 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
 
     // 2. Licencia OK pero sin usuario registrado → onboarding
-    if (isActive && !user && pathname !== "/login" && pathname !== "/onboarding") {
-  router.push("/login")
-}
+    if (isActive && user === null && !isPublic && pathname !== "/login") {
+    router.push("/login")
+    return
+  }
 
     // 3. Usuario existe pero no logueado → login
     if (isActive && user && !authChecked) {

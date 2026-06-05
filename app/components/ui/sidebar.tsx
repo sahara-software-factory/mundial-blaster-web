@@ -26,6 +26,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { useLicense } from "@/hooks/useLicense"
 import { useRouter, usePathname } from "next/navigation"
 import { useUpgradeModal } from "../UpgradeModalProvider"
+import { useDemoMode } from "@/hooks/useDemo"
 
 interface SidebarProps {
   onSettings: () => void
@@ -96,7 +97,7 @@ export function Sidebar({ onSettings, onUpgrade }: SidebarProps) {
   const router = useRouter()
   const pathname = usePathname()
   const { openUpgrade } = useUpgradeModal()
-
+  const { isDemo } = useDemoMode()
   const [confirmedTier, setConfirmedTier] = useState<'starter' | 'pro' | 'business' | 'loading'>('loading')
 
   useEffect(() => {
@@ -241,7 +242,7 @@ export function Sidebar({ onSettings, onUpgrade }: SidebarProps) {
           <Settings size={20} />
           {!collapsed && <span className="text-sm">Configuración</span>}
         </button>
-
+        {!isDemo && (
         <button 
           onClick={logout}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[var(--text-secondary)] dark:text-[var(--text-secondary)] text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all"
@@ -250,6 +251,12 @@ export function Sidebar({ onSettings, onUpgrade }: SidebarProps) {
           <LogOut size={20} />
           {!collapsed && <span className="text-sm">Salir</span>}
         </button>
+        )}
+        {isDemo && (
+  <div className="text-xs text-amber-400 px-3 py-2">
+    🎮 Modo demo
+  </div>
+)}
       </div>
 
       {/* Toggle */}

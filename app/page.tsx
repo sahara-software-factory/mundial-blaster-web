@@ -38,7 +38,9 @@ import {
   Hash,
   MousePointerClick,
   CreditCard,
-  X
+  X,
+  Server,
+  KeyRound
 } from "lucide-react"
 import Link from "next/link"
 
@@ -1271,8 +1273,46 @@ function FAQ() {
   )
 }
 
+// Sección "Deploy en 4 pasos" para la landing
+
+function deploy(){
+    <section className="py-20 px-4">
+  <div className="max-w-4xl mx-auto text-center">
+    <h2 className="text-3xl font-bold text-white mb-4">Deploy en 4 pasos</h2>
+    <p className="text-slate-400 mb-12">Sin conocimientos avanzados. Solo seguís el wizard.</p>
+    
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      {[
+        { step: "1", title: "Base de datos", desc: "Crear PostgreSQL en Neon", icon: Database },
+        { step: "2", title: "Backend", desc: "Deploy en Railway", icon: Server },
+        { step: "3", title: "Frontend", desc: "Deploy en Vercel", icon: Globe },
+        { step: "4", title: "Activar", desc: "Pegar tu licencia", icon: KeyRound },
+      ].map((item) => (
+        <div key={item.step} className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 text-left">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center mb-4">
+            <item.icon size={20} className="text-white" />
+          </div>
+          <div className="text-emerald-400 text-xs font-bold uppercase tracking-wider mb-1">Paso {item.step}</div>
+          <h3 className="text-white font-bold text-lg mb-1">{item.title}</h3>
+          <p className="text-slate-500 text-sm">{item.desc}</p>
+        </div>
+      ))}
+    </div>
+    
+    <div className="mt-10">
+      <a href="https://www.loom.com/share/..." target="_blank" className="inline-flex items-center gap-2 text-emerald-400 hover:text-emerald-300 font-medium">
+        <Play size={18} /> Ver tutorial de instalación
+      </a>
+    </div>
+  </div>
+</section>
+
+}
+
 function CTAFinal() {
   return (
+
+    
     <section className="py-24 lg:py-32">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div

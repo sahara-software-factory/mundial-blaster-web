@@ -114,7 +114,8 @@ export function useAuth() {
     localStorage.removeItem("mb_token")
     localStorage.removeItem("mb_license_cache")
     setUser(null)
-    router.push("/login")
+    // Hard reload para limpiar todo estado de React y evitar race conditions
+    window.location.href = "/login"
   }
 
   useEffect(() => {

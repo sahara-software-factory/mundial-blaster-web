@@ -66,7 +66,7 @@ import {
   DEMO_LINES, DEMO_CONTACTS, DEMO_TAGS, DEMO_TEMPLATES 
 } from "@/lib/demo-data"
 import { useDemoMode } from "@/hooks/useDemo"
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || ""
+// const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || ""
 
 interface LineaWhatsApp {
   id: string
@@ -87,6 +87,14 @@ interface TagItem {
   name: string
   color: string
 }
+
+
+const SOCKET_URL = typeof window !== 'undefined' 
+  ? (window.location.hostname === 'localhost' 
+      ? (process.env.NEXT_PUBLIC_WHATSAPP_SERVER_URL || 'http://localhost:8080')
+      : (process.env.NEXT_PUBLIC_WHATSAPP_SERVER_URL || ''))
+  : ''
+
 
 type TabType = "plan" | "lines" | "campaign" | "logs"
 
@@ -864,18 +872,23 @@ useEffect(() => {
     if (isActive && isAuthenticated) fetchLines()
   }, [isActive, isAuthenticated])
 
-  useEffect(() => {
+ useEffect(() => {
   if (isDemo) {
-      setSocketConnected(true)
-      return
-    }
-    if (!SOCKET_URL || !isActive) return
-  const socket = io(SOCKET_URL)
+    setSocketConnected(true)
+    return
+  }
+  
+  if (!SOCKET_URL || !isActive) return
+  
+  const socket = io(SOCKET_URL, {
+    transports: ['websocket', 'polling'], // fallback si websocket falla
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
+  })
   
   socket.on("connect", () => setSocketConnected(true))
   socket.on("disconnect", () => setSocketConnected(false))
   
-  // ← NUEVO: Logs de campaña en tiempo real
   socket.on("campaign_log", (payload) => {
     const icon = payload.status === 'sent' ? '✅' : '❌'
     setLogs(prev => [...prev, `${icon} ${payload.progress} → ${payload.phone} [${payload.linePhone}]`])
@@ -886,7 +899,7 @@ useEffect(() => {
   })
 
   return () => { socket.disconnect() }
-}, [isActive])
+}, [isActive, isDemo])
 
 
   useEffect(() => {

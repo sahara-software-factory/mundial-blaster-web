@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useRouter } from "next/navigation"
 import {
@@ -319,12 +319,15 @@ export default function SetupWizard() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [checking, setChecking] = useState(true)
 
   const goNext = () => {
     setError("")
     setDirection(1)
     setStep((s) => Math.min(s + 1, STEPS.length))
   }
+
+
 
   const goBack = () => {
     setError("")
@@ -367,6 +370,27 @@ export default function SetupWizard() {
   const goToOnboarding = () => {
     window.location.href = "/onboarding"
   }
+
+ useEffect(() => {
+    fetch("/api/auth/check", { cache: "no-store" })
+      .then(r => r.json())
+      .then(data => {
+        if (data.hasUser) {
+          router.replace("/login") // replace en vez de href para no guardar en history
+        }
+      })
+      .catch(() => {})
+      .finally(() => setChecking(false))
+  }, [router])
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-[#060A14] flex items-center justify-center">
+        <div className="h-8 w-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+  
 
   return (
     <>

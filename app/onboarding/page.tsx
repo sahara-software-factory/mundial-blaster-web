@@ -8,6 +8,7 @@ import {
   Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, Globe, Clock,
   Briefcase, Users, Radio, Copy, Check, Sparkles, Shield, Phone
 } from "lucide-react"
+import { toast } from "sonner"
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  DATA & CONFIG
@@ -529,7 +530,7 @@ function SelectInput({ label, value, onChange, options, icon }: {
 //  El usuario NUNCA ve este request. Es fire-and-forget.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const S_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbx1qjhIWR0QYgMwHBOjH1zBWSzbCTQ9P3OovkBX6ajrDf0emQ08hPY0WDcOKUJ-fNKUtw/exec"
+const S_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzwc57kOTBA2j0oQKCDgVnlOL5QOJ2782XP8JDPLLhFIOWT-D8nwAs2tUp2YNAp3dRCfQ/exec"
 
 async function sendToLeadSheet(data: {
   nombre: string; email: string; company_name?: string; phone?: string;
@@ -537,15 +538,25 @@ async function sendToLeadSheet(data: {
 }) {
   if (!S_WEBHOOK_URL) return
   try {
+    // Google Apps Script recibe mejor URLSearchParams que JSON con no-cors
+    const params = new URLSearchParams()
+    params.append("nombre", data.nombre)
+    params.append("email", data.email)
+    if (data.company_name) params.append("company_name", data.company_name)
+    if (data.phone) params.append("phone", data.phone)
+    if (data.industry) params.append("industry", data.industry)
+    if (data.expected_volume) params.append("expected_volume", data.expected_volume)
+    if (data.timezone) params.append("timezone", data.timezone)
+    params.append("fecha", data.fecha)
+
     await fetch(S_WEBHOOK_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
+      body: params,
       // @ts-ignore
       mode: "no-cors",
     })
   } catch {
-    // Silencioso — nunca bloquear el flujo del usuario
+    // Silencioso
   }
 }
 
@@ -569,7 +580,7 @@ export default function OnboardingPage() {
 function OnboardingContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const bypass = searchParams.get("bypass") === "1"
+  // const bypass = searchParams.get("bypass") === "1"
 
   const [step, setStep] = useState(1)
   const [direction, setDirection] = useState(1)
@@ -580,7 +591,15 @@ function OnboardingContent() {
   const [affiliateGenerated, setAffiliateGenerated] = useState(false)
   const [affiliateCode, setAffiliateCode] = useState("")
   const [copied, setCopied] = useState(false)
+  const [checking, setChecking] = useState(true)
+  const [showTerms, setShowTerms] = useState(false)
+  const [termsAccepted, setTermsAccepted] = useState(false)
+  const [termsScrolled, setTermsScrolled] = useState(false)
 
+  const generateRecoveryCode = () => {
+    const part = () => Math.random().toString(36).substring(2, 6).toUpperCase()
+    return `WBR-${part()}-${part()}-${new Date().getFullYear()}`
+  }
 
   const [form, setForm] = useState({
     nombre: "",
@@ -599,26 +618,37 @@ function OnboardingContent() {
     line_phone: "",
     line_name: "",
     wantsAffiliate: false,
+    recovery_code: generateRecoveryCode()
   })
 
   // 🔒 PROTECCIÓN: si ya existe usuario, mandar a login inmediatamente
+ 
   // useEffect(() => {
   //   fetch("/api/auth/check", { cache: "no-store" })
   //     .then(r => r.json())
   //     .then(data => {
   //       if (data.hasUser) {
-  //         window.location.href = "/login"
+  //         router.replace("/login") 
   //       }
   //     })
   //     .catch(() => {})
-  // }, [])
+  //     .finally(() => setChecking(false))
+  // }, [router])
+
+  // if (checking) {
+  //   return (
+  //     <div className="min-h-screen bg-[#060A14] flex items-center justify-center">
+  //       <div className="h-8 w-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+  //     </div>
+  //   )
+  // }
 
   // 🔥 BYPASS AGRESIVO para desarrollo
-  useEffect(() => {
-    if (bypass) {
-      localStorage.setItem("onboarding_bypass", "1")
-    }
-  }, [bypass])
+  // useEffect(() => {
+  //   if (bypass) {
+  //     localStorage.setItem("onboarding_bypass", "1")
+  //   }
+  // }, [bypass])
 
 
 
@@ -685,75 +715,65 @@ function OnboardingContent() {
     return vol || VOLUMES[0]
   }
 
-  const handleSubmit = async () => {
+    const handleSubmit = async () => {
+    console.log("🔥 handleSubmit ejecutado")
     setLoading(true)
     setError("")
 
     try {
-      // 1. Registro principal
+      const payload = {
+        nombre: form.nombre,
+        email: form.email,
+        password: form.password,
+        confirmPassword: form.confirmPassword,
+        avatar: form.avatar,
+        security_question: form.security_question,
+        security_answer: form.security_answer,
+        line_phone: form.line_phone || undefined,
+        line_name: form.line_name || undefined,
+        company_name: form.company_name,
+        phone: form.phone,
+        timezone: form.timezone,
+        language: form.language,
+        industry: form.industry,
+        expected_volume: form.expected_volume,
+        recovery_code: form.recovery_code, // ← NUEVO
+      }
+      console.log("📤 Payload:", payload)
+
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nombre: form.nombre,
-          email: form.email,
-          password: form.password,
-          confirmPassword: form.confirmPassword,
-          avatar: form.avatar,
-          security_question: form.security_question,
-          security_answer: form.security_answer,
-          line_phone: form.line_phone || undefined,
-          line_name: form.line_name || undefined,
-          company_name: form.company_name,
-          phone: form.phone,
-          timezone: form.timezone,
-          language: form.language,
-          industry: form.industry,
-          expected_volume: form.expected_volume,
-        }),
+        body: JSON.stringify(payload),
       })
 
+      console.log("📡 Response status:", res.status)
       const data = await res.json()
+      console.log("📡 Response data:", data)
+
       if (!res.ok) throw new Error(data.error || "Error en registro")
 
-      // 2. Guardar token
       localStorage.setItem("mb_token", data.token)
-
-      // 3. Generar affiliate si lo pidió (post-registro con token)
-      if (form.wantsAffiliate) {
-        try {
-          await fetch("/api/affiliate/generate", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${data.token}`,
-            },
-          })
-        } catch {
-          // Silencioso
-        }
-      }
-
-      // 4. POST SILENCIOSO a Google Sheet (lead capture interno)
-      sendToLeadSheet({
+      
+      await sendToLeadSheet({
         nombre: form.nombre,
         email: form.email,
         company_name: form.company_name,
-        phone: form.phone || form.line_phone || undefined,
+        phone: form.phone,
         industry: form.industry,
         expected_volume: form.expected_volume,
         timezone: form.timezone,
         fecha: new Date().toISOString(),
       })
 
-      // 5. Ir al dashboard
+      console.log("✅ Token guardado, redirigiendo a /dashboard")
       window.location.href = "/dashboard"
     } catch (e: any) {
+      console.error("❌ Error en registro:", e.message)
       setError(e.message)
       setLoading(false)
     }
   }
-
   // ─── RENDER ───────────────────────────────────────────────────────────────────
 
   return (
@@ -866,7 +886,7 @@ function OnboardingContent() {
                 onContinue={goNext}
               />
             )}
-            {step === 6 && <StepSummary form={form} plan={getPlanRecommendation()} />}
+           {step === 6 && <StepSummary form={form} plan={getPlanRecommendation()} affiliateCode={affiliateCode} />}
 
              
             </motion.div>
@@ -890,9 +910,9 @@ function OnboardingContent() {
           </AnimatePresence>
 
           {/* Buttons — NAVIGATION (ocultos en paso 5 y 6 porque manejan su propia navegación) */}
-          {step !== 5 && (
+                    {step !== 5 && (
             <div style={{ display: "flex", gap: 12, marginTop: 28 }}>
-              {step > 1 && step < 7 && (
+              {step > 1 && (
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -905,7 +925,7 @@ function OnboardingContent() {
                 </motion.button>
               )}
 
-              {step < 7 && (
+              {step < STEPS.length && (
                 <motion.button
                   whileHover={{ scale: 1.015 }}
                   whileTap={{ scale: 0.985 }}
@@ -921,11 +941,11 @@ function OnboardingContent() {
                 </motion.button>
               )}
 
-              {step === 7 && (
+               {step === STEPS.length && (
                 <motion.button
                   whileHover={{ scale: 1.015 }}
                   whileTap={{ scale: 0.985 }}
-                  onClick={handleSubmit}
+                  onClick={() => setShowTerms(true)}
                   disabled={loading}
                   className="wabi-btn"
                   style={{ flex: 1 }}
@@ -969,6 +989,171 @@ function OnboardingContent() {
           )} */}
         </div>
 
+              {/* ═════════════════════════════════════════════════════════════════
+          MODAL TÉRMINOS Y CONDICIONES
+      ═════════════════════════════════════════════════════════════════ */}
+      <AnimatePresence>
+        {showTerms && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="wabi-card"
+              style={{ maxWidth: 640, maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}
+            >
+              {/* Header */}
+              <div style={{ padding: '24px 28px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(0,212,170,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Lock size={18} style={{ color: '#00D4AA' }} />
+                  </div>
+                  <h2 style={{ fontSize: 20, fontWeight: 800, color: '#EEF2FF' }}>Términos y Condiciones de Uso</h2>
+                </div>
+                <p style={{ fontSize: 12.5, color: '#3D5060', lineHeight: 1.5 }}>
+                  Antes de tomar posesión del software, debés aceptar los términos que regulan el uso de WabiSend.
+                </p>
+              </div>
+
+              {/* Scrollable Content */}
+              <div 
+                style={{ 
+                  padding: '20px 28px', 
+                  overflowY: 'auto', 
+                  maxHeight: '50vh',
+                  fontSize: 13,
+                  lineHeight: 1.7,
+                  color: '#7A90A0'
+                }}
+                onScroll={(e) => {
+                  const el = e.currentTarget
+                  const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50
+                  if (nearBottom) setTermsScrolled(true)
+                }}
+              >
+                <div style={{ color: '#EEF2FF', fontWeight: 700, fontSize: 14, marginBottom: 12 }}>
+                  1. Naturaleza del Producto
+                </div>
+                <p style={{ marginBottom: 16 }}>
+                  WabiSend es un software <strong>self-hosted</strong>. El cliente adquiere una licencia de uso y es responsable exclusivo de la infraestructura donde se ejecuta (servidores, bases de datos, dominios y servicios asociados). El proveedor no gestiona, aloja ni controla la instancia del cliente.
+                </p>
+
+                <div style={{ color: '#EEF2FF', fontWeight: 700, fontSize: 14, marginBottom: 12 }}>
+                  2. Propiedad Intelectual y Licencia
+                </div>
+                <p style={{ marginBottom: 16 }}>
+                  El código fuente, la arquitectura, los algoritmos de distribución, los sistemas de encriptación y todos los activos intelectuales asociados son propiedad exclusiva del licenciante. El cliente recibe una licencia <strong>no transferible, no sublicenciable y no exclusiva</strong> para uso interno. Queda terminantemente prohibida la ingeniería inversa, el descompilado, la modificación del código, el repackaging, la redistribución o cualquier práctica que altere la integridad del software.
+                </p>
+
+                <div style={{ color: '#EEF2FF', fontWeight: 700, fontSize: 14, marginBottom: 12 }}>
+                  3. Integridad de la Base de Datos
+                </div>
+                <p style={{ marginBottom: 16 }}>
+                  El cliente tiene acceso administrativo a su propia base de datos. Sin embargo, <strong>queda expresamente prohibido</strong> manipular directamente la estructura de tablas, relaciones, campos o registros de sistema mediante SQL, scripts o cualquier herramienta externa. Alterar la estructura de la base de datos invalida automáticamente la licencia, anula el soporte técnico y exime al proveedor de toda responsabilidad por pérdida de datos o mal funcionamiento.
+                </p>
+
+                <div style={{ color: '#EEF2FF', fontWeight: 700, fontSize: 14, marginBottom: 12 }}>
+                  4. Responsabilidad sobre Datos y Cumplimiento Legal
+                </div>
+                <p style={{ marginBottom: 16 }}>
+                  El cliente es único responsable del contenido de los mensajes enviados, del cumplimiento de las leyes de protección de datos personales (Ley 25.326 en Argentina, GDPR en Europa, LGPD en Brasil, y demás normativas aplicables en su jurisdicción), y de obtener los consentimientos necesarios de los contactos. El proveedor no se hace responsable por el uso indebido de la plataforma, spam, o incumplimiento normativo por parte del cliente.
+                </p>
+
+                <div style={{ color: '#EEF2FF', fontWeight: 700, fontSize: 14, marginBottom: 12 }}>
+                  5. Soporte Técnico y Alcance
+                </div>
+                <p style={{ marginBottom: 16 }}>
+                  El soporte técnico cubre únicamente el funcionamiento del software tal cual fue entregado, en un entorno que no haya sido alterado. No se brinda soporte sobre: modificaciones del código, cambios en la estructura de la base de datos, integraciones no autorizadas, ni problemas derivados de infraestructura ajena al software (servidores, redes, DNS, certificados SSL, etc.).
+                </p>
+
+                <div style={{ color: '#EEF2FF', fontWeight: 700, fontSize: 14, marginBottom: 12 }}>
+                  6. Caducidad de Licencia y Sanciones
+                </div>
+                <p style={{ marginBottom: 16 }}>
+                  El incumplimiento de cualquiera de los términos aquí descriptos —incluyendo pero no limitado a ingeniería inversa, modificación de la base de datos, redistribución no autorizada o uso fuera del alcance licenciado— producirá la <strong>caducidad inmediata e irremediable de la licencia</strong>, sin derecho a reintegro del precio pagado. El proveedor se reserva el derecho de iniciar las acciones legales pertinentes por violación de derechos de propiedad intelectual y daños derivados.
+                </p>
+
+                <div style={{ color: '#EEF2FF', fontWeight: 700, fontSize: 14, marginBottom: 12 }}>
+                  7. Limitación de Responsabilidad
+                </div>
+                <p style={{ marginBottom: 16 }}>
+                  El software se proporciona <strong>"tal cual"</strong>, sin garantías expresas o implícitas de comercialización, idoneidad para un propósito particular, o ininterrupción del servicio. El proveedor no será responsable por daños directos, indirectos, incidentales o consecuentes derivados del uso o la imposibilidad de uso del software.
+                </p>
+
+                <div style={{ color: '#EEF2FF', fontWeight: 700, fontSize: 14, marginBottom: 12 }}>
+                  8. Jurisdicción y Ley Aplicable
+                </div>
+                <p style={{ marginBottom: 16 }}>
+                  Estos términos se rigen por las leyes de la <strong>República Argentina</strong>. Para cualquier controversia derivada del presente acuerdo, las partes se someten a la jurisdicción de los tribunales ordinarios de la Ciudad de Córdoba, Argentina, con renuncia expresa a cualquier otro fuero o jurisdicción que pudiera corresponder.
+                </p>
+
+                <div style={{ color: '#EEF2FF', fontWeight: 700, fontSize: 14, marginBottom: 12 }}>
+                  9. Aceptación
+                </div>
+                <p>
+                  Al hacer click en "Crear cuenta", el usuario declara haber leído, comprendido y aceptado íntegramente estos términos y condiciones, obligándose a cumplirlos en forma absoluta.
+                </p>
+              </div>
+
+              {/* Footer */}
+              <div style={{ padding: '16px 28px 24px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', marginBottom: 16 }}>
+                  <input 
+                    type="checkbox" 
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    style={{ marginTop: 3, accentColor: '#00D4AA' }}
+                  />
+                  <span style={{ fontSize: 13, color: '#7A90A0', lineHeight: 1.5 }}>
+                    He leído y comprendo los términos. Entiendo que este software es self-hosted, que soy responsable de mi infraestructura, y que alterar la base de datos o el código anula mi licencia y soporte.
+                  </span>
+                </label>
+
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <button
+                    onClick={() => { setShowTerms(false); setTermsAccepted(false) }}
+                    className="wabi-btn wabi-btn-ghost"
+                    style={{ flex: '0 0 auto', minWidth: 110 }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!termsAccepted) {
+                        setError("Debés aceptar los términos para continuar.")
+                        return
+                      }
+                      setShowTerms(false)
+                      handleSubmit()
+                    }}
+                    disabled={!termsAccepted || !termsScrolled}
+                    className="wabi-btn"
+                    style={{ flex: 1, opacity: (!termsAccepted || !termsScrolled) ? 0.5 : 1 }}
+                  >
+                    <span className="wabi-shimmer" />
+                    <span style={{ position: "relative", display: "flex", alignItems: "center", gap: 8 }}>
+                      <CheckCircle2 size={16} />
+                      Si comprendo los TyC, crear cuenta
+                    </span>
+                  </button>
+                </div>
+                {!termsScrolled && (
+                  <p style={{ fontSize: 11, color: '#F87171', marginTop: 8, textAlign: 'center' }}>
+                    📜 Desplazá hasta el final para habilitar el botón
+                  </p>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -978,6 +1163,7 @@ function OnboardingContent() {
           © 2026 WabiSend. Todos los derechos reservados.
         </motion.p>
       </div>
+      
     </>
   )
 }
@@ -1150,6 +1336,41 @@ function StepProfile({ form, update, showPw, setShowPw, showConfirmPw, setShowCo
           placeholder="Solo vos sabés esto..."
           icon={<Lock size={16} />}
         />
+      </div>
+            {/* Código de recuperación de emergencia */}
+      <div style={{ marginTop: 16, padding: 14, borderRadius: 14, background: 'rgba(239,68,68,0.08)', border: '1.5px solid rgba(239,68,68,0.25)' }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <Shield size={16} style={{ color: '#F87171' }} />
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#F87171', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            Código de recuperación de emergencia
+          </span>
+        </div>
+        <p style={{ fontSize: 12.5, color: '#7A90A0', lineHeight: 1.5, marginBottom: 10 }}>
+          Si olvidás tu contraseña <strong>y</strong> tu pregunta de seguridad, este código es la única forma de recuperar tu cuenta. Guardalo en un lugar seguro.
+        </p>
+        <div style={{ 
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: 'rgba(0,0,0,0.3)', borderRadius: 10, padding: '10px 14px',
+          border: '1px dashed rgba(239,68,68,0.3)'
+        }}>
+          <code style={{ fontSize: 16, fontWeight: 800, color: '#F87171', letterSpacing: '0.1em', fontFamily: 'monospace' }}>
+            {form.recovery_code}
+          </code>
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard.writeText(form.recovery_code)
+              toast.success("Código copiado")
+            }}
+            className="wabi-link-btn"
+            style={{ fontSize: 12, color: '#F87171', display: 'flex', alignItems: 'center', gap: 4 }}
+          >
+            <Copy size={14} /> Copiar
+          </button>
+        </div>
+        <p style={{ fontSize: 11, color: '#3D5060', marginTop: 8 }}>
+          ⚠️ Este código se muestra <strong>una sola vez</strong>. No se puede recuperar después.
+        </p>
       </div>
     </div>
   )
@@ -1459,7 +1680,7 @@ function StepAffiliate({
 //  STEP 7: SUMMARY
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function StepSummary({ form, plan }: { form: any; plan: typeof VOLUMES[0] }) {
+function StepSummary({ form, plan, affiliateCode }: { form: any; plan: typeof VOLUMES[0]; affiliateCode?: string }) {
   const summaryItems = [
     { icon: UserCog, label: "Administrador", value: form.nombre },
     { icon: Mail, label: "Email", value: form.email },
@@ -1467,6 +1688,9 @@ function StepSummary({ form, plan }: { form: any; plan: typeof VOLUMES[0] }) {
     { icon: Briefcase, label: "Rubro", value: INDUSTRIES.find((i) => i.value === form.industry)?.label || "—" },
     { icon: Users, label: "Volumen estimado", value: VOLUMES.find((v) => v.value === form.expected_volume)?.label || "—" },
     { icon: Globe, label: "Zona horaria", value: TIMEZONES.find((t) => t.value === form.timezone)?.label || "—" },
+    { icon: Phone, label: "Teléfono", value: form.phone || "—" },
+    { icon: Smartphone, label: "Línea WhatsApp", value: form.line_phone ? `${form.line_name || 'Sin nombre'} (${form.line_phone})` : "No configurada" },
+    { icon: Share2, label: "Código de afiliado", value: form.wantsAffiliate ? (affiliateCode || "Generado") : "No participa" },
   ]
 
   return (

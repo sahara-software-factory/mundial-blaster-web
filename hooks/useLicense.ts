@@ -38,8 +38,8 @@ function setCachedLicense(data: LicenseData | null) {
 }
 
 export function useLicense() {
-  const [license, setLicense] = useState<LicenseData | null>(getCachedLicense)
-  const [loading, setLoading] = useState(!getCachedLicense())
+const [license, setLicense] = useState<LicenseData | null>(null)
+const [loading, setLoading] = useState(true)
   const [checked, setChecked] = useState(false)
   const fetchingRef = useRef(false)
 
@@ -80,6 +80,9 @@ export function useLicense() {
       const data: LicenseData = await res.json()
       setLicense(data)
       setCachedLicense(data)
+      if (!data.active) {
+        setCachedLicense(null)
+      }
     } catch {
       const fallback: LicenseData = { active: false }
       setLicense(fallback)

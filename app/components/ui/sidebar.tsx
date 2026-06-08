@@ -234,9 +234,13 @@ export function Sidebar({ onSettings, onUpgrade }: SidebarProps) {
           {!collapsed && <span className="text-sm"> Switch {theme === "dark" ? "Claro" : "Oscuro"}</span>}
         </button>
 
-        <button 
-          onClick={onSettings}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[var(--text-secondary)] dark:text-[var(--text-secondary)] text-gray-500 hover:text-[var(--text-primary)] dark:hover:text-[var(--text-primary)] hover:text-gray-900 hover:bg-[var(--border-color)] dark:hover:bg-[var(--border-color)] hover:bg-gray-100 transition-all"
+                <button 
+          onClick={() => router.push("/dashboard/settings")}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
+            pathname === "/dashboard/settings" 
+              ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
+              : 'text-[var(--text-secondary)] dark:text-[var(--text-secondary)] text-gray-500 hover:text-[var(--text-primary)] dark:hover:text-[var(--text-primary)] hover:text-gray-900 hover:bg-[var(--border-color)] dark:hover:bg-[var(--border-color)] hover:bg-gray-100'
+          }`}
           title="Configuración"
         >
           <Settings size={20} />

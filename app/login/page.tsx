@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
-import { Mail, Lock, Eye, EyeOff, ArrowRight, CreditCard, Rocket } from "lucide-react"
+import { Mail, Lock, Eye, EyeOff, ArrowRight, CreditCard, Rocket, KeyRound, Shield } from "lucide-react"
 import Link from "next/link"
 
 // ─── DATA ──────────────────────────────────────────────────────────────────────
@@ -346,24 +346,39 @@ function FormInput({
 // ─── RECOVER FORM ──────────────────────────────────────────────────────────────
 
 function RecoverForm({ onBack }: { onBack: () => void }) {
-  const [email, setEmail]           = useState("")
-  const [answer, setAnswer]         = useState("")
-  const [newPass, setNewPass]       = useState("")
-  const [confirmPass, setConfirm]   = useState("")
-  const [error, setError]           = useState("")
-  const [success, setSuccess]       = useState(false)
-  const [loading, setLoading]       = useState(false)
+  const [mode, setMode] = useState<"question" | "code">("question")
+  const [email, setEmail] = useState("")
+  const [answer, setAnswer] = useState("")
+  const [recoveryCode, setRecoveryCode] = useState("")
+  const [newPass, setNewPass] = useState("")
+  const [confirmPass, setConfirm] = useState("")
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   const handleRecover = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     if (newPass !== confirmPass) { setError("Las contraseñas no coinciden"); return }
+    if (newPass.length < 6) { setError("Mínimo 6 caracteres"); return }
     setLoading(true)
+
     try {
-      const res  = await fetch("/api/auth/recover", {
+      const body: any = {
+        email,
+        new_password: newPass,
+      }
+
+      if (mode === "question") {
+        body.security_answer = answer
+      } else {
+        body.recovery_code = recoveryCode.toUpperCase().trim()
+      }
+
+      const res = await fetch("/api/auth/recover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, security_answer: answer, new_password: newPass }),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -377,10 +392,14 @@ function RecoverForm({ onBack }: { onBack: () => void }) {
 
   if (success) {
     return (
-      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-        style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 20, alignItems: "center" }}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 20, alignItems: "center" }}
+      >
         <motion.div
-          initial={{ scale: 0 }} animate={{ scale: 1 }}
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
           transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
           style={{
             width: 72, height: 72, borderRadius: "50%",
@@ -406,28 +425,82 @@ function RecoverForm({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <form onSubmit={handleRecover} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+    <form onSubmit={handleRecover} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ marginBottom: 4 }}>
         <h3 style={{ color: "#EEF2FF", fontWeight: 700, fontSize: 24, letterSpacing: "-0.02em", marginBottom: 6 }}>
           Recuperar acceso
         </h3>
-        <p style={{ color: "#3D5060", fontSize: 14 }}>Respondé tu pregunta de seguridad.</p>
+        <p style={{ color: "#3D5060", fontSize: 14 }}>
+          {mode === "question"
+            ? "Respondé tu pregunta de seguridad."
+            : "Usá tu código de recuperación de emergencia."}
+        </p>
       </div>
-      <FormInput label="Email" type="email" value={email} onChange={setEmail} placeholder="tu@email.com" icon={<Mail size={16}/>}/>
-      <FormInput label="Respuesta de seguridad" type="text" value={answer} onChange={setAnswer} placeholder="Tu respuesta..." icon={<Lock size={16}/>}/>
-      <FormInput label="Nueva contraseña" type="password" value={newPass} onChange={setNewPass} placeholder="••••••••" icon={<Lock size={16}/>}/>
-      <FormInput label="Confirmar contraseña" type="password" value={confirmPass} onChange={setConfirm} placeholder="••••••••" icon={<Lock size={16}/>}/>
+
+      {/* Toggle modo */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+        <button
+          type="button"
+          onClick={() => setMode("question")}
+          className={`wabi-btn ${mode === "question" ? "" : "wabi-btn-ghost"}`}
+          style={{ flex: 1, fontSize: 12, padding: "10px 12px" }}
+        >
+          <Shield size={14} style={{ marginRight: 6 }} />
+          Pregunta de seguridad
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("code")}
+          className={`wabi-btn ${mode === "code" ? "" : "wabi-btn-ghost"}`}
+          style={{ flex: 1, fontSize: 12, padding: "10px 12px" }}
+        >
+          <KeyRound size={14} style={{ marginRight: 6 }} />
+          Código de emergencia
+        </button>
+      </div>
+
+      <FormInput label="Email" type="email" value={email} onChange={setEmail} placeholder="tu@email.com" icon={<Mail size={16} />} />
+
+      {mode === "question" ? (
+        <FormInput label="Respuesta de seguridad" type="text" value={answer} onChange={setAnswer} placeholder="Tu respuesta..." icon={<Lock size={16} />} />
+      ) : (
+        <div>
+          <label className="wabi-input-label" style={{ marginBottom: 7 }}>Código de recuperación</label>
+          <div className="wabi-input-wrap">
+            <span className="wabi-input-icon"><KeyRound size={16} /></span>
+            <input
+              className="wabi-input wabi-license-input"
+              type="text"
+              value={recoveryCode}
+              onChange={(e) => setRecoveryCode(e.target.value.toUpperCase())}
+              placeholder="WBR-XXXX-XXXX-2026"
+              style={{ letterSpacing: "0.12em", fontWeight: 700 }}
+            />
+          </div>
+          <p style={{ fontSize: 11, color: "#3D5060", marginTop: 6 }}>
+            Encontrá este código en el paso 2 del onboarding. Si lo perdiste, contactá soporte.
+          </p>
+        </div>
+      )}
+
+      <FormInput label="Nueva contraseña" type="password" value={newPass} onChange={setNewPass} placeholder="••••••••" icon={<Lock size={16} />} />
+      <FormInput label="Confirmar contraseña" type="password" value={confirmPass} onChange={setConfirm} placeholder="••••••••" icon={<Lock size={16} />} />
+
       {error && <div className="wabi-error">{error}</div>}
+
       <button type="submit" disabled={loading} className="wabi-btn" style={{ marginTop: 4 }}>
         {loading
-          ? <motion.span style={{ display:"block", width:20, height:20, border:"2.5px solid rgba(2,13,18,0.3)", borderTopColor:"#021210", borderRadius:"50%" }}
-              animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}/>
+          ? <motion.span style={{ display: "block", width: 20, height: 20, border: "2.5px solid rgba(2,13,18,0.3)", borderTopColor: "#021210", borderRadius: "50%" }}
+              animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} />
           : "Restablecer contraseña"
         }
       </button>
-      <button type="button" onClick={onBack} className="wabi-link-btn" style={{ textAlign: "center" }}>
-        ← Volver al login
-      </button>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+        <button type="button" onClick={onBack} className="wabi-link-btn" style={{ textAlign: "center" }}>
+          ← Volver al login
+        </button>
+      </div>
     </form>
   )
 }

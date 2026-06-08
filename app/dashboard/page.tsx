@@ -1151,10 +1151,30 @@ useEffect(() => {
                 {new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
               </span>
             </p>
-            <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2 flex items-center gap-2">
-              ¡Buen día{user?.nombre ? ` ${user.nombre}` : ""}! 👋
-            </h1>
-            <SaludoAleatorio />
+                        <div className="flex items-center gap-3 mb-2">
+              {user?.avatar && (
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center overflow-hidden">
+                  <img 
+                    src={`https://api.dicebear.com/9.x/notionists/svg?seed=${user.avatar}&backgroundColor=transparent`} 
+                    alt="avatar" 
+                    className="w-8 h-8"
+                  />
+                </div>
+              )}
+              <h1 className="text-3xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+                ¡Buen día{user?.nombre ? ` ${user.nombre}` : ""}! 👋
+              </h1>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <SaludoAleatorio />
+              {user?.expected_volume && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
+                  <Users size={12} />
+                  {user.expected_volume} contactos
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>

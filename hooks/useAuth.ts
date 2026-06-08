@@ -13,6 +13,14 @@ interface User {
   avatar: string
   role: string
   affiliate_code?: string | null
+  company_name?: string
+  phone?: string
+  timezone?: string
+  language?: string
+  industry?: string
+  expected_volume?: string
+  security_question?: string
+
 }
 
 const decodeToken = (token: string) => {

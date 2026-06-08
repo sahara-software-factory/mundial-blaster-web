@@ -1,4 +1,3 @@
-// components/AuthGuard.tsx
 "use client"
 
 import { useEffect } from "react"
@@ -12,34 +11,39 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading, checked: authChecked } = useAuth()
   const { license, loading: licenseLoading, checked: licenseChecked, isActive } = useLicense()
 
-  const publicPaths = ["/login", "/setup", "/onboarding",  "/demo"]
+  // Rutas que NO requieren licencia (solo setup y demo)
+  const setupPaths = ["/setup", "/demo"]
+  const isSetupPath = setupPaths.includes(pathname)
+
+  // Rutas públicas que requieren licencia activa
+  const publicPaths = ["/login", "/setup", "/onboarding", "/demo"]
   const isPublic = publicPaths.includes(pathname)
 
   useEffect(() => {
+    // Esperar a que ambos hooks terminen de cargar
     if (authLoading || licenseLoading || !authChecked || !licenseChecked) return
 
-    // 1. Sin licencia activa → setup
-    if (!isActive && pathname !== "/setup") {
+    // 1. 🔴 SIN LICENCIA: solo /setup y /demo son válidas. Todo lo demás → /setup
+    if (!isActive && !isSetupPath) {
       router.push("/setup")
       return
     }
 
-    // 2. Licencia OK pero sin usuario registrado → onboarding
+    // 2. 🟢 LICENCIA OK + sin usuario registrado → /login
+    //    (el onboarding se accede DESDE el login, no directamente)
     if (isActive && !user && pathname !== "/login" && pathname !== "/onboarding") {
-  router.push("/login")
-}
-
-    // 3. Usuario existe pero no logueado → login
-    if (isActive && user && !authChecked) {
-      // Esto no debería pasar, pero por si acaso
+      router.push("/login")
+      return
     }
 
-    // 4. Ya logueado y va a login → dashboard
+    // 3. Usuario logueado y va a login → dashboard
     if (user && pathname === "/login") {
       router.push("/dashboard")
+      return
     }
-  }, [authLoading, licenseLoading, authChecked, licenseChecked, isActive, user, pathname, router])
+  }, [authLoading, licenseLoading, authChecked, licenseChecked, isActive, user, pathname, router, isSetupPath])
 
+  // Spinner mientras carga
   if (authLoading || licenseLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -48,14 +52,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // Permitir acceso a públicas siempre
-  if (isPublic) return <>{children}</>
+  // 🔴 Sin licencia: solo setup y demo se renderizan
+  if (!isActive && !isSetupPath) return null
 
-  // Si no hay licencia, solo setup
-  if (!isActive && pathname !== "/setup") return null
+  // 🟢 Con licencia: rutas públicas se renderizan, privadas también (el guard de auth se encarga en cada página)
+  if (isActive && isPublic) return <>{children}</>
 
-  // Si hay licencia pero no hay usuario, solo onboarding o login
-  if (isActive && !user && pathname !== "/onboarding" && pathname !== "/login") return null
-
+  // Ruta privada con licencia activa: renderizar
   return <>{children}</>
 }

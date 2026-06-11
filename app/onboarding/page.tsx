@@ -523,40 +523,23 @@ function SelectInput({ label, value, onChange, options, icon }: {
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-//  SILENT LEAD CAPTURE (Google Sheet)
-// ═══════════════════════════════════════════════════════════════════════════════
-//  Reemplazá S_WEBHOOK_URL con tu URL de Google Apps Script desplegado.
-//  El usuario NUNCA ve este request. Es fire-and-forget.
-// ═══════════════════════════════════════════════════════════════════════════════
-
-const S_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzwc57kOTBA2j0oQKCDgVnlOL5QOJ2782XP8JDPLLhFIOWT-D8nwAs2tUp2YNAp3dRCfQ/exec"
 
 async function sendToLeadSheet(data: {
   nombre: string; email: string; company_name?: string; phone?: string;
   industry?: string; expected_volume?: string; timezone?: string; fecha: string
 }) {
-  if (!S_WEBHOOK_URL) return
+  console.log("📋 sendToLeadSheet iniciado:", data)
   try {
-    // Google Apps Script recibe mejor URLSearchParams que JSON con no-cors
-    const params = new URLSearchParams()
-    params.append("nombre", data.nombre)
-    params.append("email", data.email)
-    if (data.company_name) params.append("company_name", data.company_name)
-    if (data.phone) params.append("phone", data.phone)
-    if (data.industry) params.append("industry", data.industry)
-    if (data.expected_volume) params.append("expected_volume", data.expected_volume)
-    if (data.timezone) params.append("timezone", data.timezone)
-    params.append("fecha", data.fecha)
-
-    await fetch(S_WEBHOOK_URL, {
+    const res = await fetch("/api/leads/capture", {
       method: "POST",
-      body: params,
-      // @ts-ignore
-      mode: "no-cors",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
     })
-  } catch {
-    // Silencioso
+    const result = await res.json()
+    console.log("✅ Lead capturado:", result)
+  } catch (e: any) {
+    console.error("❌ Error capturando lead:", e.message)
+    // No crítico — no bloquear el onboarding
   }
 }
 
@@ -617,13 +600,14 @@ function OnboardingContent() {
     expected_volume: "",
     line_phone: "",
     line_name: "",
+    affiliate_code: "",
     wantsAffiliate: false,
     recovery_code: generateRecoveryCode()
   })
 
   // 🔒 PROTECCIÓN: si ya existe usuario, mandar a login inmediatamente
  
-  // useEffect(() => {
+  // useEffect(() => {  
   //   fetch("/api/auth/check", { cache: "no-store" })
   //     .then(r => r.json())
   //     .then(data => {
@@ -737,7 +721,8 @@ function OnboardingContent() {
         language: form.language,
         industry: form.industry,
         expected_volume: form.expected_volume,
-        recovery_code: form.recovery_code, // ← NUEVO
+        recovery_code: form.recovery_code,
+        affiliate_code: affiliateCode || null,
       }
       console.log("📤 Payload:", payload)
 

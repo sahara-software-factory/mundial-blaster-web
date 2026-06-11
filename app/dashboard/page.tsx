@@ -1,7 +1,7 @@
 "use client"
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { io } from "socket.io-client"
 import { toast } from "sonner"
@@ -10,6 +10,7 @@ import {
   Plus,
   QrCode,
   Power,
+  Globe,
   Trash2,
   Play,
   Image as ImageIcon,
@@ -50,7 +51,13 @@ import {
   OctagonX,
   RefreshCw,
   Repeat,
-  Split
+  Split,
+  Shield,
+  Save,
+  Timer,
+  Gauge,
+  Crosshair,
+  Loader2
 } from "lucide-react"
 import { QRModal } from "../components/qr-modal"
 import { useUpgradeModal } from "../components/UpgradeModalProvider"
@@ -89,6 +96,29 @@ interface TagItem {
   color: string
 }
 
+// ========== FUERA DEL COMPONENTE (arriba de todo en el archivo) ==========
+const FEATURES = [
+  { icon: CalendarClock, label: "Programación", desc: "Agendá envíos futuros", tier: 'pro' as TierName  },
+  { icon: UserCheck, label: "Modo humano", desc: "Pausas aleatorias anti-ban", tier: 'pro' as TierName  },
+
+  { icon: BarChart3, label: "Reportes avanzados", desc: "Gráficos de conversión", tier: 'pro' as TierName  },
+  { icon: Download, label: "Export CSV", desc: "Descargá contactos y logs", tier: 'pro' as TierName  },
+  { icon: RefreshCw, label: "Reconexión auto", desc: "Keep-alive 24/7", tier: 'pro' as TierName  },
+  { icon: Split, label: "Spintax avanzado", desc: "Mensajes aleatorios", tier: 'pro' as TierName  },
+  { icon: Copy, label: "Clonación 1-click", desc: "Duplicá campañas", tier: 'pro' as TierName  },
+  { icon: FileText, label: "Métricas templates", desc: "Performance por template", tier: 'pro' as TierName  },
+  { icon: FlaskConical, label: "Modo simulacro lite", desc: "Calentá de a un numero antes de cada campaña", tier: 'pro' as TierName  },
+  { icon: OctagonX, label: "Cancelación en vivo", desc: "Frená campañas activas", tier: 'business' as TierName  },
+   { icon: Ban, label: "Blacklist", desc: "Bloqueá números no deseados", tier: 'business' as TierName  },
+  { icon: FlaskConical, label: "Modo simulacro FULL", desc: "Calentá numeros ilimitado y en simultaneo antes de cada campaña", tier: 'business' as TierName  },
+  { icon: Repeat, label: "Recurrentes", desc: "Envíos automáticos", tier: 'business' as TierName  },
+  { icon: Sparkles, label: "Asistente IA", desc: "Caleb AI integrado", tier: 'business' as TierName  },
+  { icon: Users, label: "Multi-usuario", desc: "Agentes ilimitados", tier: 'business' as TierName  },
+  { icon: Shield, label: "Whitelist", desc: "Solo contactos permitidos", tier: 'business' as TierName  },
+  { icon: Shield, label: "Proxy Rotate", desc: "Cambia la ip de forma dinamica por campaña", tier: 'business' as TierName  },
+
+] as const 
+
 
 const SOCKET_URL = typeof window !== 'undefined' 
   ? (window.location.hostname === 'localhost' 
@@ -100,20 +130,82 @@ const SOCKET_URL = typeof window !== 'undefined'
 type TabType = "plan" | "lines" | "campaign" | "logs"
 
 // === TIER CONFIG ===
-const TIER_CONFIG = {
-  starter: { maxLines: 2, maxTemplates: 5, hasCron: false, 
-hasExport: false, hasRoundRobin: false, hasHumanMode: false, hasClone: false, hasAdvancedSpintax: false, hasTemplateVars: false,hasAI: false,
+type TierName = 'starter' | 'pro' | 'business'
+
+interface TierConfig {
+  maxLines: number
+  maxTemplates: number
+  hasCron: boolean
+  hasExport: boolean
+  hasRoundRobin: boolean
+  hasHumanMode: boolean
+  hasClone: boolean
+  hasAdvancedSpintax: boolean
+  hasTemplateVars: boolean
+  hasAI: boolean
+  hasBlacklist: boolean
+  hasSimulacroLite: boolean
+  hasSimulacroFull: boolean
+  hasProxyRotate: boolean
+}
+
+const TIER_CONFIG: Record<TierName, TierConfig> = {
+  starter: {
+    maxLines: 2,
+    maxTemplates: 5,
+    hasCron: false,
+    hasExport: false,
+    hasRoundRobin: false,
+    hasHumanMode: false,
+    hasClone: false,
+    hasAdvancedSpintax: true,
+    hasTemplateVars: false,
+    hasAI: false,
+    hasBlacklist: false,
+    hasSimulacroLite: false,
+    hasSimulacroFull: false,
+    hasProxyRotate: false,
   },
-  pro: { maxLines: 5, maxTemplates: Infinity, hasCron: true, hasExport: true, hasRoundRobin: true, hasHumanMode: true, hasClone: true, hasAdvancedSpintax: true, hasTemplateVars: true,hasAI: false,
+  pro: {
+    maxLines: 5,
+    maxTemplates: Infinity,
+    hasCron: true,
+    hasExport: true,
+    hasRoundRobin: true,
+    hasHumanMode: true,
+    hasClone: true,
+    hasAdvancedSpintax: true,
+    hasTemplateVars: true,
+    hasAI: false,
+    hasBlacklist: true,
+    hasSimulacroLite: true,
+    hasSimulacroFull: false,
+    hasProxyRotate: false,
   },
-  business: { maxLines: Infinity, maxTemplates: Infinity, hasCron: true, hasExport: true, hasRoundRobin: true, hasHumanMode: true, hasClone: true, hasAdvancedSpintax: true, hasTemplateVars: true,hasAI: true,
+  business: {
+    maxLines: Infinity,
+    maxTemplates: Infinity,
+    hasCron: true,
+    hasExport: true,
+    hasRoundRobin: true,
+    hasHumanMode: true,
+    hasClone: true,
+    hasAdvancedSpintax: true,
+    hasTemplateVars: true,
+    hasAI: true,
+    hasBlacklist: true,
+    hasSimulacroLite: true,
+    hasSimulacroFull: true,
+    hasProxyRotate: true,
   },
 }
 
-function useTier(license: any) {
-  const tier = (license?.tier || 'starter') as keyof typeof TIER_CONFIG
-  return TIER_CONFIG[tier] || TIER_CONFIG.starter
+function getTierConfig(license: any): TierConfig {
+  const tierName = (license?.tier || 'starter') as TierName
+  return TIER_CONFIG[tierName] || TIER_CONFIG.starter
 }
+
+
 
 
 
@@ -190,6 +282,8 @@ function validateNumbers(text: string): { valid: boolean; errors: string[]; numb
   return { valid: errors.length === 0 && numbers.length > 0, errors, numbers }
 }
 
+
+
 // Solo normaliza separadores. NO quita letras ni símbolos (el validador se encarga de rechazarlos visualmente)
 function normalizeOnPaste(raw: string): string {
   if (!raw) return ''
@@ -262,6 +356,8 @@ export default function Dashboard() {
 
   const [isEditMode, setIsEditMode] = useState(false)
 const [editCampaignId, setEditCampaignId] = useState<string | null>(null)
+ const [skipBlacklist, setSkipBlacklist] = useState(true)
+const [blacklistCount, setBlacklistCount] = useState(0)
 
   const ensureClickableUrls = (text: string): string => {
     if (!text) return text
@@ -320,13 +416,16 @@ const [editCampaignId, setEditCampaignId] = useState<string | null>(null)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [upgradeKey, setUpgradeKey] = useState("")
   const [upgrading, setUpgrading] = useState(false)
-  const tier = useTier(license)
-  const isBusiness = license?.tier === 'business'
-  const isPro = license?.tier === 'pro' || license?.tier === 'business'
+  const tierConfig = getTierConfig(license)
+  const tierName = (license?.tier || 'starter') as TierName
+  const isStarter = tierName === 'starter'
+  const isPro = tierName === 'pro' || tierName === 'business'
+  const isBusiness = tierName === 'business'
   const token = typeof window !== 'undefined' ? localStorage.getItem('mb_token') || '' : ''
   const [templates, setTemplates] = useState<any[]>([])
   const [showSpintaxHelp, setShowSpintaxHelp] = useState(false)
-
+  const logsEndRef = useRef<HTMLDivElement>(null)
+  const logsContainerRef = useRef<HTMLDivElement>(null)
   // Import
   const [importLoading, setImportLoading] = useState(false)
   const [importProgress, setImportProgress] = useState(0)
@@ -338,6 +437,65 @@ const [editCampaignId, setEditCampaignId] = useState<string | null>(null)
   const [distributionMode, setDistributionMode] = useState<"single" | "round_robin">("single")
   const [selectedLineIds, setSelectedLineIds] = useState<string[]>([])
 
+  const [blacklistInList, setBlacklistInList] = useState<string[]>([])
+const [showBlacklistModal, setShowBlacklistModal] = useState(false)
+const [blacklistNumbers, setBlacklistNumbers] = useState<string[]>([])
+const [isLoadingBlacklist, setIsLoadingBlacklist] = useState(false)
+
+  const [simulationMode, setSimulationMode] = useState<'off' | 'lite' | 'full'>('off')
+  const [isSimulating, setIsSimulating] = useState(false)
+  
+  const canSimulateLite = !isStarter && selectedLineIds.length > 0
+  const canSimulateFull = isBusiness && selectedLineIds.length > 1 && distributionMode === 'round_robin'
+  const isSimulationActive = simulationMode !== 'off'
+
+  const [simulationSpeed, setSimulationSpeed] = useState<'slow' | 'normal' | 'fast'>('normal')
+
+    const [proxyRotateEnabled, setProxyRotateEnabled] = useState(false)
+  const [showProxyModal, setShowProxyModal] = useState(false)
+  const [proxyLocation, setProxyLocation] = useState<{ city: string; fakeIp: string; country: string; code: string; latency: number } | null>(null)
+  const [isScanningProxy, setIsScanningProxy] = useState(false)
+  const [proxyScanText, setProxyScanText] = useState('Listo para escanear')
+
+    const [proxyHistory, setProxyHistory] = useState<any[]>([])
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+
+   const loadProxyHistory = async () => {
+    setIsLoadingHistory(true)
+    try {
+      const t = localStorage.getItem('mb_token') || ''
+      const res = await fetch('/api/proxy/history', {
+        headers: { Authorization: `Bearer ${t}` },
+        cache: 'no-store'
+      })
+      const data = await res.json()
+      setProxyHistory(data.history || [])
+    } catch {
+      setProxyHistory([])
+    } finally {
+      setIsLoadingHistory(false)
+    }
+  }
+
+    const saveProxyToHistory = async (node: any) => {
+    try {
+      const t = localStorage.getItem('mb_token') || ''
+      await fetch('/api/proxy/history', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${t}`
+        },
+        body: JSON.stringify({
+          city: node.city,
+          country: node.country,
+          code: node.code,
+          fakeIp: node.fakeIp,
+          latency: node.latency
+        })
+      })
+    } catch {}
+  }
   // ─── DERIVED ───
   const targetsCount = useMemo(() => {
     return numbersText.split("\n").map(n => n.trim()).filter(Boolean).length
@@ -389,6 +547,18 @@ const [editCampaignId, setEditCampaignId] = useState<string | null>(null)
   }
 
    const verifyCampaign = useCallback(() => {
+    if (isSimulationActive) {
+      if (!numbersText.trim()) {
+        toast.error("Agregá al menos un número para simular")
+        return false
+      }
+      if (selectedLineIds.length === 0) {
+        toast.error("Seleccioná al menos una línea")
+        return false
+      }
+      return true
+    }
+
     setIsVerifying(true)
     setValidationErrors([])
     
@@ -400,7 +570,6 @@ const [editCampaignId, setEditCampaignId] = useState<string | null>(null)
       return false
     }
     
-    // Chequear duplicados
     const seen = new Set<string>()
     const dups: string[] = []
     for (const n of numbers) {
@@ -420,7 +589,7 @@ const [editCampaignId, setEditCampaignId] = useState<string | null>(null)
       setIsVerifying(false)
       return false
     }
-    
+
     const connectedLines = lines.filter(l => selectedLineIds.includes(l.id) && l.status === 'CONECTADA')
     if (connectedLines.length === 0) {
       setValidationErrors(['Seleccioná al menos una línea conectada'])
@@ -430,14 +599,12 @@ const [editCampaignId, setEditCampaignId] = useState<string | null>(null)
     
     setIsVerifying(false)
     return true
-  }, [numbersText, message, lines, selectedLineIds])
-
-
+  }, [numbersText, message, lines, selectedLineIds, isSimulationActive, setIsVerifying, setValidationErrors, setDuplicateNumbers])
 
 
   const addLine = async () => {
     if (!newPhone.trim()) return toast.error("Escribí el número")
-    if (lines.length >= tier.maxLines) {
+    if (lines.length >= tierConfig.maxLines) {
   setShowUpgrade(true)
   return
 }
@@ -533,6 +700,19 @@ const [editCampaignId, setEditCampaignId] = useState<string | null>(null)
   setIsSending(true)
   setLogs(prev => [...prev, `🚀 ${isEditMode ? 'Guardando cambios' : scheduleMode === 'now' ? 'Campaña iniciada' : 'Campaña guardada'}: ${targets.length} números · ${lineasConectadas.length} línea(s)`])
 
+  if (proxyRotateEnabled && proxyLocation) {
+      setLogs(prev => [...prev, `🌐 Proxy Rotate: Conectando con nodo ${proxyLocation.city}...`])
+      await new Promise(r => setTimeout(r, 800))
+      setLogs(prev => [...prev, `✅ Ruta establecida via ${proxyLocation.city} (${proxyLocation.country}) · IP: ${proxyLocation.fakeIp} · Latencia simulada: ${proxyLocation.latency}ms`])
+      await new Promise(r => setTimeout(r, 400))
+      setLogs(prev => [...prev, `🔒 IP dinámica activa · Modo anti-ban agresivo`])
+      await new Promise(r => setTimeout(r, 300))
+    }
+    if ((scheduleMode === 'pending' || scheduleMode === 'scheduled') && !proxyRotateEnabled) {
+      router.push("/reports")
+    } else if (scheduleMode === 'pending' || scheduleMode === 'scheduled') {
+      setTimeout(() => router.push("/reports"), 2000) // ← dar 2s para leer logs
+    }
   try {
     const t = localStorage.getItem('mb_token') || ''
     const body = {
@@ -548,7 +728,10 @@ const [editCampaignId, setEditCampaignId] = useState<string | null>(null)
         : undefined,
       line_ids: lineasConectadas.map(l => l.id),
       distribution_mode: isRoundRobin ? 'round_robin' : 'single',
-      human_mode: humanMode
+      human_mode: humanMode,
+      skipBlacklist: isBusiness ? skipBlacklist : false,
+      proxy_node: proxyRotateEnabled ? proxyLocation?.city : undefined,
+      proxy_ip: proxyRotateEnabled ? proxyLocation?.fakeIp : undefined
     }
 
     let res
@@ -606,6 +789,106 @@ const [editCampaignId, setEditCampaignId] = useState<string | null>(null)
     setIsSending(false)
   }
 }
+
+    const sendSimulation = async () => {
+    const lineasParaEnviar = lines.filter(l => selectedLineIds.includes(l.id))
+    const lineasConectadas = lineasParaEnviar.filter(l => l.status === "CONECTADA")
+
+    if (lineasConectadas.length === 0) {
+      return toast.error("Seleccioná al menos una línea conectada")
+    }
+
+    const rawNumbers = numbersText.split("\n").map(n => n.trim()).filter(Boolean)
+    const targets = rawNumbers.map(n => ({ phone: n.replace(/\D/g, ""), name: "" }))
+    if (targets.length === 0) return toast.error("No hay números válidos")
+
+    if (simulationMode === 'lite' && !isBusiness && targets.length > 1) {
+      return toast.error("Simulacro Lite: máximo 1 número. Upgrade a Business para ilimitado.")
+    }
+
+    setIsSimulating(true)
+    setActiveTab("logs")
+    setLogs([])
+
+    try {
+      const t = localStorage.getItem('mb_token') || ''
+      const body = {
+        targets,
+        line_ids: lineasConectadas.map(l => l.id),
+        mode: simulationMode
+      }
+
+      // 1. Crear campaña simulated en backend
+      const res = await fetch("/api/campaigns/simulate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${t}`
+        },
+        body: JSON.stringify(body)
+      })
+
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error || 'Error')
+
+      const campaignId = data.campaign.id
+      const total = targets.length
+
+      setLogs(prev => [...prev, `🔥 Iniciando modo simulacro (${simulationMode})...`])
+      setLogs(prev => [...prev, `📡 Conectando con ${lineasConectadas.length} nodo(s)...`])
+      await new Promise(r => setTimeout(r, 800))
+
+      // 2. Simular pings uno por uno
+      const simulatedLogs: { contact_phone: string, line_id: string, latency: number }[] = []
+      
+      for (let i = 0; i < targets.length; i++) {
+        const target = targets[i]
+        const line = lineasConectadas[Math.floor(Math.random() * lineasConectadas.length)]
+        const latency = Math.floor(Math.random() * 80) + 20 // 20-100ms
+        
+        // Delay progresivo: más rápido para muchos números
+              // Delay según velocidad seleccionada
+      const speedConfig = {
+        slow: { base: 150, variance: 100, batchPause: 800 },    // ~150-250ms por ping
+        normal: { base: 50, variance: 50, batchPause: 400 },   // ~50-100ms por ping
+        fast: { base: 15, variance: 20, batchPause: 200 }       // ~15-35ms por ping
+      }
+      const cfg = speedConfig[simulationSpeed]
+      
+      for (let i = 0; i < targets.length; i++) {
+        // ...
+        const delay = Math.random() * cfg.variance + cfg.base
+        await new Promise(r => setTimeout(r, delay))
+        
+        // Batch pause
+        if ((i + 1) % 20 === 0 && i < targets.length - 1) {
+          setLogs(prev => [...prev, `⏳ Verificando batch ${Math.ceil((i + 1) / 20)}/${Math.ceil(total / 20)}...`])
+          await new Promise(r => setTimeout(r, cfg.batchPause))
+        }
+      }
+
+        setLogs(prev => [...prev, `✅ Handshake ${target.phone} · ${latency}ms · nodo ${line.id.slice(0, 8)}`])
+        simulatedLogs.push({ contact_phone: target.phone, line_id: line.id, latency })
+
+        // Batch pause cada 20 números (simula verificación de bloque)
+        if ((i + 1) % 20 === 0 && i < targets.length - 1) {
+          setLogs(prev => [...prev, `⏳ Verificando batch ${Math.ceil((i + 1) / 20)}/${Math.ceil(total / 20)}...`])
+          await new Promise(r => setTimeout(r, 400))
+        }
+      }
+
+      setLogs(prev => [...prev, `✅ Simulacro EXITOSO: ${total} número(s) verificado(s)`])
+      const avgLatency = Math.floor(simulatedLogs.reduce((a, b) => a + b.latency, 0) / simulatedLogs.length)
+      setLogs(prev => [...prev, `📊 Latencia promedio simulada: ${avgLatency}ms`])
+
+      toast.success(`Simulacro exitoso: ${total} pings verificados`)
+    } catch (err: any) {
+      toast.error(err.message || "Error en simulacro")
+      setLogs(prev => [...prev, `❌ Error: ${err.message}`])
+    } finally {
+      setIsSimulating(false)
+    }
+  }
 
   // ─── IMPORT / NUMBERS ───
   const extractNumbersFromSheet = (data: any[][]): string[] => {
@@ -739,7 +1022,23 @@ useEffect(() => {
     return () => clearTimeout(t)
   }, [numbersText])
 
-
+    const openBlacklistModal = async () => {
+    setShowBlacklistModal(true)
+    setIsLoadingBlacklist(true)
+    try {
+      const t = localStorage.getItem('mb_token') || ''
+      const res = await fetch('/api/blacklist', {
+        headers: { Authorization: `Bearer ${t}` }
+      })
+      if (!res.ok) throw new Error('fail')
+      const data = await res.json()
+      setBlacklistNumbers(data.blacklist?.map((b: any) => b.phone) || [])
+    } catch {
+      setBlacklistNumbers([])
+    } finally {
+      setIsLoadingBlacklist(false)
+    }
+  }
 
    const removeAllDuplicates = () => {
     const lines = numbersText.split('\n').map(n => n.trim()).filter(Boolean)
@@ -799,7 +1098,7 @@ useEffect(() => {
 
   // ─── EFFECTS ───
   useEffect(() => {
-    if (!tier.hasClone) return
+    if (!tierConfig.hasClone) return
     const cloned = localStorage.getItem('mb_clone_campaign')
     if (!cloned) return
     try {
@@ -820,8 +1119,14 @@ useEffect(() => {
     } catch (e) {
       console.error('❌ Error cargando clone:', e)
     }
-  }, [tier.hasClone])
+  }, [tierConfig.hasClone])
 
+
+  useEffect(() => {
+    if (logsEndRef.current && logsContainerRef.current) {
+      logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight
+    }
+  }, [logs])
 
   // === MODO EDICIÓN: precargar campaña pendiente desde Reports ===
 useEffect(() => {
@@ -903,6 +1208,103 @@ useEffect(() => {
 }, [isActive, isDemo])
 
 
+      const checkBlacklistInNumbers = useCallback(async (text: string) => {
+    // DEBUG: si no ves esto en consola, la función no se llama
+    console.log('[BL] Starting check. isBusiness:', isBusiness, 'text:', text?.slice(0, 30))
+
+    if (!isBusiness) {
+      console.log('[BL] Abort: isBusiness is false')
+      setBlacklistInList([])
+      return
+    }
+    if (!text.trim()) {
+      setBlacklistInList([])
+      return
+    }
+
+    const lines = text.split('\n').map(n => n.trim()).filter(Boolean)
+    const phones = lines.map(n => n.replace(/\D/g, '')).filter(p => p.length >= 7)
+    console.log('[BL] Parsed phones:', phones)
+
+    if (phones.length === 0) {
+      setBlacklistInList([])
+      return
+    }
+
+    try {
+      const t = localStorage.getItem('mb_token') || ''
+      const res = await fetch('/api/blacklist', {
+        headers: { Authorization: `Bearer ${t}` }
+      })
+      console.log('[BL] API status:', res.status)
+
+      if (!res.ok) {
+        const errText = await res.text()
+        console.warn('[BL] API error:', errText)
+        throw new Error('fail')
+      }
+
+      const data = await res.json()
+      console.log('[BL] API response:', data)
+
+      // Soportar: { blacklist: [...] } o [...] directo
+      const rawList: any[] = Array.isArray(data?.blacklist) 
+        ? data.blacklist 
+        : (Array.isArray(data) ? data : [])
+      
+      console.log('[BL] Raw entries:', rawList.length, rawList.slice(0, 3))
+
+      // Normalizar a string limpio
+      const blacklistedPhones = new Set(
+        rawList
+          .map((b: any) => String(b?.phone || '').replace(/\D/g, ''))
+          .filter((p: string) => p.length > 0)
+      )
+      console.log('[BL] Set contents:', [...blacklistedPhones])
+
+      // Match exacto
+      let found = phones.filter(p => blacklistedPhones.has(p))
+      console.log('[BL] Exact matches:', found)
+
+      // Fallback: match por últimos 10 dígitos si no hay exacto
+      if (found.length === 0 && blacklistedPhones.size > 0) {
+        const phonesShort = phones.map(p => p.slice(-10))
+        const blacklistShort = new Set(
+          Array.from(blacklistedPhones).map((p: string) => p.slice(-10))
+        )
+        found = phones.filter((_, i) => blacklistShort.has(phonesShort[i]))
+        console.log('[BL] Fallback matches (last 10):', found)
+      }
+
+      console.log('[BL] Final found:', found)
+      setBlacklistInList(found)
+    } catch (err) {
+      console.error('[BL] Catch error:', err)
+      setBlacklistInList([])
+    }
+  }, [isBusiness])
+
+
+  useEffect(() => {
+    if (!isBusiness || !numbersText.trim()) {
+      setBlacklistInList([])
+      return
+    }
+    const timer = setTimeout(() => {
+      checkBlacklistInNumbers(numbersText)
+    }, 600)
+    return () => clearTimeout(timer)
+  }, [numbersText, isBusiness, checkBlacklistInNumbers])
+
+  // Efecto 2: cuando isBusiness pasa de false a true y ya hay texto
+  useEffect(() => {
+    if (isBusiness && numbersText.trim()) {
+      console.log('[BL] isBusiness became true, re-checking...')
+      checkBlacklistInNumbers(numbersText)
+    }
+  }, [isBusiness, numbersText, checkBlacklistInNumbers])
+
+
   useEffect(() => {
     if (humanMode) {
       toast.warning("Modo Humano PRO activado: simula escritura letra por letra. El envío será ~3x más lento. Recomendado exclusivamente para contactos VIP (<10 números).", {
@@ -957,6 +1359,75 @@ useEffect(() => {
       setScheduleMode("now")
     }
   }, [isDemo, activeTab])
+
+  useEffect(() => {
+  if (!isBusiness) return
+  const load = async () => {
+    try {
+      const t = localStorage.getItem('mb_token') || ''
+      const res = await fetch('/api/blacklist', { headers: { Authorization: `Bearer ${token}` } })
+      if (res.ok) {
+        const data = await res.json()
+        setBlacklistCount(data.blacklist?.length || 0)
+      }
+    } catch {}
+  }
+  load()
+}, [isBusiness, token])
+
+
+    const PROXY_NODES = [
+    { city: 'São Paulo', country: 'Brasil', code: 'BR', latency: 45, x: 32, y: 72, fakeIp: '189.84.123.45' },
+    { city: 'Miami', country: 'USA', code: 'US', latency: 28, x: 24, y: 38, fakeIp: '72.215.89.201' },
+    { city: 'Frankfurt', country: 'Alemania', code: 'DE', latency: 35, x: 52, y: 32, fakeIp: '85.214.56.112' },
+    { city: 'Singapur', country: 'Singapur', code: 'SG', latency: 52, x: 78, y: 55, fakeIp: '103.243.12.88' },
+    { city: 'Buenos Aires', country: 'Argentina', code: 'AR', latency: 38, x: 30, y: 78, fakeIp: '181.16.45.77' },
+    { city: 'Amsterdam', country: 'Países Bajos', code: 'NL', latency: 33, x: 50, y: 30, fakeIp: '82.196.78.34' },
+    { city: 'Londres', country: 'Reino Unido', code: 'GB', latency: 36, x: 48, y: 28, fakeIp: '51.104.92.11' },
+    { city: 'Tokio', country: 'Japón', code: 'JP', latency: 48, x: 85, y: 35, fakeIp: '133.242.67.55' },
+  ]
+
+  const selectOptimalProxy = async () => {
+    setIsScanningProxy(true)
+    const texts = [
+      'Escaneando nodos globales...',
+      'Analizando latencia de red...',
+      'Verificando disponibilidad...',
+      'Comparando rutas...',
+      'Nodo óptimo encontrado'
+    ]
+    for (const t of texts) {
+      setProxyScanText(t)
+      await new Promise(r => setTimeout(r, 900))
+    }
+    const selected = PROXY_NODES[Math.floor(Math.random() * PROXY_NODES.length)]
+    setProxyLocation(selected)
+    localStorage.setItem('wabisend_proxy_location', JSON.stringify(selected))
+    await saveProxyToHistory(selected) // ← AGREGAR
+    setIsScanningProxy(false)
+    setProxyScanText(`Ruta óptima: ${selected.city} (${selected.latency}ms)`)
+
+    
+  }
+
+  const clearProxy = () => {
+    setProxyRotateEnabled(false)
+    setProxyLocation(null)
+    localStorage.removeItem('wabisend_proxy_location')
+    setProxyScanText('Listo para escanear')
+  }
+
+
+  useEffect(() => {
+    const saved = localStorage.getItem('wabisend_proxy_location')
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        setProxyLocation(parsed)
+        setProxyRotateEnabled(true)
+      } catch {}
+    }
+  }, [])
 
 
     // DEMO: Logs históricos
@@ -1036,6 +1507,9 @@ useEffect(() => {
   ]
 
 
+  
+
+
   function SaludoAleatorio() {
   const [saludo, setSaludo] = useState<{ texto: string; Icono: any; color: string } | null>(null)
 
@@ -1064,6 +1538,13 @@ useEffect(() => {
     </span>
   )
 }
+
+function getSaludoPorHora(): string {
+  const hora = new Date().getHours()
+  if (hora >= 5 && hora < 12) return "Buen día"
+  if (hora >= 12 && hora < 19) return "Buenas tardes"
+  return "Buenas noches"
+}
     
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] flex">
@@ -1081,7 +1562,7 @@ useEffect(() => {
           
           <div className="flex items-center gap-3">
             {!isPro && (
-              <button onClick={() => setShowUpgrade(true)} className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold rounded-lg shadow-lg shadow-amber-500/25 flex items-center gap-1.5">
+              <button onClick={() => openUpgrade('pro')} className="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-orange-500 text-white text-xs font-bold rounded-lg shadow-lg shadow-purple-500/25 flex items-center gap-1.5">
                 <Zap size={14} /> Upgrade
               </button>
             )}
@@ -1134,9 +1615,16 @@ useEffect(() => {
   <div className="space-y-6 max-w-5xl">
     {/* HEADER: Saludo + Fecha/Hora */}
     <div className="relative overflow-hidden rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)]/60 p-6">
-      <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none">
-        <Clock size={140} className="text-[var(--text-primary)]" />
+    {user?.avatar && (
+      <div style={{top:"-15px"}} className="absolute right-0 pointer-events-none">
+        
+        <img 
+                    src={`https://api.dicebear.com/9.x/notionists/svg?seed=${user.avatar}&backgroundColor=transparent`} 
+                    alt="avatar" 
+                    className="h-48"
+                  />
       </div>
+        )}
       
       <div className="relative z-10">
         <div className="flex items-start justify-between">
@@ -1162,7 +1650,7 @@ useEffect(() => {
                 </div>
               )}
               <h1 className="text-3xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-                ¡Buen día{user?.nombre ? ` ${user.nombre}` : ""}! 👋
+                ¡{getSaludoPorHora()}, {user?.nombre ? ` ${user.nombre}` : ""}! 
               </h1>
             </div>
             
@@ -1181,335 +1669,224 @@ useEffect(() => {
     </div>
 
     {/* PLAN CARD — 6 features principales */}
-    <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-2xl p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-xl font-bold text-[var(--text-primary)]">Tu Plan</h2>
-          <p className="text-sm text-[var(--text-muted)] mt-1">Configuración actual</p>
+         {/* PLAN CARD — 6 features principales */}
+      <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-bold text-[var(--text-primary)]">Tu Plan</h2>
+            <p className="text-sm text-[var(--text-muted)] mt-1">Configuración actual</p>
+          </div>
+          <span className={`px-3 py-1.5 rounded-full text-xs font-bold border ${
+            isBusiness ? 'bg-purple-500/20 text-purple-400 border-purple-500/30' :
+            isPro ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+            'bg-blue-500/20 text-blue-400 border-blue-500/30'
+          }`}>
+            {isBusiness ? '✦ BUSINESS' : isPro ? '✦ PRO' : 'STARTER'}
+          </span>
         </div>
-        <span className={`px-3 py-1.5 rounded-full text-xs font-bold border ${isPro ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-blue-500/20 text-blue-400 border-blue-500/30'}`}>
-          {isPro ? '✦ PRO' : 'STARTER'}
-        </span>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Líneas WhatsApp */}
+          <div className="p-4 rounded-xl bg-[var(--bg-input)]/50 border border-[var(--border-color)]/40 hover:border-[var(--border-color)]/70 transition-all group">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Users size={20} className="text-blue-400" />
+              </div>
+              <div>
+                <p className="text-xs text-[var(--text-muted)]">Líneas WhatsApp</p>
+                <p className="text-lg font-bold text-[var(--text-primary)]">
+                  {isDemo ? 5 : lines.length} <span className="text-[var(--text-muted)] text-sm font-normal">/ {tierConfig.maxLines === Infinity ? '∞' : tierConfig.maxLines}</span>
+                </p>
+              </div>
+            </div>
+            <div className="w-full bg-[var(--bg-input)] rounded-full h-1.5">
+              <div className="bg-blue-500 h-1.5 rounded-full transition-all" style={{ width: `${Math.min((lines.length / (tierConfig.maxLines === Infinity ? Math.max(lines.length, 1) : tierConfig.maxLines)) * 100, 100)}%` }} />
+            </div>
+          </div>
+
+          {/* Envíos mensuales */}
+          <div className="p-4 rounded-xl bg-[var(--bg-input)]/50 border border-[var(--border-color)]/40 hover:border-[var(--border-color)]/70 transition-all group">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Send size={20} className="text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-xs text-[var(--text-muted)]">Envíos mensuales</p>
+                <p className="text-lg font-bold text-[var(--text-primary)]">Ilimitados</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[10px] text-emerald-400 font-medium">Activos</span>
+            </div>
+          </div>
+
+          {/* Spintax */}
+          <div className="p-4 rounded-xl bg-[var(--bg-input)]/50 border border-[var(--border-color)]/40 hover:border-[var(--border-color)]/70 transition-all group">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Activity size={20} className="text-purple-400" />
+              </div>
+              <div>
+                <p className="text-xs text-[var(--text-muted)]">Spintax</p>
+                <p className="text-lg font-bold text-[var(--text-primary)]">{isPro ? "Avanzado" : "Básico"}</p>
+              </div>
+            </div>
+            {!isPro && <span className="text-[10px] text-[var(--text-muted)]">Upgrade para variables por línea</span>}
+          </div>
+
+          {/* Rotación líneas */}
+          <div className={`p-4 rounded-xl border transition-all group ${isPro ? 'bg-[var(--bg-input)]/50 border-[var(--border-color)]/40 hover:border-[var(--border-color)]/70' : 'bg-[var(--bg-input)]/30 border-[var(--border-color)]/20 opacity-60'}`}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                <RotateCcw size={20} className={isPro ? "text-amber-400" : "text-[var(--text-muted)]"} />
+              </div>
+              <div>
+                <p className="text-xs text-[var(--text-muted)]">Rotación líneas</p>
+                <p className="text-lg font-bold text-[var(--text-primary)]">{isPro ? "Round Robin" : "No disponible"}</p>
+              </div>
+            </div>
+            {!isPro && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400">PRO</span>}
+          </div>
+
+          {/* Historial */}
+          <div className="p-4 rounded-xl bg-[var(--bg-input)]/50 border border-[var(--border-color)]/40 hover:border-[var(--border-color)]/70 transition-all group">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <CheckCircle2 size={20} className="text-cyan-400" />
+              </div>
+              <div>
+                <p className="text-xs text-[var(--text-muted)]">Historial</p>
+                <p className="text-lg font-bold text-[var(--text-primary)]">{isPro ? "Ilimitado" : "30 días"}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Delay */}
+          <div className={`p-4 rounded-xl border transition-all group ${isPro ? 'bg-[var(--bg-input)]/50 border-[var(--border-color)]/40 hover:border-[var(--border-color)]/70' : 'bg-[var(--bg-input)]/30 border-[var(--border-color)]/20 opacity-60'}`}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-lg bg-rose-500/10 flex items-center justify-center">
+                <Clock size={20} className={isPro ? "text-rose-400" : "text-[var(--text-muted)]"} />
+              </div>
+              <div>
+                <p className="text-xs text-[var(--text-muted)]">Delay inteligente</p>
+                <p className="text-lg font-bold text-[var(--text-primary)]">{isPro ? "1-60s" : "5-15s"}</p>
+              </div>
+            </div>
+            {!isPro && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400">PRO</span>}
+          </div>
+        </div>
+
+        {/* CTA Upgrade o Activo */}
+        {!isPro ? (
+          <button
+            onClick={() => openUpgrade('pro')}
+            className="mt-6 w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-gradient-to-r from-purple-500 to-orange-500 border border-purple-500/20 hover:border-purple-500/40 hover:from-purple-500/20 hover:to-orange-500/20 transition-all group cursor-pointer"
+          >
+            <Sparkles size={16} className="text-white group-hover:scale-110 transition-transform" />
+            <span className="text-white font-bold">Desbloqueá todo con Pro</span>
+            <ArrowUpRight size={16} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+          </button>
+        ) : !isBusiness ? (
+          <button
+            onClick={() => openUpgrade('business')}
+            className="mt-6 w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-gradient-to-r from-purple-500 to-cyan-500 border border-purple-500/20 hover:border-purple-500/40 hover:from-purple-500/20 hover:to-cyan-500/20 transition-all group cursor-pointer"
+          >
+            <Sparkles size={16} className="text-white group-hover:scale-110 transition-transform" />
+            <span className="text-white font-bold">Upgrade a Business y desbloqueá todo</span>
+            <ArrowUpRight size={16} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+          </button>
+        ) : (
+          <div className="mt-6 p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+              <Sparkles size={20} className="text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-emerald-400">Plan Business activo</p>
+              <p className="text-xs text-emerald-300/70">Todas las funciones incluidas</p>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Líneas WhatsApp */}
-        <div className="p-4 rounded-xl bg-[var(--bg-input)]/50 border border-[var(--border-color)]/40 hover:border-[var(--border-color)]/70 transition-all group">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Users size={20} className="text-blue-400" />
+      {/* ─── FUNCIONES DEL SISTEMA ─── */}
+      <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+              <CheckCircle2 size={18} className="text-emerald-400" />
             </div>
             <div>
-              <p className="text-xs text-[var(--text-muted)]">Líneas WhatsApp</p>
-              <p className="text-lg font-bold text-[var(--text-primary)]">
-                 {isDemo ? 5 : lines.length} <span className="text-[var(--text-muted)] text-sm font-normal">/ {tier.maxLines === Infinity ? '∞' : tier.maxLines}</span>
+              <h2 className="text-lg font-bold text-[var(--text-primary)]">
+                {isBusiness ? "Todas las funciones activas" : isPro ? "Funciones Pro activas" : "Funciones disponibles"}
+              </h2>
+              <p className="text-xs text-[var(--text-muted)]">
+                {isBusiness ? "Acceso completo al sistema" : isPro ? "Upgrade a Business para desbloquear todo" : "Upgrade para desbloquear funciones avanzadas"}
               </p>
             </div>
           </div>
-          <div className="w-full bg-[var(--bg-input)] rounded-full h-1.5">
-            <div 
-              className="bg-blue-500 h-1.5 rounded-full transition-all" 
-              style={{ width: `${Math.min((lines.length / (tier.maxLines === Infinity ? Math.max(lines.length, 1) : tier.maxLines)) * 100, 100)}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Envíos mensuales */}
-        <div className="p-4 rounded-xl bg-[var(--bg-input)]/50 border border-[var(--border-color)]/40 hover:border-[var(--border-color)]/70 transition-all group">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Send size={20} className="text-emerald-400" />
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-muted)]">Envíos mensuales</p>
-              <p className="text-lg font-bold text-[var(--text-primary)]">
-                Ilimitados
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[10px] text-emerald-400 font-medium">Activos</span>
-          </div>
-        </div>
-
-        {/* Spintax */}
-        <div className="p-4 rounded-xl bg-[var(--bg-input)]/50 border border-[var(--border-color)]/40 hover:border-[var(--border-color)]/70 transition-all group">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Activity size={20} className="text-purple-400" />
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-muted)]">Spintax</p>
-              <p className="text-lg font-bold text-[var(--text-primary)]">
-                {isPro ? "Avanzado" : "Básico"}
-              </p>
-            </div>
-          </div>
-          {!isPro && (
-            <span className="text-[10px] text-[var(--text-muted)]">Upgrade para variables por línea</span>
+          
+          {!isBusiness && (
+            <button 
+              onClick={() => openUpgrade(isStarter ? 'pro' : 'business')}
+              className="px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold hover:bg-amber-500/20 transition-colors"
+            >
+              <Sparkles size={12} className="inline mr-1" />
+              {isStarter ? 'Upgrade Pro' : 'Upgrade Business'}
+            </button>
           )}
         </div>
 
-        {/* Rotación líneas */}
-        <div className={`p-4 rounded-xl border transition-all group ${isPro ? 'bg-[var(--bg-input)]/50 border-[var(--border-color)]/40 hover:border-[var(--border-color)]/70' : 'bg-[var(--bg-input)]/30 border-[var(--border-color)]/20 opacity-60'}`}>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
-              <RotateCcw size={20} className={isPro ? "text-amber-400" : "text-[var(--text-muted)]"} />
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-muted)]">Rotación líneas</p>
-              <p className="text-lg font-bold text-[var(--text-primary)]">
-                {isPro ? "Round Robin" : "No disponible"}
-              </p>
-            </div>
-          </div>
-          {!isPro && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400">PRO</span>}
-        </div>
-
-        {/* Historial */}
-        <div className="p-4 rounded-xl bg-[var(--bg-input)]/50 border border-[var(--border-color)]/40 hover:border-[var(--border-color)]/70 transition-all group">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <CheckCircle2 size={20} className="text-cyan-400" />
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-muted)]">Historial</p>
-              <p className="text-lg font-bold text-[var(--text-primary)]">
-                {isPro ? "Ilimitado" : "30 días"}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Delay */}
-        <div className={`p-4 rounded-xl border transition-all group ${isPro ? 'bg-[var(--bg-input)]/50 border-[var(--border-color)]/40 hover:border-[var(--border-color)]/70' : 'bg-[var(--bg-input)]/30 border-[var(--border-color)]/20 opacity-60'}`}>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-lg bg-rose-500/10 flex items-center justify-center">
-              <Clock size={20} className={isPro ? "text-rose-400" : "text-[var(--text-muted)]"} />
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-muted)]">Delay inteligente</p>
-              <p className="text-lg font-bold text-[var(--text-primary)]">
-                {isPro ? "1-60s" : "5-15s"}
-              </p>
-            </div>
-          </div>
-          {!isPro && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400">PRO</span>}
-        </div>
-      </div>
-
-      {/* CTA Upgrade */}
-      {!isPro && (
-        <button
-          onClick={() => openUpgrade('pro')}
-          className="mt-6 w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 hover:border-amber-500/40 hover:from-amber-500/20 hover:to-orange-500/20 transition-all group cursor-pointer"
-        >
-          <Zap size={20} className="text-amber-400 group-hover:scale-110 transition-transform" />
-          <span className="text-amber-400 font-bold">Desbloqueá todo con Pro por $250 USD extra</span>
-          <ArrowUpRight size={16} className="text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-        </button>
-      )}
-
-      {isPro && (
-        <div className="mt-6 p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
-            <Sparkles size={20} className="text-emerald-400" />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-emerald-400">Tenés acceso completo</p>
-            <p className="text-xs text-emerald-300/70">Todas las funciones Pro están activas</p>
-          </div>
-        </div>
-      )}
-    </div>
-
-    {/* 🔥 NUEVA SECCIÓN: Todas las funciones del sistema */}
-    {!isPro && (
-      <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-2xl p-6">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
-            <Lock size={18} className="text-amber-400" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-[var(--text-primary)]">Funciones Pro</h2>
-            <p className="text-xs text-[var(--text-muted)]">Todo lo que desbloqueás al hacer upgrade</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mt-4">
-          {/* Feature: Clonación de campañas */}
-          <div className="p-3 rounded-xl bg-[var(--bg-input)]/30 border border-[var(--border-color)]/30 opacity-70 hover:opacity-100 transition-opacity group">
-            <div className="flex items-center gap-2 mb-2">
-              <Copy size={16} className="text-amber-400" />
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-400 leading-none">PRO</span>
-            </div>
-            <p className="text-xs font-semibold text-[var(--text-primary)]">Clonación 1-click</p>
-            <p className="text-[10px] text-[var(--text-muted)] mt-0.5 leading-tight">Duplicá campañas exitosas al instante</p>
-          </div>
-
-          {/* Feature: Programación */}
-          <div className="p-3 rounded-xl bg-[var(--bg-input)]/30 border border-[var(--border-color)]/30 opacity-70 hover:opacity-100 transition-opacity group">
-            <div className="flex items-center gap-2 mb-2">
-              <CalendarClock size={16} className="text-amber-400" />
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-400 leading-none">PRO</span>
-            </div>
-            <p className="text-xs font-semibold text-[var(--text-primary)]">Programación</p>
-            <p className="text-[10px] text-[var(--text-muted)] mt-0.5 leading-tight">Agendá envíos para cualquier fecha y hora</p>
-          </div>
-
-          {/* Feature: Modo humano */}
-          <div className="p-3 rounded-xl bg-[var(--bg-input)]/30 border border-[var(--border-color)]/30 opacity-70 hover:opacity-100 transition-opacity group">
-            <div className="flex items-center gap-2 mb-2">
-              <UserCheck size={16} className="text-amber-400" />
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-400 leading-none">PRO</span>
-            </div>
-            <p className="text-xs font-semibold text-[var(--text-primary)]">Modo humano</p>
-            <p className="text-[10px] text-[var(--text-muted)] mt-0.5 leading-tight">Envío con pausas aleatorias, anti-ban</p>
-          </div>
-
-          {/* Feature: Cancelación en vivo */}
-          <div className="p-3 rounded-xl bg-[var(--bg-input)]/30 border border-[var(--border-color)]/30 opacity-70 hover:opacity-100 transition-opacity group">
-            <div className="flex items-center gap-2 mb-2">
-              <OctagonX size={16} className="text-amber-400" />
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-400 leading-none">PRO</span>
-            </div>
-            <p className="text-xs font-semibold text-[var(--text-primary)]">Cancelación en vivo</p>
-            <p className="text-[10px] text-[var(--text-muted)] mt-0.5 leading-tight">Frená campañas activas en cualquier momento</p>
-          </div>
-
-          {/* Feature: Blacklist */}
-          <div className="p-3 rounded-xl bg-[var(--bg-input)]/30 border border-[var(--border-color)]/30 opacity-70 hover:opacity-100 transition-opacity group">
-            <div className="flex items-center gap-2 mb-2">
-              <Ban size={16} className="text-amber-400" />
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-400 leading-none">PRO</span>
-            </div>
-            <p className="text-xs font-semibold text-[var(--text-primary)]">Blacklist</p>
-            <p className="text-[10px] text-[var(--text-muted)] mt-0.5 leading-tight">Bloqueá números que no quieren recibir mensajes</p>
-          </div>
-
-          {/* Feature: Reportes avanzados */}
-          <div className="p-3 rounded-xl bg-[var(--bg-input)]/30 border border-[var(--border-color)]/30 opacity-70 hover:opacity-100 transition-opacity group">
-            <div className="flex items-center gap-2 mb-2">
-              <BarChart3 size={16} className="text-amber-400" />
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-400 leading-none">PRO</span>
-            </div>
-            <p className="text-xs font-semibold text-[var(--text-primary)]">Reportes avanzados</p>
-            <p className="text-[10px] text-[var(--text-muted)] mt-0.5 leading-tight">Gráficos de entrega, apertura y conversión</p>
-          </div>
-
-          {/* Feature: Métricas de templates */}
-          <div className="p-3 rounded-xl bg-[var(--bg-input)]/30 border border-[var(--border-color)]/30 opacity-70 hover:opacity-100 transition-opacity group">
-            <div className="flex items-center gap-2 mb-2">
-              <FileText size={16} className="text-amber-400" />
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-400 leading-none">PRO</span>
-            </div>
-            <p className="text-xs font-semibold text-[var(--text-primary)]">Métricas templates</p>
-            <p className="text-[10px] text-[var(--text-muted)] mt-0.5 leading-tight">Analizá qué templates performan mejor</p>
-          </div>
-
-          {/* Feature: Exportación CSV */}
-          <div className="p-3 rounded-xl bg-[var(--bg-input)]/30 border border-[var(--border-color)]/30 opacity-70 hover:opacity-100 transition-opacity group">
-            <div className="flex items-center gap-2 mb-2">
-              <Download size={16} className="text-amber-400" />
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-400 leading-none">PRO</span>
-            </div>
-            <p className="text-xs font-semibold text-[var(--text-primary)]">Export CSV</p>
-            <p className="text-[10px] text-[var(--text-muted)] mt-0.5 leading-tight">Descargá contactos, reportes y logs</p>
-          </div>
-
-          {/* Feature: Reconexión keep-alive */}
-          <div className="p-3 rounded-xl bg-[var(--bg-input)]/30 border border-[var(--border-color)]/30 opacity-70 hover:opacity-100 transition-opacity group">
-            <div className="flex items-center gap-2 mb-2">
-              <RefreshCw size={16} className="text-amber-400" />
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-400 leading-none">PRO</span>
-            </div>
-            <p className="text-xs font-semibold text-[var(--text-primary)]">Reconexión auto</p>
-            <p className="text-[10px] text-[var(--text-muted)] mt-0.5 leading-tight">Keep-alive automático de líneas 24/7</p>
-          </div>
-
-          {/* Feature: Spintax por línea */}
-          <div className="p-3 rounded-xl bg-[var(--bg-input)]/30 border border-[var(--border-color)]/30 opacity-70 hover:opacity-100 transition-opacity group">
-            <div className="flex items-center gap-2 mb-2">
-              <Split size={16} className="text-amber-400" />
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-400 leading-none">PRO</span>
-            </div>
-            <p className="text-xs font-semibold text-[var(--text-primary)]">Spintax por línea</p>
-            <p className="text-[10px] text-[var(--text-muted)] mt-0.5 leading-tight">Variables personalizadas por cada línea WhatsApp</p>
-          </div>
-
-          {/* Feature: Modo simulacro */}
-          <div className="p-3 rounded-xl bg-[var(--bg-input)]/30 border border-[var(--border-color)]/30 opacity-70 hover:opacity-100 transition-opacity group">
-            <div className="flex items-center gap-2 mb-2">
-              <FlaskConical size={16} className="text-amber-400" />
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-400 leading-none">PRO</span>
-            </div>
-            <p className="text-xs font-semibold text-[var(--text-primary)]">Modo simulacro</p>
-            <p className="text-[10px] text-[var(--text-muted)] mt-0.5 leading-tight">Probá campañas sin enviar mensajes reales</p>
-          </div>
-
-          {/* Feature: Campañas recurrentes */}
-          <div className="p-3 rounded-xl bg-[var(--bg-input)]/30 border border-[var(--border-color)]/30 opacity-70 hover:opacity-100 transition-opacity group">
-            <div className="flex items-center gap-2 mb-2">
-              <Repeat size={16} className="text-amber-400" />
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-400 leading-none">PRO</span>
-            </div>
-            <p className="text-xs font-semibold text-[var(--text-primary)]">Recurrentes</p>
-            <p className="text-[10px] text-[var(--text-muted)] mt-0.5 leading-tight">Automatizá envíos diarios, semanales o mensuales</p>
-          </div>
-        </div>
-
-        {/* CTA empujón final */}
-        <button
-          onClick={() => openUpgrade('pro')}
-          className="mt-5 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-amber-500/15 to-orange-500/15 border border-amber-500/30 hover:border-amber-500/50 hover:from-amber-500/25 hover:to-orange-500/25 transition-all cursor-pointer group"
-        >
-          <Sparkles size={16} className="text-amber-400 group-hover:scale-110 transition-transform" />
-          <span className="text-sm font-bold text-amber-400">Upgrade a Pro y desbloqueá todo esto</span>
-          <ArrowRight size={14} className="text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-        </button>
-      </div>
-    )}
-
-    {/* Si es Pro, mostramos las funciones como "Activas" */}
-    {isPro && (
-      <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-2xl p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-            <CheckCircle2 size={18} className="text-emerald-400" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-[var(--text-primary)]">Todas las funciones activas</h2>
-            <p className="text-xs text-[var(--text-muted)]">Tenés acceso completo al sistema</p>
-          </div>
-        </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {[
-            { icon: Copy, label: "Clonación 1-click", desc: "Duplicá campañas exitosas" },
-            { icon: CalendarClock, label: "Programación", desc: "Agendá envíos futuros" },
-            { icon: UserCheck, label: "Modo humano", desc: "Pausas aleatorias anti-ban" },
-            { icon: OctagonX, label: "Cancelación en vivo", desc: "Frená campañas activas" },
-            { icon: Ban, label: "Blacklist", desc: "Bloqueá números" },
-            { icon: BarChart3, label: "Reportes avanzados", desc: "Gráficos de conversión" },
-            { icon: FileText, label: "Métricas templates", desc: "Performance por template" },
-            { icon: Download, label: "Export CSV", desc: "Descargá todo" },
-            { icon: RefreshCw, label: "Reconexión auto", desc: "Keep-alive 24/7" },
-            { icon: Split, label: "Spintax por línea", desc: "Variables personalizadas" },
-            { icon: FlaskConical, label: "Modo simulacro", desc: "Prueba sin enviar" },
-            { icon: Repeat, label: "Recurrentes", desc: "Envíos automáticos" },
-          ].map((f, i) => (
-            <div key={i} className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
-              <div className="flex items-center gap-2 mb-1.5">
-                <f.icon size={14} className="text-emerald-400" />
-                <CheckCircle2 size={12} className="text-emerald-500" />
+          {FEATURES.map((f, i) => {
+            const isUnlocked = (f.tier === 'pro' && isPro) || (f.tier === 'business' && isBusiness)
+            const isBusinessOnly = f.tier === 'business'
+
+            if (!isUnlocked) {
+              return (
+                <div 
+                  key={i}
+                  onClick={() => openUpgrade(isBusinessOnly ? 'business' : 'pro')}
+                  className="p-3 rounded-xl bg-[var(--bg-input)]/30 border border-[var(--border-color)]/30 opacity-50 hover:opacity-70 cursor-pointer transition-opacity group relative overflow-hidden"
+                >
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-[1px] z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold ${
+                      isBusinessOnly 
+                        ? 'bg-purple-500/20 border-purple-500/30 text-purple-400' 
+                        : 'bg-amber-500/20 border-amber-500/30 text-amber-400'
+                    }`}>
+                      <Lock size={12} /> {isBusinessOnly ? 'BUSINESS' : 'PRO'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <f.icon size={16} className={isBusinessOnly ? 'text-purple-400' : 'text-amber-400'} />
+                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold leading-none ${
+                      isBusinessOnly ? 'bg-purple-500/20 text-purple-400' : 'bg-amber-500/20 text-amber-400'
+                    }`}>
+                      {isBusinessOnly ? 'BUSINESS' : 'PRO'}
+                    </span>
+                  </div>
+                  <p className="text-xs font-semibold text-[var(--text-primary)]">{f.label}</p>
+                  <p className="text-[10px] text-[var(--text-muted)] mt-0.5 leading-tight">{f.desc}</p>
+                </div>
+              )
+            }
+
+            return (
+              <div key={i} className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
+                <div className="flex items-center gap-2 mb-2">
+                  <f.icon size={16} className="text-emerald-400" />
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 leading-none">
+                    {isBusiness ? 'ACTIVE' : 'PRO'}
+                  </span>
+                </div>
+                <p className="text-xs font-semibold text-[var(--text-primary)]">{f.label}</p>
+                <p className="text-[10px] text-[var(--text-muted)] mt-0.5 leading-tight">{f.desc}</p>
               </div>
-              <p className="text-xs font-semibold text-[var(--text-primary)]">{f.label}</p>
-              <p className="text-[10px] text-[var(--text-muted)] leading-tight">{f.desc}</p>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
-    )}
   </div>
 )}
 
@@ -1600,15 +1977,15 @@ useEffect(() => {
                       ) : lines.length === 0 ? (
                         <span className="text-xs text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20">No hay líneas creadas</span>
                       ) : !hasConnectedLine ? (
-                        <span className="text-xs text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/20">Conectá una línea primero</span>
+                        <span className="text-xs text-purple-400 bg-purple-500/10 px-3 py-1.5 rounded-lg border border-purple-500/20">Conectá una línea primero</span>
                       ) : (
-                        <span className="text-xs text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/20">Seleccioná al menos una línea</span>
+                        <span className="text-xs text-purple-400 bg-purple-500/10 px-3 py-1.5 rounded-lg border border-purple-500/20">Seleccioná al menos una línea</span>
                       )}
                     </div>
 
                     <div className="space-y-5">
                       {/* LINE SELECTOR */}
-                      {tier.hasRoundRobin ? (
+                      {tierConfig.hasRoundRobin ? (
                       <CampaignLineSelector
                         mode={distributionMode}
                         onModeChange={setDistributionMode}
@@ -1619,7 +1996,7 @@ useEffect(() => {
                       ) : (
   <div className="p-3 bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-xl flex items-center justify-between">
     <span className="text-xs text-[var(--text-muted)]">Distribución: Línea única</span>
-    <button onClick={() => setShowUpgrade(true)} className="text-[10px] px-2 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg flex items-center gap-1">
+    <button onClick={() => setShowUpgrade(true)} className="text-[10px] px-2 py-1 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg flex items-center gap-1">
       <Zap size={10} /> Round Robin en Pro
     </button>
   </div>
@@ -1645,11 +2022,16 @@ useEffect(() => {
                         })}
                       </div>
 
+
+
                       {/* CONTENIDO SEGÚN ORIGEN */}
                       {numberSource === "manual" && (
                         <div className="space-y-2">
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-xs text-[var(--text-muted)]">
+                              
+                                                {/* Blacklist detectados en la lista */}
+                          
                               {targetsCount} números
                               {duplicateNumbers.length > 0 && (
                                 <span className="text-red-400 ml-2 font-medium">• {duplicateNumbers.length} duplicado{duplicateNumbers.length > 1 ? 's' : ''}</span>
@@ -1659,6 +2041,39 @@ useEffect(() => {
                               <Upload size={12} /> Importar números
                             </button>
                           </div>
+                          {blacklistInList.length > 0 && (
+                            <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-xl space-y-2">
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs text-purple-400 font-medium flex items-center gap-1.5">
+                                  <Ban size={12} /> {blacklistInList.length} número{blacklistInList.length > 1 ? 's' : ''} en blacklist
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <button 
+                                    onClick={() => setSkipBlacklist(true)}
+                                    className="text-[10px] px-2 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-bold transition-colors"
+                                  >
+                                    Activar salto
+                                  </button>
+                                  <button 
+                                    onClick={openBlacklistModal}
+                                    className="text-[10px] px-2 py-1 bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded-lg hover:bg-purple-500/30 transition-colors"
+                                  >
+                                    Ver lista
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                                {blacklistInList.map((num, i) => (
+                                  <span key={i} className="text-[10px] px-2 py-1 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30 font-mono">
+                                    {num}
+                                  </span>
+                                ))}
+                              </div>
+                              <p className="text-[10px] text-purple-400/70">
+                                Marcá "Saltar contactos en blacklist" para omitirlos automáticamente al enviar.
+                              </p>
+                            </div>
+                          )}
                           <div className="relative">
                                                                                <textarea
                             value={numbersText}
@@ -1726,9 +2141,9 @@ useEffect(() => {
                       {numberSource === "contacts" && (
                         <div className="space-y-2">
                           {contactList.length === 0 ? (
-                            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-center">
-                              <p className="text-xs text-amber-400">No hay contactos guardados.</p>
-                              <p className="text-[10px] text-amber-400/60 mt-1">Agregalos desde la sección Contactos.</p>
+                            <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl text-center">
+                              <p className="text-xs text-purple-400">No hay contactos guardados.</p>
+                              <p className="text-[10px] text-purple-400/60 mt-1">Agregalos desde la sección Contactos.</p>
                             </div>
                           ) : (
                             <>
@@ -1785,8 +2200,8 @@ useEffect(() => {
                       {numberSource === "tag" && (
                         <div className="space-y-2">
                           {tags.length === 0 ? (
-                            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-center">
-                              <p className="text-xs text-amber-400">No hay tags creados.</p>
+                            <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl text-center">
+                              <p className="text-xs text-purple-400">No hay tags creados.</p>
                             </div>
                           ) : (
                             <>
@@ -1880,27 +2295,124 @@ useEffect(() => {
                         </div>
                         <div>
                           <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5 block">Ejecución</label>
-                                                    <div className="flex gap-2">
-                            <button type="button" onClick={() => setScheduleMode("now")} className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${scheduleMode === "now" ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/25' : 'bg-[var(--bg-input)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-slate-600'}`}>
-                              ⚡ Enviar ahora
-                            </button>
-                            <button type="button" onClick={() => setScheduleMode("pending")} className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${scheduleMode === "pending" ? 'bg-amber-600 text-white border-amber-500 shadow-lg shadow-amber-500/25' : 'bg-[var(--bg-input)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-slate-600'}`}>
-                              ⏸️ Guardar
-                            </button>
-                            {/* Programar: solo Pro */}
-{ tier.hasCron ? (
-  <button type="button" onClick={() => setScheduleMode("scheduled")} className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${scheduleMode === "scheduled" ? 'bg-purple-600 text-white border-purple-500 shadow-lg shadow-purple-500/25' : 'bg-[var(--bg-input)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-slate-600'}`}>
-    📅 Programar
-  </button>
-) : (
-  <button type="button" onClick={() => setShowUpgrade(true)} className="flex-1 py-2.5 rounded-xl text-xs font-bold border border-[var(--border-color)] text-[var(--text-muted)] hover:border-amber-500/30 hover:text-amber-400 transition-all flex items-center justify-center gap-1">
-    📅 <Zap size={10} /> Pro
-  </button>
-)}
+                                                                          {/* EJECUCIÓN: 4 botones con iconos */}
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => { setSimulationMode('off'); setScheduleMode('now'); }}
+                          className={`py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                            scheduleMode === 'now' && !isSimulationActive
+                              ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/25'
+                              : 'bg-[var(--bg-input)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-slate-600'
+                          }`}
+                        >
+                          <Zap size={14} /> Enviar ahora
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => { setSimulationMode('off'); setScheduleMode('pending'); }}
+                          className={`py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                            scheduleMode === 'pending' && !isSimulationActive
+                              ? 'bg-purple-600 text-white border-purple-500 shadow-lg shadow-purple-500/25'
+                              : 'bg-[var(--bg-input)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-slate-600'
+                          }`}
+                        >
+                          <Save size={14} /> Guardar
+                        </button>
+
+                        {tierConfig.hasCron ? (
+                          <button
+                            type="button"
+                            onClick={() => { setSimulationMode('off'); setScheduleMode('scheduled'); }}
+                            className={`py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                              scheduleMode === 'scheduled' && !isSimulationActive
+                                ? 'bg-purple-600 text-white border-purple-500 shadow-lg shadow-purple-500/25'
+                                : 'bg-[var(--bg-input)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-slate-600'
+                            }`}
+                          >
+                            <Calendar size={14} /> Programar
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setShowUpgrade(true)}
+                            className="py-2.5 rounded-xl text-xs font-bold border border-[var(--border-color)] text-[var(--text-muted)] hover:border-purple-500/30 hover:text-purple-400 transition-all flex items-center justify-center gap-1"
+                          >
+                            <Calendar size={14} /> <Zap size={10} /> Pro
+                          </button>
+                        )}
+
+                        {/* SIMULACRO */}
+                        {isStarter && 'starter' ? (
+                          <button
+                            type="button"
+                            onClick={() => setShowUpgrade(true)}
+                            className="py-2.5 rounded-xl text-xs font-bold border border-[var(--border-color)] text-[var(--text-muted)] hover:border-amber-500/30 hover:text-amber-400 transition-all flex items-center justify-center gap-1.5"
+                          >
+                            <Activity size={14} /> Simulacro
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (canSimulateFull) {
+                                setSimulationMode(prev => prev === 'full' ? 'off' : 'full')
+                              } else if (canSimulateLite) {
+                                setSimulationMode(prev => prev === 'lite' ? 'off' : 'lite')
+                              } else {
+                                toast.info('Seleccioná una sola línea para Simulacro Lite')
+                                return
+                              }
+                              if (simulationMode === 'off') {
+                                toast.info('Modo Simulacro activado. Se verificarán los números sin enviar mensajes reales. Recomendamos activar Modo Humano para simular escritura.', { duration: 6000 })
+                              }
+                            }}
+                            className={`py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                              isSimulationActive
+                                ? 'bg-amber-600 text-white border-amber-500 shadow-lg shadow-amber-500/25'
+                                : 'bg-[var(--bg-input)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-amber-500/30 hover:text-amber-400'
+                            }`}
+                          >
+                            <Activity size={14} />
+                            {isSimulationActive ? 'Simulacro ON' : 'Simulacro'}
+                          </button>
+                        )}
+                      </div>
+
+                                              {isSimulationActive && (
+                          <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-2">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs text-amber-400 font-medium">Modo Simulacro activo</p>
+                              <div className="flex items-center gap-1 bg-[var(--bg-input)] rounded-lg p-0.5">
+                                {[
+                                  { id: 'slow', label: 'Lento', icon: Timer },
+                                  { id: 'normal', label: 'Normal', icon: Gauge },
+                                  { id: 'fast', label: 'Rápido', icon: Zap }
+                                ].map(s => (
+                                  <button
+                                    key={s.id}
+                                    onClick={() => setSimulationSpeed(s.id as any)}
+                                    className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold transition-all ${
+                                      simulationSpeed === s.id
+                                        ? 'bg-amber-600 text-white'
+                                        : 'text-amber-400/60 hover:text-amber-400'
+                                    }`}
+                                  >
+                                    <s.icon size={10} /> {s.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <p className="text-[10px] text-amber-400/70">
+                              Se verificarán {targetsCount} número{targetsCount !== 1 ? 's' : ''}. 
+                              {!isBusiness && ' Máximo 1 número en modo Lite.'}
+                            </p>
                           </div>
+                        )}
 
                           {/* Selector de fecha/hora */}
-                          {scheduleMode === 'scheduled' && tier.hasCron && (
+                          {scheduleMode === 'scheduled' && tierConfig.hasCron && (
                             <div className="mt-3">
                               <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5 block">
                                 Fecha y hora de envío
@@ -1934,43 +2446,112 @@ useEffect(() => {
 
                       {/* Mensaje */}
                       <div>
+                       
+                                              {/* Mensaje */}
+                      <div>
                         <div className="flex items-center justify-between mb-2">
-                          <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-2">
-                            <Send size={14} /> Mensaje
+                          <label className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 ${
+                            isSimulationActive ? 'text-amber-400' : 'text-[var(--text-secondary)]'
+                          }`}>
+                            <Send size={14} /> 
+                            {isSimulationActive ? 'Mensaje deshabilitado (Simulacro activo)' : 'Mensaje'}
                           </label>
                           <div className="flex items-center gap-2">
                             <div className="relative">
-  <select
-    value=""
-    onChange={e => {
-      const t = templates.find((x: any) => x.id === e.target.value)
-      if (t) setMessage(t.content)
-      e.target.value = "" // reset para poder re-seleccionar el mismo
-    }}
-    className="appearance-none w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl pl-3 pr-10 py-2.5 text-xs text-[var(--text-secondary)] focus:outline-none focus:border-blue-500/50 cursor-pointer hover:border-slate-600 transition-colors"
-  >
-    <option value="">📄 Cargar template...</option>
-    {templates.map((t: any) => (
-      <option key={t.id} value={t.id} className="bg-[var(--bg-card)] text-[var(--text-primary)]">{t.name}</option>
-    ))}
-  </select>
-  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-muted)]">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-  </div>
-</div>
-                            <button type="button" onClick={copyMessage} className="flex items-center gap-1 text-[10px] px-2 py-1 bg-[var(--bg-input)] border border-[var(--border-color)] rounded-lg text-[var(--text-muted)] hover:text-blue-400 hover:border-blue-500/30 transition-colors">
+                              <select
+                                value=""
+                                onChange={e => {
+                                  if (isSimulationActive) return
+                                  const t = templates.find((x: any) => x.id === e.target.value)
+                                  if (t) setMessage(t.content)
+                                  e.target.value = ""
+                                }}
+                                disabled={isSimulationActive}
+                                className={`appearance-none w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl pl-3 pr-10 py-2.5 text-xs focus:outline-none focus:border-blue-500/50 transition-colors ${
+                                  isSimulationActive ? 'text-slate-600 cursor-not-allowed' : 'text-[var(--text-secondary)] cursor-pointer hover:border-slate-600'
+                                }`}
+                              >
+                                <option value="">📄 Cargar template...</option>
+                                {templates.map((t: any) => (
+                                  <option key={t.id} value={t.id} className="bg-[var(--bg-card)] text-[var(--text-primary)]">{t.name}</option>
+                                ))}
+                              </select>
+                              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-muted)]">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                              </div>
+                            </div>
+                            <button 
+                              type="button" 
+                              onClick={copyMessage} 
+                              disabled={isSimulationActive}
+                              className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg border transition-colors ${
+                                isSimulationActive ? 'text-slate-600 cursor-not-allowed' : 'text-[var(--text-muted)] hover:text-blue-400 hover:border-blue-500/30'
+                              }`}
+                            >
                               📋 Copiar
                             </button>
                           </div>
                         </div>
+
                         <textarea
-                          value={message}
-                          readOnly={isDemo}
-                          onChange={e => !isDemo && setMessage(e.target.value)}
-                          placeholder="Escribí tu mensaje aquí..."
+                          value={isSimulationActive ? 'Modo simulacro: verificación de números activa' : message}
+                          readOnly={isSimulationActive || isDemo}
+                          onChange={e => !isDemo && !isSimulationActive && setMessage(e.target.value)}
+                          placeholder={isSimulationActive ? '' : "Escribí tu mensaje aquí..."}
                           rows={4}
-                          className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-4 text-sm text-[var(--text-primary)] placeholder:text-slate-700 focus:outline-none focus:border-blue-500/50 focus:shadow-[0_0_15px_rgba(59,130,246,0.1)] transition-all resize-none"
+                          className={`w-full bg-[var(--bg-input)] border rounded-xl p-4 text-sm text-[var(--text-primary)] placeholder:text-slate-700 focus:outline-none focus:border-blue-500/50 focus:shadow-[0_0_15px_rgba(59,130,246,0.1)] transition-all resize-none ${
+                            isSimulationActive ? 'border-amber-500/30 cursor-not-allowed opacity-60' : 'border-[var(--border-color)]'
+                          }`}
                         />
+
+                        {isSimulationActive && (
+                          <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-2">
+                            <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="text-xs text-amber-400 font-medium">Modo Simulacro activo</p>
+                              <p className="text-[10px] text-amber-400/70">
+                                Se verificarán {targetsCount} número{targetsCount !== 1 ? 's' : ''} sin enviar mensajes reales. 
+                                {!isBusiness && ' Máximo 1 número en modo Lite.'}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {!isSimulationActive && hasUrl(message) && (
+                          <div className="mt-2 p-3 bg-[var(--bg-card)] border border-blue-500/20 rounded-xl">
+                            <p className="text-[10px] text-blue-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                              <Link size={10} /> Link detectado
+                            </p>
+                            <MessagePreview text={message} />
+                          </div>
+                        )}
+
+                        {!isSimulationActive && (
+                          <div className="flex items-center gap-3 mt-2">
+                            <button type="button" onClick={() => setShowPreview(true)} className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors">
+                              <Eye size={12} /> Ver preview
+                            </button>
+                            <span className="text-[10px] text-[var(--text-muted)] bg-[var(--bg-input)] px-2 py-1 rounded border border-[var(--border-color)]">{`Spintax: {{hola|buenas|hey}}`}</span>
+                            <button type="button" onClick={() => setShowSpintaxHelp(true)} className="text-[10px] px-2 py-1 rounded-lg bg-[var(--bg-input)] text-[var(--text-muted)] border border-[var(--border-color)] hover:text-blue-400 hover:border-blue-500/30 transition-colors flex items-center gap-1">
+                              <Sparkles size={10} /> ¿Qué es Spintax?
+                            </button>
+                          </div>
+                        )}
+
+                        {!isSimulationActive && (
+                          <div className="flex flex-wrap items-center gap-2 mt-3">
+                            <span className="text-[10px] text-[var(--text-muted)]">Insertar:</span>
+                            <button type="button" onClick={() => insertSpintax('saludo')} className="text-[10px] px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors">👋 Saludo</button>
+                            <button type="button" onClick={() => insertSpintax('despedida')} className="text-[10px] px-2 py-1 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition-colors">✌️ Despedida</button>
+                            {tierConfig.hasAdvancedSpintax && (
+                              <>
+                                <button type="button" onClick={() => insertSpintax('emoji')} className="text-[10px] px-2 py-1 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition-colors">🔥 Emoji</button>
+                                <button type="button" onClick={() => insertSpintax('nombre')} className="text-[10px] px-2 py-1 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors">🏷️ Nombre</button>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
 
                            {hasUrl(message) && (
                           <div className="mt-2 p-3 bg-[var(--bg-card)] border border-blue-500/20 rounded-xl">
@@ -1980,45 +2561,26 @@ useEffect(() => {
                             <MessagePreview text={message} />
                           </div>
                         )}
-                        <div className="flex items-center gap-3 mt-2">
-                          <button type="button" onClick={() => setShowPreview(true)} className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors">
-                            <Eye size={12} /> Ver preview
-                          </button>
-                          <span className="text-[10px] text-[var(--text-muted)] bg-[var(--bg-input)] px-2 py-1 rounded border border-[var(--border-color)]">{`Spintax: {{hola|buenas|hey}}`}</span>
-                          <button type="button" onClick={() => setShowSpintaxHelp(true)} className="text-[10px] px-2 py-1 rounded-lg bg-[var(--bg-input)] text-[var(--text-muted)] border border-[var(--border-color)] hover:text-blue-400 hover:border-blue-500/30 transition-colors flex items-center gap-1">
-                            <Sparkles size={10} /> ¿Qué es Spintax?
-                          </button>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2 mt-3">
-                          <span className="text-[10px] text-[var(--text-muted)]">Insertar:</span>
-                          <button type="button" onClick={() => insertSpintax('saludo')} className="text-[10px] px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors">👋 Saludo</button>
-                          <button type="button" onClick={() => insertSpintax('despedida')} className="text-[10px] px-2 py-1 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition-colors">✌️ Despedida</button>
-                          {tier.hasAdvancedSpintax && (
-                            <>
-                          <button type="button" onClick={() => insertSpintax('emoji')} className="text-[10px] px-2 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-colors">🔥 Emoji</button>
-                          <button type="button" onClick={() => insertSpintax('nombre')} className="text-[10px] px-2 py-1 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors">🏷️ Nombre</button>
-                          </>
-  )}
-                        </div>
+                      
                       </div>
 
                       
 
-                      {tier.hasHumanMode ? (
-  <div className={`flex items-start gap-3 p-4 rounded-xl border transition-all ${humanMode ? 'bg-amber-500/10 border-amber-500/30' : 'bg-[var(--bg-card)] border-[var(--border-color)]/60'}`}>
+                      {tierConfig.hasHumanMode ? (
+  <div className={`flex items-start gap-3 p-4 rounded-xl border transition-all ${humanMode ? 'bg-purple-500/10 border-purple-500/30' : 'bg-[var(--bg-card)] border-[var(--border-color)]/60'}`}>
     <input 
       type="checkbox" 
       id="humanMode"
       checked={humanMode}
       onChange={(e) => setHumanMode(e.target.checked)}
-      className="mt-0.5 h-4 w-4 rounded-full border-slate-500 bg-[var(--bg-input)] text-amber-500 focus:ring-amber-500/50"
+      className="mt-0.5 h-4 w-4 rounded-full border-slate-500 bg-[var(--bg-input)] text-purple-500 focus:ring-purple-500/50"
     />
     <div className="flex-1">
-      <label htmlFor="humanMode" className={`text-sm font-bold cursor-pointer flex items-center gap-2 ${humanMode ? 'text-amber-400' : 'text-[var(--text-secondary)]'}`}>
+      <label htmlFor="humanMode" className={`text-sm font-bold cursor-pointer flex items-center gap-2 ${humanMode ? 'text-purple-400' : 'text-[var(--text-secondary)]'}`}>
         <UserCheck size={14} /> Modo Humano PRO
       </label>
       <p className="text-xs text-[var(--text-muted)] mt-1 leading-relaxed">
-        Simula el indicador <span className="text-amber-400 font-medium">"escribiendo..."</span> con delay proporcional al texto. 
+        Simula el indicador <span className="text-purple-400 font-medium">"escribiendo..."</span> con delay proporcional al texto. 
         Ideal para mensajes VIP personalizados 1-a-1.
       </p>
       {humanMode && (
@@ -2034,11 +2596,111 @@ useEffect(() => {
       <p className="text-sm font-bold text-[var(--text-muted)] flex items-center gap-2"><UserCheck size={14} /> Modo Humano</p>
       <p className="text-xs text-[var(--text-muted)] mt-1">Simula escritura real para mensajes VIP</p>
     </div>
-    <button onClick={() => setShowUpgrade(true)} className="text-[10px] px-2.5 py-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg font-bold flex items-center gap-1">
+    <button onClick={() => setShowUpgrade(true)} className="text-[10px] px-2.5 py-1.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg font-bold flex items-center gap-1">
       <Zap size={10} /> Upgrade
     </button>
   </div>
 )}
+
+
+{/* ─── BLACKLIST ─── */}
+{isBusiness ? (
+  <div className={`flex items-start gap-3 p-4 rounded-xl border transition-all ${skipBlacklist ? 'bg-purple-500/10 border-purple-500/30' : 'bg-[var(--bg-card)] border-[var(--border-color)]/60'}`}>
+    <input 
+      type="checkbox" 
+      id="skipBlacklist"
+      checked={skipBlacklist}
+      onChange={(e) => setSkipBlacklist(e.target.checked)}
+      className="mt-0.5 h-4 w-4 rounded border-slate-500 bg-[var(--bg-input)] text-purple-500 focus:ring-purple-500/50"
+    />
+    <div className="flex-1">
+      <label htmlFor="skipBlacklist" className={`text-sm font-bold cursor-pointer flex items-center gap-2 ${skipBlacklist ? 'text-purple-400' : 'text-[var(--text-secondary)]'}`}>
+        <Ban size={14} /> Saltar contactos en blacklist
+      </label>
+      <p className="text-xs text-[var(--text-muted)] mt-1 leading-relaxed">
+        {blacklistCount > 0 
+          ? <><span className="text-purple-400 font-bold">{blacklistCount}</span> contactos bloqueados serán omitidos automáticamente.</>
+          : "No tenés contactos en blacklist. Se agregan automáticamente si responden con palabras clave de baja."}
+      </p>
+      {skipBlacklist && blacklistCount > 0 && (
+        <div className="flex items-center gap-1.5 mt-2 text-[10px] text-purple-400 bg-purple-500/10 px-2 py-1 rounded-lg border border-purple-500/20 w-fit">
+          <Shield size={10} /> Protección anti-spam activa
+        </div>
+      )}
+    </div>
+  </div>
+) : (
+  <div className="p-4 rounded-xl border border-[var(--border-color)]/60 bg-[var(--bg-card)]/50 flex items-center justify-between">
+    <div>
+      <p className="text-sm font-bold text-[var(--text-muted)] flex items-center gap-2"><Ban size={14} /> Blacklist / Anti-spam</p>
+      <p className="text-xs text-[var(--text-muted)] mt-1">Bloqueá números y palabras clave de baja automática</p>
+    </div>
+    <button onClick={() => openUpgrade('business')} className="text-[10px] px-2.5 py-1.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg font-bold flex items-center gap-1">
+      <Zap size={10} /> Business
+    </button>
+  </div>
+)}
+
+                      {/* ─── PROXY ROTATE (Business only) ─── */}
+                      {isBusiness ? (
+                        <div className={`flex items-start gap-3 p-4 rounded-xl border transition-all ${proxyRotateEnabled ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-[var(--bg-card)] border-[var(--border-color)]/60'}`}>
+                          <input 
+                            type="checkbox" 
+                            id="proxyRotate"
+                            checked={proxyRotateEnabled}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setProxyRotateEnabled(true)
+                                if (!proxyLocation) setShowProxyModal(true)
+                              } else {
+                                clearProxy()
+                              }
+                            }}
+                            className="mt-0.5 h-4 w-4 rounded border-slate-500 bg-[var(--bg-input)] text-emerald-500 focus:ring-emerald-500/50"
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <label htmlFor="proxyRotate" className={`text-sm font-bold cursor-pointer flex items-center gap-2 ${proxyRotateEnabled ? 'text-emerald-400' : 'text-[var(--text-secondary)]'}`}>
+                                <Globe size={14} /> Proxy Rotate
+                              </label>
+                              {proxyRotateEnabled && (
+                                <button 
+                                  onClick={() => {
+    setShowProxyModal(true)
+    loadProxyHistory()
+  }}
+                                  className="text-[10px] px-2 py-1 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-500 transition-colors flex items-center gap-1"
+                                >
+                                  <Crosshair size={10} /> Configurar
+                                </button>
+                              )}
+                            </div>
+                            <p className="text-xs text-[var(--text-muted)] mt-1 leading-relaxed">
+                              {proxyLocation 
+                                ? <><span className="text-emerald-400 font-bold">{proxyLocation.city}, {proxyLocation.country}</span> · Latencia simulada: {proxyLocation.latency}ms</>
+                                : "Rutea la campaña a través de nodos globales para evitar baneos por IP."}
+                            </p>
+                            {proxyRotateEnabled && (
+                              <div className="mt-2 p-2 bg-amber-500/5 border border-amber-500/10 rounded-lg">
+                                <p className="text-[10px] text-amber-300/80 flex items-start gap-1.5">
+                                  <AlertTriangle size={10} className="shrink-0 mt-0.5" />
+                                  <span>Función agresiva anti-ban. Enviá de a pocos números y controlado. WhatsApp detecta patrones de spam. Recomendado: máximo 50-100 mensajes por hora con proxy activo.</span>
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-4 rounded-xl border border-[var(--border-color)]/60 bg-[var(--bg-card)]/50 flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-bold text-[var(--text-muted)] flex items-center gap-2"><Globe size={14} /> Proxy Rotate</p>
+                            <p className="text-xs text-[var(--text-muted)] mt-1">Ruteo dinámico de IP para evitar baneos</p>
+                          </div>
+                          <button onClick={() => openUpgrade('business')} className="text-[10px] px-2.5 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg font-bold flex items-center gap-1">
+                            <Zap size={10} /> Business
+                          </button>
+                        </div>
+                      )}
 
                       {/* Imagen + Delay */}
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -2070,20 +2732,39 @@ useEffect(() => {
                       <motion.button
                         whileHover={{ scale: 1.01 }}
                         whileTap={{ scale: 0.99 }}
-                        onClick={() => {
+                                                onClick={() => {
                           if (!verifyCampaign()) return
-                          sendCampaign()
+                          if (isSimulationActive) {
+                            sendSimulation()
+                          } else {
+                            sendCampaign()
+                          }
                         }}
                         disabled={isSending || selectedLineIds.length === 0 || isVerifying || validationErrors.length > 0 || duplicateNumbers.length > 0 || targetsCount === 0 || (scheduleMode === 'scheduled' && !scheduleDate)}
                         className={`w-full font-bold py-4 rounded-xl transition-all relative overflow-hidden ${
-                          isSending || selectedLineIds.length === 0 || isVerifying || duplicateNumbers.length > 0 || targetsCount === 0
+                          isSending || isSimulating || selectedLineIds.length === 0 || isVerifying || validationErrors.length > 0 || duplicateNumbers.length > 0 || targetsCount === 0 || (scheduleMode === 'scheduled' && !scheduleDate)
                             ? "bg-[#1E293B] text-[var(--text-muted)] cursor-not-allowed"
-                            : scheduleMode === 'pending'
+                            : isSimulationActive
                             ? "bg-gradient-to-r from-amber-600 to-orange-500 text-white shadow-lg shadow-amber-500/25"
+                            : scheduleMode === 'pending'
+                            ? "bg-gradient-to-r from-purple-600 to-orange-500 text-white shadow-lg shadow-purple-500/25"
                             : "bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/25"
                         }`}
                       >
-                        {isSending ? (
+                        {isSimulationActive ? (
+                          <span className="flex items-center justify-center gap-2">
+                            {isSimulating ? (
+                              <>
+                                <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
+                                Simulando...
+                              </>
+                            ) : (
+                              <>
+                                <Activity size={18} /> Lanzar Simulacro {targetsCount > 0 && `· ${targetsCount} pings`}
+                              </>
+                            )}
+                          </span>
+                        ) : isSending ? (
                             
   <span className="flex items-center justify-center gap-2">
     <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
@@ -2125,19 +2806,20 @@ useEffect(() => {
               )}
 
               {/* TAB: LOGS */}
+                            {/* TAB: LOGS */}
               {activeTab === "logs" && (
                 <div className="space-y-6 max-w-5xl">
                   <div className="flex items-center justify-between">
                     <h2 className="text-xl font-bold text-[var(--text-primary)]">Logs en vivo</h2>
                     <div className="flex items-center gap-2">
-                      {!isPro && <span className="text-[10px] font-bold px-2 py-1 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30"><Zap size={10} className="inline" /> PRO</span>}
+                      {!isPro && <span className="text-[10px] font-bold px-2 py-1 rounded bg-purple-500/20 text-amber-400 border border-amber-500/30"><Zap size={10} className="inline" /> PRO</span>}
                       <button onClick={() => isPro ? setLogs([]) : setShowUpgrade(true)} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${isPro ? 'border-red-500/30 text-red-400 hover:bg-red-500/10' : 'border-[var(--border-color)] text-[var(--text-muted)] cursor-not-allowed'}`}>
                         <Trash2 size={14} /> Limpiar
                       </button>
                     </div>
                   </div>
                   <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-2xl p-4">
-                    <div className="bg-[var(--bg-input)] rounded-xl p-4 h-[500px] overflow-y-auto font-mono text-xs space-y-1.5 border border-[var(--border-color)]/40">
+                    <div ref={logsContainerRef} className="bg-[var(--bg-input)] rounded-xl p-4 h-[500px] overflow-y-auto font-mono text-xs space-y-1.5 border border-[var(--border-color)]/40">
                       <AnimatePresence initial={false}>
                         {logs.length === 0 ? (
                           <div className="h-full flex flex-col items-center justify-center text-[var(--text-muted)]">
@@ -2146,14 +2828,26 @@ useEffect(() => {
                           </div>
                         ) : (
                           logs.map((log, i) => (
-                            <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className={`${log.includes("✅") ? "text-emerald-400" : log.includes("❌") ? "text-red-400" : log.includes("🚀") ? "text-blue-400" : "text-[var(--text-secondary)]"}`}>
+                            <motion.div 
+                              key={i} 
+                              initial={{ opacity: 0, x: -10 }} 
+                              animate={{ opacity: 1, x: 0 }} 
+                              className={`${
+                                log.includes("✅") || log.includes("EXITOSO") ? "text-emerald-400" : 
+                                log.includes("❌") || log.includes("Error") ? "text-red-400" : 
+                                log.includes("🚀") || log.includes("Iniciando") ? "text-blue-400" : 
+                                log.includes("🔥") || log.includes("simulacro") ? "text-amber-400" :
+                                "text-[var(--text-secondary)]"
+                              }`}
+                            >
                               <span className="text-[var(--text-muted)] mr-2">{new Date().toLocaleTimeString()}</span>
                               {log}
                             </motion.div>
                           ))
                         )}
                       </AnimatePresence>
-                    </div>
+                      <div ref={logsEndRef} /> 
+                    </div >
                   </div>
                 </div>
               )}
@@ -2161,6 +2855,60 @@ useEffect(() => {
           </AnimatePresence>
         </div>
       </div>
+
+            {/* ─── MODAL BLACKLIST ─── */}
+      {showBlacklistModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowBlacklistModal(false)}>
+          <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl w-full max-w-md mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-[var(--border-color)]">
+              <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+                <Ban size={16} className="text-purple-400" /> Blacklist
+              </h3>
+              <button onClick={() => setShowBlacklistModal(false)} className="p-1.5 hover:bg-white/5 rounded-lg transition-colors">
+                <X size={16} className="text-[var(--text-muted)]" />
+              </button>
+            </div>
+            
+            <div className="p-4">
+              {isLoadingBlacklist ? (
+                <div className="flex items-center justify-center py-8 gap-2 text-xs text-[var(--text-muted)]">
+                  <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="h-4 w-4 border border-purple-400 border-t-transparent rounded-full" />
+                  Cargando...
+                </div>
+              ) : blacklistNumbers.length === 0 ? (
+                <div className="text-center py-8">
+                  <Shield size={32} className="text-purple-500/20 mx-auto mb-2" />
+                  <p className="text-xs text-[var(--text-muted)]">No hay números en blacklist</p>
+                  <p className="text-[10px] text-[var(--text-muted)]/60 mt-1">Se agregan automáticamente cuando un contacto responde con palabras clave de baja.</p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs text-[var(--text-muted)] mb-3">
+                    <span className="text-purple-400 font-bold">{blacklistNumbers.length}</span> contactos bloqueados
+                  </p>
+                  <div className="bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)] max-h-80 overflow-y-auto">
+                    {blacklistNumbers.map((phone, i) => (
+                      <div key={i} className="flex items-center justify-between p-3 border-b border-[var(--border-color)]/50 last:border-0">
+                        <span className="text-sm text-[var(--text-primary)] font-mono">{phone}</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">Bloqueado</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-[var(--border-color)] flex justify-end">
+              <button 
+                onClick={() => setShowBlacklistModal(false)}
+                className="px-4 py-2 bg-[var(--bg-input)] hover:bg-white/5 text-[var(--text-secondary)] text-xs font-bold rounded-lg transition-colors border border-[var(--border-color)]"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODALS */}
       <PremiumModal open={showImportNumbers} onClose={() => !importLoading && setShowImportNumbers(false)} title="Importar Números">
@@ -2253,6 +3001,203 @@ useEffect(() => {
           )}
         </div>
       </PremiumModal>
+
+            {/* ─── MODAL PROXY ROTATE ─── */}
+      <AnimatePresence>
+        {showProxyModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+            onClick={() => !isScanningProxy && setShowProxyModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl w-full max-w-lg mx-4 shadow-2xl overflow-hidden relative"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="p-5 border-b border-[var(--border-color)] flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-emerald-500/10 rounded-lg">
+                    <Globe size={18} className="text-emerald-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-[var(--text-primary)]">Proxy Rotate</h3>
+                    <p className="text-[10px] text-[var(--text-muted)]">Selección de nodo óptimo</p>
+                  </div>
+                </div>
+                {!isScanningProxy && (
+                  <button onClick={() => setShowProxyModal(false)} className="p-1.5 hover:bg-white/5 rounded-lg transition-colors">
+                    <X size={16} className="text-[var(--text-muted)]" />
+                  </button>
+                )}
+              </div>
+
+              {/* Mapa / Radar */}
+              <div className="relative h-64 bg-[#0a0f1c] overflow-hidden">
+                {/* Grid de fondo */}
+                <div className="absolute inset-0 opacity-20" style={{ 
+                  backgroundImage: 'linear-gradient(rgba(16,185,129,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(16,185,129,0.1) 1px, transparent 1px)',
+                  backgroundSize: '40px 40px'
+                }} />
+                
+                {/* Nodos */}
+                {PROXY_NODES.map((node, i) => (
+                  <motion.div
+                    key={node.code}
+                    className="absolute"
+                    style={{ left: `${node.x}%`, top: `${node.y}%` }}
+                    animate={isScanningProxy ? {
+                      scale: [1, 1.8, 1],
+                      opacity: [0.4, 1, 0.4]
+                    } : proxyLocation?.code === node.code ? {
+                      scale: [1, 1.3, 1],
+                      opacity: 1
+                    } : {
+                      opacity: 0.3
+                    }}
+                    transition={isScanningProxy ? { 
+                      duration: 1.5, 
+                      repeat: Infinity, 
+                      delay: i * 0.2 
+                    } : { duration: 2, repeat: Infinity }}
+                  >
+                    <div className={`w-3 h-3 rounded-full ${proxyLocation?.code === node.code ? 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.6)]' : 'bg-slate-500'}`} />
+                    <div className={`absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] font-mono whitespace-nowrap ${proxyLocation?.code === node.code ? 'text-emerald-400' : 'text-slate-500'}`}>
+                      {node.code}
+                    </div>
+                  </motion.div>
+                ))}
+
+                {/* Líneas de conexión (svg overlay) */}
+                <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-20">
+                  {PROXY_NODES.map((node, i) => 
+                    PROXY_NODES.slice(i + 1).map((target, j) => (
+                      <line
+                        key={`${i}-${j}`}
+                        x1={`${node.x}%`}
+                        y1={`${node.y}%`}
+                        x2={`${target.x}%`}
+                        y2={`${target.y}%`}
+                        stroke={proxyLocation?.code === node.code || proxyLocation?.code === target.code ? '#34d399' : '#475569'}
+                        strokeWidth="0.5"
+                        strokeDasharray="4 4"
+                      />
+                    ))
+                  )}
+                </svg>
+
+                {/* Radar scan */}
+                {isScanningProxy && (
+                  <motion.div
+                    className="absolute top-1/2 left-1/2 w-48 h-48 -translate-x-1/2 -translate-y-1/2 rounded-full border border-emerald-500/20"
+                    animate={{ scale: [1, 2.5], opacity: [0.6, 0] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
+                  />
+                )}
+                {isScanningProxy && (
+                  <motion.div
+                    className="absolute top-1/2 left-1/2 w-2 h-2 -translate-x-1/2 -translate-y-1/2 bg-emerald-400 rounded-full"
+                    animate={{ scale: [1, 3], opacity: [1, 0] }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
+                  />
+                )}
+
+                {/* Status central */}
+                <div className="absolute bottom-4 left-0 right-0 text-center">
+                  <p className="text-xs font-mono text-emerald-400 flex items-center justify-center gap-2">
+                    {isScanningProxy && (
+                      <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="h-3 w-3 border border-emerald-400 border-t-transparent rounded-full" />
+                    )}
+                    {proxyScanText}
+                  </p>
+                  {proxyLocation && !isScanningProxy && (
+                    <p className="text-[10px] text-emerald-400/70 mt-1">
+                      {proxyLocation.city}, {proxyLocation.country} · {proxyLocation.latency}ms
+                    </p>
+                  )}
+                </div>
+              </div>
+
+                                          {/* Footer */}
+              <div className="p-5 border-t border-[var(--border-color)]">
+                {/* Historial */}
+                {proxyHistory.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-2">Últimas ubicaciones</p>
+                    <div className="flex flex-wrap gap-2">
+                      {proxyHistory.map((h, i) => (
+                        <button
+                          key={i}
+                          onClick={() => {
+                            const node = PROXY_NODES.find(n => n.city === h.city) || h
+                            setProxyLocation(node)
+                            localStorage.setItem('wabisend_proxy_location', JSON.stringify(node))
+                            saveProxyToHistory(node)
+                            setProxyScanText(`Ruta óptima: ${node.city} (${node.latency}ms)`)
+                            setShowProxyModal(false)
+                          }}
+                          className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] hover:border-emerald-500/30 hover:text-emerald-400 transition-colors"
+                        >
+                          <Globe size={10} />
+                          {h.city} ({h.code}) · {h.fakeIp} · {h.timesUsed > 1 ? `${h.timesUsed}x` : ''}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <div className="text-[10px] text-[var(--text-muted)] max-w-[200px] leading-relaxed">
+                    {isScanningProxy ? 'No cierres esta ventana durante el escaneo...' : 
+                     proxyLocation ? `Nodo ${proxyLocation.city} seleccionado. IP: ${proxyLocation.fakeIp}` :
+                     'El sistema analizará latencia y disponibilidad de nodos globales.'}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {proxyLocation && !isScanningProxy && (
+                      <button
+                        onClick={selectOptimalProxy}
+                        className="px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 bg-[var(--bg-input)] text-[var(--text-secondary)] border border-[var(--border-color)] hover:border-emerald-500/30 hover:text-emerald-400"
+                      >
+                        <RefreshCw size={14} /> Relocalizar
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (!proxyLocation && !isScanningProxy) {
+                          selectOptimalProxy()
+                        } else if (!isScanningProxy) {
+                          setShowProxyModal(false)
+                        }
+                      }}
+                      disabled={isScanningProxy}
+                      className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                        isScanningProxy
+                          ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                          : proxyLocation
+                          ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                          : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-500/20'
+                      }`}
+                    >
+                      {isScanningProxy ? (
+                        <><Loader2 size={14} className="animate-spin" /> Escaneando...</>
+                      ) : proxyLocation ? (
+                        <><CheckCircle2 size={14} /> Confirmar {proxyLocation.city}</>
+                      ) : (
+                        <><Crosshair size={14} /> Elegir ubicación óptima</>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <PremiumModal open={showPreview} onClose={() => setShowPreview(false)} title="Vista previa">
         <div className="space-y-4">

@@ -125,6 +125,35 @@ const CSS = `
   }
   .wabi-setup-input::placeholder { color: #2A3A48; font-family: 'Outfit', system-ui; }
 
+    .wabi-btn2 {
+    position: relative;
+    width: 30%;
+    border-radius: 14px;
+    border: none;
+    padding: 15px;
+    font-weight: 700;
+    font-size: 15px;
+    font-family: 'Outfit', system-ui, sans-serif;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    overflow: hidden;
+    background: linear-gradient(135deg, #00D4AA 0%, #00A8C8 50%, #3B6EF7 100%);
+    color: #021210;
+    box-shadow: 0 8px 32px rgba(0, 212, 170, 0.25), 0 2px 8px rgba(0,0,0,0.3);
+    transition: transform 0.15s, box-shadow 0.25s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .wabi-btn2:hover:not(:disabled) {
+    box-shadow: 0 12px 40px rgba(0, 212, 170, 0.35), 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .wabi-btn2:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   .wabi-btn {
     position: relative;
     width: 100%;
@@ -320,7 +349,7 @@ export default function SetupWizard() {
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [checking, setChecking] = useState(true)
-
+  const [activatedTier, setActivatedTier] = useState("")
   const goNext = () => {
     setError("")
     setDirection(1)
@@ -351,6 +380,9 @@ export default function SetupWizard() {
       const data = await res.json()
       if (data.success) {
         setActivated(true)
+        if (data.tier) {
+  setActivatedTier(data.tier)
+}
       } else {
         setError(data.error || "Error activando licencia")
       }
@@ -371,25 +403,25 @@ export default function SetupWizard() {
     window.location.href = "/onboarding"
   }
 
- useEffect(() => {
-    fetch("/api/auth/check", { cache: "no-store" })
-      .then(r => r.json())
-      .then(data => {
-        if (data.hasUser) {
-          router.replace("/login") // replace en vez de href para no guardar en history
-        }
-      })
-      .catch(() => {})
-      .finally(() => setChecking(false))
-  }, [router])
+//  useEffect(() => {
+//     fetch("/api/auth/check", { cache: "no-store" })
+//       .then(r => r.json())
+//       .then(data => {
+//         if (data.hasUser) {
+//           router.replace("/login") // replace en vez de href para no guardar en history
+//         }
+//       })
+//       .catch(() => {})
+//       .finally(() => setChecking(false))
+//   }, [router])
 
-  if (checking) {
-    return (
-      <div className="min-h-screen bg-[#060A14] flex items-center justify-center">
-        <div className="h-8 w-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
-  }
+//   if (checking) {
+//     return (
+//       <div className="min-h-screen bg-[#060A14] flex items-center justify-center">
+//         <div className="h-8 w-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+//       </div>
+//     )
+//   }
   
 
   return (
@@ -489,6 +521,7 @@ export default function SetupWizard() {
                   activated={activated}
                   error={error}
                   loading={loading}
+                  activatedTier={activatedTier}
                   onActivate={activateLicense}
                   onBack={goBack}
                   onContinue={goToOnboarding}
@@ -683,7 +716,7 @@ function StepRailway({ onNext, onBack, copied, onCopy }: {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={onBack}
-          className="wabi-btn wabi-btn-ghost"
+          className="wabi-btn2 wabi-btn-ghost"
           style={{ flex: "0 0 auto", minWidth: 110 }}
         >
           <ArrowLeft size={16} />
@@ -789,7 +822,7 @@ function StepVercel({ onNext, onBack, copied, onCopy }: {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={onBack}
-          className="wabi-btn wabi-btn-ghost"
+          className="wabi-btn2 wabi-btn-ghost"
           style={{ flex: "0 0 auto", minWidth: 110 }}
         >
           <ArrowLeft size={16} />
@@ -817,10 +850,10 @@ function StepVercel({ onNext, onBack, copied, onCopy }: {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function StepLicense({
-  licenseKey, setLicenseKey, activated, error, loading, onActivate, onBack, onContinue
+  licenseKey, setLicenseKey, activated, activatedTier, error, loading, onActivate, onBack, onContinue
 }: {
   licenseKey: string; setLicenseKey: (v: string) => void
-  activated: boolean; error: string; loading: boolean
+  activated: boolean; activatedTier?: string; error: string; loading: boolean
   onActivate: () => void; onBack: () => void; onContinue: () => void
 }) {
   return (
@@ -875,7 +908,7 @@ function StepLicense({
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={onBack}
-              className="wabi-btn wabi-btn-ghost"
+              className="wabi-btn2 wabi-btn-ghost"
               style={{ flex: "0 0 auto", minWidth: 110 }}
             >
               <ArrowLeft size={16} />
@@ -929,7 +962,11 @@ function StepLicense({
           </motion.div>
 
           <h3 style={{ color: "#EEF2FF", fontSize: 22, fontWeight: 800, marginBottom: 8 }}>
-            Instancia activada
+            {activatedTier ? (
+              <>Instancia <span style={{ color: '#00D4AA' }}>{activatedTier.toUpperCase()}</span> activada</>
+            ) : (
+              'Instancia activada'
+            )}
           </h3>
           <p style={{ color: "#3D5060", fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
             Tu WabiSend está listo. Ahora creá tu cuenta de administrador para empezar a usarlo.

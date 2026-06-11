@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import { useLicense } from "@/hooks/useLicense"
@@ -8,56 +8,69 @@ import { useLicense } from "@/hooks/useLicense"
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
-  const { user, loading: authLoading, checked: authChecked } = useAuth()
-  const { license, loading: licenseLoading, checked: licenseChecked, isActive } = useLicense()
+  const { user, hasUser, loading: authLoading } = useAuth()
+  const { loading: licenseLoading, isActive } = useLicense()
 
-  // Rutas que NO requieren licencia (solo setup y demo)
-  const setupPaths = ["/setup", "/demo"]
-  const isSetupPath = setupPaths.includes(pathname)
+  const [redirected, setRedirected] = useState(false)
 
-  // Rutas públicas que requieren licencia activa
-  const publicPaths = ["/login", "/setup", "/onboarding", "/demo"]
-  const isPublic = publicPaths.includes(pathname)
+  const isLoading = authLoading || licenseLoading
+  const isSetup = pathname === "/setup"
+  const isOnboarding = pathname === "/onboarding"
+  const isLogin = pathname === "/login"
 
   useEffect(() => {
-    // Esperar a que ambos hooks terminen de cargar
-    if (authLoading || licenseLoading || !authChecked || !licenseChecked) return
+    if (isLoading || redirected) return
 
-    // 1. 🔴 SIN LICENCIA: solo /setup y /demo son válidas. Todo lo demás → /setup
-    if (!isActive && !isSetupPath) {
-      router.push("/setup")
-      return
+    let target: string | null = null
+
+    // 1. SIN LICENCIA → solo setup
+    if (!isActive) {
+      if (!isSetup) {
+        target = "/setup"
+      }
+    }
+    // 2. LICENCIA OK + HAY USUARIO EN DB (logueado o no)
+    else if (hasUser) {
+      // Si está logueado → nunca login/setup/onboarding
+      if (user) {
+        if (isLogin || isSetup || isOnboarding) {
+          target = "/dashboard"
+        }
+      }
+      // Si NO está logueado pero hay usuario → solo login
+      else {
+        if (!isLogin) {
+          target = "/login"
+        }
+      }
+    }
+    // 3. LICENCIA OK + NO HAY USUARIO EN DB → solo onboarding
+    else {
+      if (!isOnboarding) {
+        target = "/onboarding"
+      }
     }
 
-    // 2. 🟢 LICENCIA OK + sin usuario registrado → /login
-    //    (el onboarding se accede DESDE el login, no directamente)
-    if (isActive && !user && pathname !== "/login" && pathname !== "/onboarding") {
-      router.push("/login")
-      return
+    if (target) {
+      setRedirected(true)
+      router.replace(target)
     }
+  }, [isLoading, isActive, user, hasUser, pathname, redirected, router, isSetup, isOnboarding, isLogin])
 
-    // 3. Usuario logueado y va a login → dashboard
-    if (user && pathname === "/login") {
-      router.push("/dashboard")
-      return
-    }
-  }, [authLoading, licenseLoading, authChecked, licenseChecked, isActive, user, pathname, router, isSetupPath])
-
-  // Spinner mientras carga
-  if (authLoading || licenseLoading) {
+  // Spinner
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#060A14] flex items-center justify-center">
+        <div className="h-10 w-10 border-3 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
       </div>
     )
   }
 
-  // 🔴 Sin licencia: solo setup y demo se renderizan
-  if (!isActive && !isSetupPath) return null
+  // Bloqueos síncronos
+  if (!isActive && !isSetup) return null
+  if (user && (isLogin || isSetup || isOnboarding)) return null
+  if (!user && hasUser && !isLogin) return null
+  if (!hasUser && isActive && !isOnboarding) return null
 
-  // 🟢 Con licencia: rutas públicas se renderizan, privadas también (el guard de auth se encarga en cada página)
-  if (isActive && isPublic) return <>{children}</>
-
-  // Ruta privada con licencia activa: renderizar
   return <>{children}</>
 }

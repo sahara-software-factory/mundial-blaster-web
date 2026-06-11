@@ -37,17 +37,24 @@ export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [checked, setChecked] = useState(false)
-
+  const [hasUser, setHasUser] = useState(false)
   const getToken = () => {
     if (typeof window === "undefined") return null
     return localStorage.getItem("mb_token")
   }
 
-  const checkAuth = useCallback(async () => {
+    const checkAuth = useCallback(async () => {
     setLoading(true)
     try {
       const token = getToken()
       if (!token) {
+        try {
+          const hasUserRes = await fetch("/api/auth/check", { cache: "no-store" })
+          const hasUserData = await hasUserRes.json()
+          setHasUser(hasUserData.hasUser || false)
+        } catch {
+          setHasUser(false) // ← Si el endpoint falla, asumir que no hay usuario
+        }
         setUser(null)
         setChecked(true)
         setLoading(false)
@@ -87,6 +94,7 @@ export function useAuth() {
 
       const data = await res.json()
       setUser(data.user)
+      setHasUser(true)
     } catch {
       localStorage.removeItem("mb_token")
       setUser(null)
@@ -122,9 +130,8 @@ export function useAuth() {
 
   const logout = () => {
     localStorage.removeItem("mb_token")
-    localStorage.removeItem("mb_license_cache")
+    localStorage.removeItem("mb_license_cache") // ← AGREGAR
     setUser(null)
-    // Hard reload para limpiar todo estado de React y evitar race conditions
     window.location.href = "/login"
   }
 
@@ -135,6 +142,7 @@ export function useAuth() {
   return {
     user,
     loading,
+    hasUser,
     checked,
     isAuthenticated: !!user,
     login,

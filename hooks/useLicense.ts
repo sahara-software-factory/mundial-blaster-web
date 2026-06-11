@@ -1,5 +1,5 @@
 "use client"
-export const dynamic = 'force-dynamic'
+
 import { useEffect, useState, useCallback, useRef } from "react"
 
 interface LicenseData {
@@ -8,6 +8,7 @@ interface LicenseData {
   maxLines?: number
   label?: string
   features?: any
+  reason?: string
 }
 
 const STORAGE_KEY = "mb_license_cache"
@@ -20,48 +21,32 @@ const decodeToken = (token: string) => {
   }
 }
 
-function getCachedLicense(): LicenseData | null {
-  if (typeof window === "undefined") return null
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return JSON.parse(raw)
-  } catch {}
-  return null
-}
-
-function setCachedLicense(data: LicenseData | null) {
-  if (typeof window === "undefined") return
-  try {
-    if (data) localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-    else localStorage.removeItem(STORAGE_KEY)
-  } catch {}
-}
-
 export function useLicense() {
-const [license, setLicense] = useState<LicenseData | null>(null)
-const [loading, setLoading] = useState(true)
+  const [license, setLicense] = useState<LicenseData | null>(null)
+  const [loading, setLoading] = useState(true)
   const [checked, setChecked] = useState(false)
   const fetchingRef = useRef(false)
 
   const checkLicense = useCallback(async (force = false) => {
     if (fetchingRef.current && !force) return
     fetchingRef.current = true
+    setLoading(true)
 
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("mb_token") : null
 
+      // Demo mode
       if (token) {
         const payload = decodeToken(token)
         if (payload?.is_demo) {
           const demoLicense: LicenseData = {
-  active: true,
-  tier: "business", // ← CAMBIADO A BUSINESS
-  maxLines: Infinity,
-  label: "Business (Demo)",
-  features: ["basic_spintax", "30d_history", "basic_delay", "ai", "webhooks", "white_label"],
-}
+            active: true,
+            tier: "business",
+            maxLines: Infinity,
+            label: "Business (Demo)",
+            features: ["basic_spintax", "30d_history", "basic_delay", "ai", "webhooks", "white_label"],
+          }
           setLicense(demoLicense)
-          setCachedLicense(demoLicense)
           setLoading(false)
           setChecked(true)
           fetchingRef.current = false
@@ -79,14 +64,17 @@ const [loading, setLoading] = useState(true)
 
       const data: LicenseData = await res.json()
       setLicense(data)
-      setCachedLicense(data)
-      if (!data.active) {
-        setCachedLicense(null)
+
+      // Guardar en cache solo si es válida
+      if (data.active) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+      } else {
+        localStorage.removeItem(STORAGE_KEY)
       }
     } catch {
-      const fallback: LicenseData = { active: false }
+      const fallback: LicenseData = { active: false, reason: "ERROR" }
       setLicense(fallback)
-      setCachedLicense(fallback)
+      localStorage.removeItem(STORAGE_KEY)
     } finally {
       setLoading(false)
       setChecked(true)
@@ -96,6 +84,12 @@ const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     checkLicense()
+  }, [checkLicense])
+
+   useEffect(() => {
+    const handleUpdate = () => checkLicense(true)
+    window.addEventListener('license-updated', handleUpdate)
+    return () => window.removeEventListener('license-updated', handleUpdate)
   }, [checkLicense])
 
   return {

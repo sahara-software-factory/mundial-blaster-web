@@ -28,7 +28,9 @@ import {
     Layers, 
     X, 
     Sparkles,
-    CalendarClock
+    CalendarClock,
+    FlaskConical,
+    Globe
 } from "lucide-react"
 import { toast } from "sonner"
 import { ConfirmDialog } from "../../components/ui/confirm-dialog"
@@ -64,6 +66,8 @@ interface Campaign {
   line_id: string
   message: string
   total: number
+  proxy_node?: string
+  proxy_ip?: string
   sent: number
   failed: number
   status: string
@@ -962,6 +966,11 @@ const handleExport = async (campaignId: string) => {
           <div>
             <p className="text-sm font-medium text-[var(--text-primary)]">{campaign.name}</p>
             <p className="text-xs text-[var(--text-muted)]">{campaign.total} destinatarios</p>
+            {campaign.proxy_node && (
+              <p className="text-[10px] text-emerald-400 mt-0.5 flex items-center gap-1">
+                <Globe size={10} /> Enviada desde {campaign.proxy_node} ({campaign.proxy_ip})
+              </p>
+            )}
             {campaign.scheduled?.execute_at && campaign.status === 'pending' && campaign.scheduled?.status === 'pending' && (
   <p className="text-[10px] text-purple-400 mt-0.5 flex items-center gap-1">
     <Calendar size={10} /> 
@@ -972,66 +981,69 @@ const handleExport = async (campaignId: string) => {
 )}
           </div>
         </td>
-                          <td className="p-4">
-                            <p className="text-sm text-[var(--text-secondary)]">
-                              {new Date(campaign.created_at).toLocaleDateString('es')}
-                            </p>
-                            <p className="text-xs text-[var(--text-muted)]">
-                              {new Date(campaign.created_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
-                            </p>
+                                                    <td className="p-4">
+                            {campaign.status === 'simulated' ? (
+                              <div className="flex items-center gap-2">
+                                <FlaskConical size={14} className="text-amber-400" />
+                                <span className="text-xs text-amber-400 font-medium">{campaign.total} pings verificados</span>
+                              </div>
+                            ) : (
+                              <div className="w-full max-w-[200px]">
+                                <div className="flex items-center justify-between text-xs mb-1">
+                                  <span className="text-[var(--text-secondary)]">{processed} / {total}</span>
+                                  <span className={`font-medium ${isCompleted ? 'text-emerald-400' : 'text-blue-400'}`}>
+                                    {progress}%
+                                  </span>
+                                </div>
+                                <div className="w-full h-2 bg-[var(--bg-input)] rounded-full overflow-hidden">
+                                  <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${progress}%` }}
+                                    transition={{ duration: 1, ease: "easeOut" }}
+                                    className={`h-full rounded-full ${
+                                      isCompleted 
+                                        ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' 
+                                        : 'bg-gradient-to-r from-blue-500 to-blue-400'
+                                    }`}
+                                  />
+                                </div>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-[10px] text-emerald-400">{sent} ✓</span>
+                                  {failed > 0 && (
+                                    <span className="text-[10px] text-red-400">{failed} ✕</span>
+                                  )}
+                                  {processed > 0 && uniqueDelivered > 0 && (
+                                    <span className="text-[10px] text-purple-400">{uniqueDelivered} únicos</span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </td>
-                          <td className="p-4">
-                            <div className="w-full max-w-[200px]">
-                              <div className="flex items-center justify-between text-xs mb-1">
-                                <span className="text-[var(--text-secondary)]">{processed} / {total}</span>
-                                <span className={`font-medium ${isCompleted ? 'text-emerald-400' : 'text-blue-400'}`}>
-                                  {progress}%
-                                </span>
-                              </div>
-                              <div className="w-full h-2 bg-[var(--bg-input)] rounded-full overflow-hidden">
-                                <motion.div
-                                  initial={{ width: 0 }}
-                                  animate={{ width: `${progress}%` }}
-                                  transition={{ duration: 1, ease: "easeOut" }}
-                                  className={`h-full rounded-full ${
-                                    isCompleted 
-                                      ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' 
-                                      : 'bg-gradient-to-r from-blue-500 to-blue-400'
-                                  }`}
-                                />
-                              </div>
-                              <div className="flex items-center gap-2 mt-1">
-                                <span className="text-[10px] text-emerald-400">{sent} ✓</span>
-                                {failed > 0 && (
-                                  <span className="text-[10px] text-red-400">{failed} ✕</span>
-                                )}
-                                                                {processed > 0 && uniqueDelivered > 0 && (
-                                  <span className="text-[10px] text-purple-400">{uniqueDelivered} únicos</span>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border ${
-            campaign.status === 'completed'
-              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-              : campaign.status === 'running'
-              ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
-              : campaign.status === 'pending' && campaign.scheduled?.status === 'pending'
-              ? 'bg-purple-500/10 text-purple-400 border-purple-500/30'
-              : campaign.status === 'pending'
-              ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-              : campaign.status === 'cancelled'
-              ? 'bg-slate-500/10 text-[var(--text-muted)] border-slate-500/30'
-              : 'bg-red-500/10 text-red-400 border-red-500/30'
-          }`}>
-            {campaign.status === 'completed' ? 'Completada' 
-              : campaign.status === 'running' ? 'Enviando...' 
-              : campaign.status === 'pending' && campaign.scheduled?.status === 'pending' ? 'Programada'
-              : campaign.status === 'pending' ? 'En espera'
-              : campaign.status === 'cancelled' ? 'Detenida'
-              : 'Error'}
-          </span>
+                         
+                                                    <td className="p-4">
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border ${
+                              campaign.status === 'completed'
+                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                : campaign.status === 'running'
+                                ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+                                : campaign.status === 'simulated'
+                                ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                                : campaign.status === 'pending' && campaign.scheduled?.status === 'pending'
+                                ? 'bg-purple-500/10 text-purple-400 border-purple-500/30'
+                                : campaign.status === 'pending'
+                                ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                                : campaign.status === 'cancelled'
+                                ? 'bg-slate-500/10 text-[var(--text-muted)] border-slate-500/30'
+                                : 'bg-red-500/10 text-red-400 border-red-500/30'
+                            }`}>
+                              {campaign.status === 'completed' ? 'Completada' 
+                                : campaign.status === 'running' ? 'Enviando...' 
+                                : campaign.status === 'simulated' ? 'Simulado'
+                                : campaign.status === 'pending' && campaign.scheduled?.status === 'pending' ? 'Programada'
+                                : campaign.status === 'pending' ? 'En espera'
+                                : campaign.status === 'cancelled' ? 'Detenida'
+                                : 'Error'}
+                            </span>
                           </td>
                           <td className="p-4 text-right">
   <div className="flex items-center justify-end gap-1">
@@ -1247,26 +1259,33 @@ const handleExport = async (campaignId: string) => {
         ).size
         const sentCount = logsForSelected.filter((l: any) => l.status === 'sent').length      // ← NUEVO
         const failedCount = logsForSelected.filter((l: any) => l.status === 'failed').length  // ← NUEVO
+
+        const blacklistCount = logsForSelected.filter((l: any) => l.status === 'skipped_blacklist').length
+
         const deliveryRate = total > 0 ? Math.min(100, Math.round((uniqueDelivered / total) * 100)) : 0
         const progress = Math.min(100, Math.round(((sentCount + failedCount) / total) * 100)) // ← usa sentCount
 
               return (
                 <div className="space-y-6">
                   {/* Stats grandes */}
-                                  <div className="grid grid-cols-3 gap-4">
-                  <div className="text-center p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-                    <p className="text-2xl font-bold text-emerald-400">{uniqueDelivered}</p>
-                    <p className="text-xs text-emerald-400/70 uppercase tracking-wider">Contactos alcanzados</p>
+                                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="text-center p-2 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
+                      <p className="text-2xl font-bold text-emerald-400">{uniqueDelivered}</p>
+                      <p className="text-xs text-emerald-400/70 tracking-wider">Contactos alcanzados</p>
+                    </div>
+                    <div className="text-center p-2 bg-blue-500/10 rounded-xl border border-blue-500/20">
+                      <p className="text-2xl font-bold text-blue-400">{sentCount}</p>
+                      <p className="text-xs text-blue-400/70 tracking-wider">Intentos totales</p>
+                    </div>
+                    <div className="text-center p-2 bg-red-500/10 rounded-xl border border-red-500/20">
+                      <p className="text-2xl font-bold text-red-400">{failedCount}</p>
+                      <p className="text-xs text-red-400/70 tracking-wider">Fallidos</p>
+                    </div>
+                    <div className="text-center p-2 bg-purple-500/10 rounded-xl border border-purple-500/20">
+                      <p className="text-2xl font-bold text-purple-400">{blacklistCount}</p>
+                      <p className="text-xs text-purple-400/70 tracking-wider">Saltados (Blacklist)</p>
+                    </div>
                   </div>
-                  <div className="text-center p-4 bg-blue-500/10 rounded-xl border border-blue-500/20">
-                    <p className="text-2xl font-bold text-blue-400">{sentCount}</p>   {/* ← NUEVO: de logs */}
-                    <p className="text-xs text-blue-400/70 uppercase tracking-wider">Intentos totales</p>
-                  </div>
-                  <div className="text-center p-4 bg-red-500/10 rounded-xl border border-red-500/20">
-                    <p className="text-2xl font-bold text-red-400">{failedCount}</p>  {/* ← NUEVO: de logs */}
-                    <p className="text-xs text-red-400/70 uppercase tracking-wider">Fallidos</p>
-                  </div>
-                </div>
 
                   {/* Progreso circular (tasa de alcanzados únicos) */}
                   <div className="flex items-center justify-center py-4">
@@ -1298,22 +1317,28 @@ const handleExport = async (campaignId: string) => {
                     <div>
                       <h4 className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Logs individuales</h4>
                       <div className="bg-[var(--bg-input)] rounded-xl p-3 h-40 overflow-y-auto border border-[var(--border-color)] space-y-1">
-                                          {logsForSelected.map((log, i) => (
-                    <div key={i} className={`text-xs flex items-center gap-2 ${
-                      log.status === 'sent' ? 'text-emerald-400' : 'text-red-400'
-                    }`}>
-                      <span className="text-[var(--text-muted)]">{log.contact_phone}</span>
-                      <span>{log.status === 'sent' ? '✓ Entregado' : '✕ Fallido'}</span>
-                      {log.delayMs > 0 && (
-                        <span className="text-[10px] text-amber-400 ml-auto">
-                          +{Math.round(log.delayMs / 1000)}s
+                                                            {logsForSelected.map((log, i) => {
+                    const isSent = log.status === 'sent'
+                    const isBlacklist = log.status === 'skipped_blacklist'
+                    return (
+                      <div key={i} className={`text-xs flex items-center gap-2 ${
+                        isSent ? 'text-emerald-400' : isBlacklist ? 'text-purple-400' : 'text-red-400'
+                      }`}>
+                        <span className="text-[var(--text-muted)]">{log.contact_phone}</span>
+                        <span>
+                          {isSent ? '✓ Entregado' : isBlacklist ? '⛔ Blacklist' : '✕ Fallido'}
                         </span>
-                      )}
-                      {log.humanMode && (
-                        <span className="text-[10px] text-purple-400">🖊️ humano</span>
-                      )}
-                    </div>
-                  ))}
+                        {log.delayMs > 0 && isSent && (
+                          <span className="text-[10px] text-amber-400 ml-auto">
+                            +{Math.round(log.delayMs / 1000)}s
+                          </span>
+                        )}
+                        {log.humanMode && isSent && (
+                          <span className="text-[10px] text-purple-400">🖊️ humano</span>
+                        )}
+                      </div>
+                    )
+                  })}
                       </div>
                     </div>
                   )}

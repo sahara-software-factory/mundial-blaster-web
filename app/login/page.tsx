@@ -519,16 +519,16 @@ export default function LoginPage() {
   const [showPassword, setShowPw]      = useState(false)
 
 
-  useEffect(() => {
-    fetch("/api/auth/check", { cache: "no-store" })
-      .then(r => r.json())
-      .then(data => {
-        if (!data.hasUser) {
-          window.location.href = "/onboarding"
-        }
-      })
-      .catch(() => {})
-  }, [])
+  // useEffect(() => {
+  //   fetch("/api/auth/check", { cache: "no-store" })
+  //     .then(r => r.json())
+  //     .then(data => {
+  //       if (!data.hasUser) {
+  //         window.location.href = "/onboarding"
+  //       }
+  //     })
+  //     .catch(() => {})
+  // }, [])
 
   useEffect(() => {
     if (checked && user && !user.email?.includes("demo") && user.id !== "demo") {

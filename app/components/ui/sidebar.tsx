@@ -79,7 +79,7 @@ const SidebarItem = memo(function SidebarItem({
             {label}
           </span>
           {locked && (
-            <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1 relative z-10">
+            <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-500 text-white border border-purple-500/30 flex items-center gap-1 relative z-10">
               <Lock size={8} /> BUSINESS
             </span>
           )}
@@ -210,11 +210,11 @@ export function Sidebar({ onSettings, onUpgrade }: SidebarProps) {
         {!isBusiness && !isPro && !collapsed && (
           <button
   onClick={() => openUpgrade('pro')}
-  className="mt-4 w-full flex items-center gap-3 px-3 py-3 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-amber-400 hover:from-amber-500/30 hover:to-orange-500/30 transition-all"
+  className="mt-4 w-full flex items-center gap-3 px-3 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-orange-500/60 border border-purple-500/30 text-white hover:from-purple-500/30 hover:to-orange-500/30 transition-all"
 >
-  <Zap size={20} />
+            <Sparkles size={16} className="text-white-400 group-hover:scale-110 transition-transform" />
   <div className="text-left">
-    <p className="text-xs font-bold">Upgrade a Pro</p>
+    <p className="text-xs font-bold">Upgrade</p>
     <p className="text-[10px] opacity-60">Desbloqueá todo</p>
   </div>
 </button>
@@ -233,7 +233,7 @@ export function Sidebar({ onSettings, onUpgrade }: SidebarProps) {
           {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
           {!collapsed && <span className="text-sm"> Switch {theme === "dark" ? "Claro" : "Oscuro"}</span>}
         </button>
-
+        
                 <button 
           onClick={() => router.push("/dashboard/settings")}
           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${

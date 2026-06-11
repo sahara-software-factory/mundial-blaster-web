@@ -51,7 +51,6 @@ export async function GET(req: NextRequest) {
       }, { status: 200 })
     }
 
-    // Parsear respuesta del backend
     let data
     try {
       data = JSON.parse(text)
@@ -72,13 +71,9 @@ export async function GET(req: NextRequest) {
         maxLines: data.maxLines,
         label: data.label,
         email: data.email,
-        features: {
-          spintax: data.spintax,
-          scheduling: data.scheduling,
-          templates: data.templates,
-          whitelabel: data.whitelabel,
-          api: data.api,
-        },
+        maxTemplates: data.maxTemplates,
+        maxPendingCampaigns: data.maxPendingCampaigns,
+        features: data.features || [], // ← array de strings del backend
         debug: { ...debug, forwarded: true },
       })
     }
@@ -86,7 +81,10 @@ export async function GET(req: NextRequest) {
     // Backend dice active: false
     return NextResponse.json({
       active: false,
-      reason: "BACKEND_SAYS_INACTIVE",
+      reason: data.reason || "BACKEND_SAYS_INACTIVE",
+      tier: data.tier || 'starter',
+      maxLines: data.maxLines,
+      label: data.label,
       backendData: data,
       debug,
     }, { status: 200 })

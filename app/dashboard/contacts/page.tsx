@@ -18,7 +18,8 @@ import {
   Building2,
   Filter,
   Download,
-  Users
+  Users,
+  Ban
 } from "lucide-react"
 import { toast } from "sonner"
 import { ConfirmDialog } from "../../components/ui/confirm-dialog"
@@ -37,6 +38,7 @@ interface Contact {
   tags: string[]
   notes?: string
   createdAt: string
+  isBlacklisted?: boolean
 }
 
 interface TagItem {
@@ -45,9 +47,11 @@ interface TagItem {
   color: string
 }
 
+type ContactRow = Contact & { isBlacklisted?: boolean }
+
 export default function ContactsPage() {
   const router = useRouter()
-  const [contacts, setContacts] = useState<Contact[]>([])
+  const [contacts, setContacts] = useState<ContactRow[]>([])
   const [tags, setTags] = useState<TagItem[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
@@ -68,6 +72,8 @@ const [importDragActive, setImportDragActive] = useState(false)
 const [pendingImportData, setPendingImportData] = useState<any[]>([])
   const token = typeof window !== 'undefined' ? localStorage.getItem('mb_token') : ''
 const { isDemo } = useDemoMode()
+
+
 
   const fetchContacts = useCallback(async () => {
     setLoading(true)
@@ -105,18 +111,25 @@ const { isDemo } = useDemoMode()
         { id: "c-28", name: "Milagros Sosa", phone: "5491130289012", email: "mili.sosa@outlook.com", company: "Sosa Fitness", tags: ["Cliente", "Whatsapp", "Hot"], notes: "Franquicias.", createdAt: "2026-05-01T09:00:00Z" },
         { id: "c-29", name: "Agustín Morales", phone: "5491130290123", email: "agus.morales@corp.com", company: "Morales Electrónica", tags: ["Lead"], notes: "Presupuesto enviado.", createdAt: "2026-04-30T14:30:00Z" },
         { id: "c-30", name: "Rocío Mendoza", phone: "5491130301234", email: "rocio.mendoza@gmail.com", company: "Mendoza Turismo", tags: ["Cliente", "VIP", "Hot"], notes: "Paquetes corporativos.", createdAt: "2026-04-29T11:20:00Z" },
+                { id: "c-31", name: "Roberto Spam", phone: "5491130312345", email: "roberto.spam@gmail.com", company: "Spam Corp", tags: ["blacklist"], notes: "Auto-blacklist: respondió 'basta'", createdAt: "2026-06-10T10:00:00Z", isBlacklisted: true },
+        { id: "c-32", name: "Luciana No Molestar", phone: "5491130323456", email: "luciana.nm@hotmail.com", company: "", tags: ["blacklist", "Lead"], notes: "Auto-blacklist: respondió 'no molesten'", createdAt: "2026-06-09T14:00:00Z", isBlacklisted: true },
+        { id: "c-33", name: "Mario Eliminar", phone: "5491130334567", email: "mario.eliminar@outlook.com", company: "Eliminar SA", tags: ["blacklist"], notes: "Auto-blacklist: pidió 'eliminar'", createdAt: "2026-06-08T09:30:00Z", isBlacklisted: true },
       ]
 
       // Filtrar por búsqueda
       let filtered = demoContacts
-      if (search) {
+            if (search) {
         const q = search.toLowerCase()
-        filtered = filtered.filter(c => 
-          c.name.toLowerCase().includes(q) || 
-          c.phone.includes(q) || 
-          c.email?.toLowerCase().includes(q) ||
-          c.company?.toLowerCase().includes(q)
-        )
+        if (q === 'blacklist') {
+          filtered = filtered.filter(c => c.isBlacklisted)
+        } else {
+          filtered = filtered.filter(c => 
+            c.name.toLowerCase().includes(q) || 
+            c.phone.includes(q) || 
+            c.email?.toLowerCase().includes(q) ||
+            c.company?.toLowerCase().includes(q)
+          )
+        }
       }
       // Filtrar por tags múltiples
       if (selectedTags.length > 0) {
@@ -143,7 +156,11 @@ const { isDemo } = useDemoMode()
         cache: "no-store",
       })
       const data = await res.json()
-      setContacts(data.contacts || [])
+      let contacts = data.contacts || []
+      if (search?.toLowerCase() === 'blacklist') {
+        contacts = contacts.filter((c: any) => c.isBlacklisted)
+      }
+      setContacts(contacts)
     } catch {
       toast.error("Error cargando contactos")
     } finally {
@@ -507,9 +524,7 @@ const onContactDrop = (e: React.DragEvent) => {
                       <p className="text-xs text-[var(--text-muted)]">{contacts.length} contactos encontrados {selectedTags.length > 0 && `· ${selectedTags.length} filtros`}</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setShowTagManager(true)} className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--border-color)] rounded-xl transition-all">
-              <Tag size={16} /> Tags
-            </button>
+         
             <button onClick={() => setShowImport(true)} className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--border-color)] rounded-xl transition-all">
               <Upload size={16} /> Importar CSV
             </button>
@@ -617,16 +632,23 @@ const onContactDrop = (e: React.DragEvent) => {
                           </button>
                         </td>
                         <td className="p-4">
-                          <div className="flex items-center gap-3">
-                            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-sm font-bold text-[var(--text-primary)]">
-                              {contact.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-[var(--text-primary)]">{contact.name}</p>
-                              {contact.company && <p className="text-xs text-[var(--text-muted)]">{contact.company}</p>}
-                            </div>
-                          </div>
-                        </td>
+  <div className="flex items-center gap-3">
+    <div className="h-9 w-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-sm font-bold text-[var(--text-primary)]">
+      {contact.name?.charAt(0).toUpperCase() || '?'}
+    </div>
+    <div>
+      <div className="flex items-center gap-2">
+  <p className="text-sm font-medium text-[var(--text-primary)]">{contact.name}</p>
+  {contact.isBlacklisted && (
+    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/30 flex items-center gap-1">
+      <Ban size={10} /> BLACKLIST
+    </span>
+  )}
+</div>
+      {contact.company && <p className="text-xs text-[var(--text-muted)]">{contact.company}</p>}
+    </div>
+  </div>
+</td>
                         <td className="p-4 hidden sm:table-cell">
                           <div className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)]">
                             <Phone size={14} className="text-[var(--text-muted)]" />

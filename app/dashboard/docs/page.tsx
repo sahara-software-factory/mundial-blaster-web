@@ -1518,7 +1518,8 @@ export default function DocsPage() {
     // Expandir la sección correspondiente
     const section = ALL_ARTICLES.find(a => a.slug === slug)?.sectionId
     if (section) {
-      setExpandedSections(prev => new Set([...prev, section]))
+      setExpandedSections(prev => new Set(Array.from(prev).concat(section)))
+
     }
     window.scrollTo({ top: 0, behavior: "smooth" })
   }, [])

@@ -13,15 +13,20 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   const [redirected, setRedirected] = useState(false)
 
-  const isLoading = authLoading || licenseLoading
+    const isLoading = authLoading || licenseLoading
   const isSetup = pathname === "/setup"
   const isOnboarding = pathname === "/onboarding"
   const isLogin = pathname === "/login"
+  const isLanding = pathname === "/" || pathname === "/landing"  // ← rutas públicas de marketing
+  const isDemo = pathname === "/demo"  // ← si tenés demo pública
+  const isPublic = isLanding || isDemo || isLogin  // ← el guard NO toca estas rutas
 
    useEffect(() => {
     if (isLoading) return
     let target: string | null = null
-
+    if (isPublic) {
+      return
+    }
     // 1. SIN LICENCIA → solo setup
     if (!isActive) {
       if (!isSetup) {
@@ -71,6 +76,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   if (isLoading) {
     return
   }
+  if (isPublic) return <>{children}</>  // ← landing/demo/login siempre renderizan
   if (!isActive && !isSetup) return null
   if (user && (isLogin || isSetup || isOnboarding)) return null
   if (!user && hasUser && !isLogin) return null

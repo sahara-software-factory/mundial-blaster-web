@@ -1400,11 +1400,11 @@ const globalReplies = useMemo<any[]>(() => {
               )
 
               // Contactos entregados LIMPIOS (sin ningún fallo previo)
-              const pureDelivered = new Set([...phonesWithSuccess].filter(p => !phonesWithFailure.has(p))).size
+              const pureDelivered = new Set(Array.from(phonesWithSuccess).filter(p => !phonesWithFailure.has(p))).size
               // Contactos que fallaron al menos una vez pero luego se recuperaron
-              const recoveredCount = new Set([...phonesWithFailure].filter(p => phonesWithSuccess.has(p))).size
+              const recoveredCount = new Set(Array.from(phonesWithFailure).filter(p => phonesWithSuccess.has(p))).size
               // Contactos que solo fallaron (nunca llegaron)
-              const pureFailed = new Set([...phonesWithFailure].filter(p => !phonesWithSuccess.has(p))).size
+              const pureFailed = new Set(Array.from(phonesWithFailure).filter(p => !phonesWithSuccess.has(p))).size
 
               const sentCount = logsForSelected.filter((l: any) => l.status === 'sent').length
               const failedCount = logsForSelected.filter((l: any) => l.status === 'failed').length
@@ -1420,7 +1420,6 @@ const globalReplies = useMemo<any[]>(() => {
               return (
                 <div className="space-y-6">
                   {/* Stats grandes */}
-                                                                      {/* Stats grandes */}
                   <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
                     <div className="text-center p-2 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
                       <p className="text-2xl font-bold text-emerald-400">{pureDelivered}</p>
@@ -1444,13 +1443,13 @@ const globalReplies = useMemo<any[]>(() => {
                       <p className="text-2xl font-bold text-pink-400">{repliesCount}</p>
                       <p className="text-xs text-pink-400/70 tracking-wider">Respuestas</p>
                     </div>
-                                        <div 
+                    <div 
                       onClick={() => {
-                        const failedPhones = [...phonesWithFailure].map(phone => {
+                        const failedPhones = Array.from(phonesWithFailure).map(phone => {
                           const hasSuccess = phonesWithSuccess.has(phone)
                           return { phone, recovered: hasSuccess }
                         })
-                        setReplyDetailList(failedPhones) // reutilizamos el modal de lista
+                        setReplyDetailList(failedPhones)
                         setShowReplyDetail(true)
                       }}
                       className="text-center p-2 bg-red-500/10 rounded-xl border border-red-500/20 cursor-pointer hover:bg-red-500/20 transition"
@@ -1467,7 +1466,7 @@ const globalReplies = useMemo<any[]>(() => {
                     </div>
                   </div>
 
-                  {/* Progreso circular (tasa de alcanzados únicos) */}
+                  {/* Progreso circular */}
                   <div className="flex items-center justify-center py-4">
                     <div className="relative h-32 w-32">
                       <svg className="h-full w-full -rotate-90">
@@ -1493,24 +1492,23 @@ const globalReplies = useMemo<any[]>(() => {
                   </div>
 
                   {selectedCampaign?.summary && (
-  <div className="mt-4 p-3 bg-cyan-500/5 border border-cyan-500/20 rounded-xl">
-    <p className="text-xs font-bold text-cyan-400 mb-1 flex items-center gap-1">
-      <Sparkles size={12} /> Resumen Caleb
-    </p>
-    <p className="text-xs text-slate-300 leading-relaxed">{selectedCampaign.summary}</p>
-  </div>
-)}
+                    <div className="mt-4 p-3 bg-cyan-500/5 border border-cyan-500/20 rounded-xl">
+                      <p className="text-xs font-bold text-cyan-400 mb-1 flex items-center gap-1">
+                        <Sparkles size={12} /> Resumen Caleb
+                      </p>
+                      <p className="text-xs text-slate-300 leading-relaxed">{selectedCampaign.summary}</p>
+                    </div>
+                  )}
 
                   {/* Logs individuales */}
                   {logsForSelected.length > 0 && (
                     <div>
                       <h4 className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Logs individuales</h4>
-                                            <div className="bg-[var(--bg-input)] rounded-xl p-3 h-40 overflow-y-auto border border-[var(--border-color)] space-y-1">
+                      <div className="bg-[var(--bg-input)] rounded-xl p-3 h-40 overflow-y-auto border border-[var(--border-color)] space-y-1">
                         {logsForSelected.map((log, i) => {
                           const isSent = log.status === 'sent'
                           const isBlacklist = log.status === 'skipped_blacklist'
                           const isFailed = log.status === 'failed'
-                          // ¿Este número tuvo fallo previo? (para pintar reintentos)
                           const hadFailure = isSent && phonesWithFailure.has(log.contact_phone)
                           const hadSuccess = isFailed && phonesWithSuccess.has(log.contact_phone)
                           
@@ -1522,8 +1520,6 @@ const globalReplies = useMemo<any[]>(() => {
                               <span>
                                 {isSent ? '✓ Entregado' : isBlacklist ? '⛔ Blacklist' : '✕ Fallido'}
                               </span>
-                              
-                              {/* Indicador de reintento */}
                               {hadFailure && (
                                 <span className="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
                                   ⚠ reintentado
@@ -1534,7 +1530,6 @@ const globalReplies = useMemo<any[]>(() => {
                                   ↻ luego entregado
                                 </span>
                               )}
-                              
                               {log.delayMs > 0 && isSent && (
                                 <span className="text-[10px] text-amber-400 ml-auto">
                                   +{Math.round(log.delayMs / 1000)}s
@@ -1550,7 +1545,7 @@ const globalReplies = useMemo<any[]>(() => {
                     </div>
                   )}
 
-                                    <div className="flex gap-2">
+                  <div className="flex gap-2">
                     <button
                       onClick={() => {
                         setCampaignLogsMap(prev => {

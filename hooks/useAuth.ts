@@ -68,15 +68,17 @@ export function useAuth() {
 
 
       const payload = decodeToken(token)
-      if (payload?.is_demo) {
-  setUser({
-    id: payload.userId || "demo",
-    nombre: payload.nombre || "Usuario Demo",
-    email: payload.email || "demo@wabisend.com",
-    avatar: "",
-    role: "business", // ← CAMBIADO A BUSINESS
-    affiliate_code: payload.affiliate_code || null,
-  })
+            if (payload?.is_demo) {
+        setUser({
+          id: payload.userId || "demo",
+          nombre: payload.nombre || "Usuario Demo",
+          email: payload.email || "demo@wabisend.com",
+          avatar: "",
+          role: "business",
+          affiliate_code: payload.affiliate_code || null,
+        })
+        setHasUser(true)           // ← CRÍTICO: sin esto AuthGuard manda a /onboarding
+        localStorage.setItem("mb_has_user_cache", "1")
         setChecked(true)
         setLoading(false)
         return

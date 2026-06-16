@@ -20,7 +20,7 @@ export default function DemoEntryPage() {
         toast.success("🎉 Demo activada")
         
         // Redirigir al dashboard
-        router.replace("/dashboard/")
+       window.location.href = "/dashboard/"
       } catch (e: any) {
         toast.error(e.message)
         router.replace("/login") // o a una página de error

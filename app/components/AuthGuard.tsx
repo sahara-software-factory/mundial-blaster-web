@@ -5,6 +5,9 @@ import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import { useLicense } from "@/hooks/useLicense"
 
+// Rutas públicas: NUNCA redirigidas, NUNCA bloqueadas
+const PUBLIC_ROUTES = ["/", "/landing", "/demo", "/login"]
+
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -13,57 +16,47 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   const [redirected, setRedirected] = useState(false)
 
-    const isLoading = authLoading || licenseLoading
+  const isLoading = authLoading || licenseLoading
+  const isPublic = PUBLIC_ROUTES.includes(pathname)
   const isSetup = pathname === "/setup"
   const isOnboarding = pathname === "/onboarding"
   const isLogin = pathname === "/login"
-  const isLanding = pathname === "/" || pathname === "/landing"  // ← rutas públicas de marketing
-  const isDemo = pathname === "/demo"  // ← si tenés demo pública
-  const isPublic = isLanding || isDemo || isLogin  // ← el guard NO toca estas rutas
 
-   useEffect(() => {
+  useEffect(() => {
     if (isLoading) return
+    if (isPublic) return        // ← LANDING, DEMO, LOGIN: libres
+    if (redirected) return
+
     let target: string | null = null
-    if (isPublic) {
-      return
-    }
+
     // 1. SIN LICENCIA → solo setup
     if (!isActive) {
-      if (!isSetup) {
-        target = "/setup"
-      }
+      if (!isSetup) target = "/setup"
     }
-    // 2. LICENCIA OK + HAY USUARIO EN DB (logueado o no)
+    // 2. LICENCIA OK + HAY USUARIO EN DB
     else if (hasUser) {
-      // Si está logueado → nunca login/setup/onboarding
       if (user) {
+        // Logueado: no puede estar en login/setup/onboarding
         if (isLogin || isSetup || isOnboarding) {
           target = "/dashboard"
         }
-      }
-      // Si NO está logueado pero hay usuario → solo login
-      else {
-        if (!isLogin) {
-          target = "/login"
-        }
+      } else {
+        // No logueado pero existe usuario → solo login
+        if (!isLogin) target = "/login"
       }
     }
+    // 3. LICENCIA OK + SIN USUARIO EN DB → onboarding
     else {
-      if (!isOnboarding) {
-        // 🛡️ HARDENING: si venías de una ruta protegida de la app (dashboard, etc.)
-        // y de golpe hasUser=false, es una caída de sesión, NO una DB vacía.
-        // Si la DB estuviera realmente vacía, nunca hubieras estado en esa ruta.
-        const isAppRoute = !isSetup && !isOnboarding && !isLogin
-        target = isAppRoute ? "/login" : "/onboarding"
-      }
+      if (!isOnboarding) target = "/onboarding"
     }
 
     if (target) {
+      setRedirected(true)
       router.replace(target)
     }
-  }, [isLoading, isActive, user, hasUser, pathname, router, isSetup, isOnboarding, isLogin])
+  }, [isLoading, isActive, user, hasUser, pathname, router, isPublic, isSetup, isOnboarding, isLogin, redirected])
 
-  // Spinner
+  // Spinner global
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#060A14] flex items-center justify-center">
@@ -72,11 +65,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // Bloqueos síncronos
-  if (isLoading) {
-    return
+  // RUTAS PÚBLICAS: siempre renderizan, sin importar auth/licencia/demo
+  if (isPublic) {
+    return <>{children}</>
   }
-  if (isPublic) return <>{children}</>  // ← landing/demo/login siempre renderizan
+
+  // BLOQUEOS SÍNCRONOS para rutas protegidas
   if (!isActive && !isSetup) return null
   if (user && (isLogin || isSetup || isOnboarding)) return null
   if (!user && hasUser && !isLogin) return null

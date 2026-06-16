@@ -57,7 +57,8 @@ import {
   Timer,
   Gauge,
   Crosshair,
-  Loader2
+  Loader2,
+  ShieldCheck
 } from "lucide-react"
 import { QRModal } from "../components/qr-modal"
 import { useUpgradeModal } from "../components/UpgradeModalProvider"
@@ -398,8 +399,7 @@ const [blacklistCount, setBlacklistCount] = useState(0)
   const [contactList, setContactList] = useState<Contact[]>([])
   const [tags, setTags] = useState<TagItem[]>([])
 
-  // Logs
-  const [logs, setLogs] = useState<string[]>([])
+
     const [scheduleMode, setScheduleMode] = useState<"now" | "pending" | "scheduled">("now")
   const [scheduleDate, setScheduleDate] = useState<string>("")
   const [humanMode, setHumanMode] = useState(false)
@@ -460,42 +460,41 @@ const [isLoadingBlacklist, setIsLoadingBlacklist] = useState(false)
     const [proxyHistory, setProxyHistory] = useState<any[]>([])
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
 
-   const loadProxyHistory = async () => {
-    setIsLoadingHistory(true)
-    try {
-      const t = localStorage.getItem('mb_token') || ''
-      const res = await fetch('/api/proxy/history', {
-        headers: { Authorization: `Bearer ${t}` },
-        cache: 'no-store'
-      })
-      const data = await res.json()
-      setProxyHistory(data.history || [])
-    } catch {
-      setProxyHistory([])
-    } finally {
-      setIsLoadingHistory(false)
-    }
-  }
+const [auditing, setAuditing] = useState(false)
+const [auditResult, setAuditResult] = useState<any>(null)
+const [generatingTitle, setGeneratingTitle] = useState(false)
+const [campaignSummary, setCampaignSummary] = useState<string | null>(null)
+const [showSummaryModal, setShowSummaryModal] = useState(false)
+const [hasAiKey, setHasAiKey] = useState(false)
 
-    const saveProxyToHistory = async (node: any) => {
+  // Logs
+  const [logs, setLogs] = useState<string[]>(() => {
+  if (typeof window !== 'undefined') {
     try {
-      const t = localStorage.getItem('mb_token') || ''
-      await fetch('/api/proxy/history', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${t}`
-        },
-        body: JSON.stringify({
-          city: node.city,
-          country: node.country,
-          code: node.code,
-          fakeIp: node.fakeIp,
-          latency: node.latency
-        })
-      })
-    } catch {}
+      const saved = localStorage.getItem('wabisend_live_logs')
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
   }
+  return []
+})
+
+
+
+  
+const [aiFeatures, setAiFeatures] = useState({
+  ai_audit_enabled: false,
+  ai_title_enabled: false,
+  ai_summary_enabled: false,
+  ai_translate_enabled: false
+})
+
+
+const hasAiKeyRef = useRef(hasAiKey)
+hasAiKeyRef.current = hasAiKey
+
+const aiFeaturesRef = useRef(aiFeatures)
+aiFeaturesRef.current = aiFeatures
+
   // ─── DERIVED ───
   const targetsCount = useMemo(() => {
     return numbersText.split("\n").map(n => n.trim()).filter(Boolean).length
@@ -697,13 +696,16 @@ const [isLoadingBlacklist, setIsLoadingBlacklist] = useState(false)
 
   const isRoundRobin = distributionMode === 'round_robin' && lineasConectadas.length > 1
 
+    // Limpiar logs previos al iniciar nueva campaña (auto-limpieza)
+  setLogs([])
+  
   setIsSending(true)
   setLogs(prev => [...prev, `🚀 ${isEditMode ? 'Guardando cambios' : scheduleMode === 'now' ? 'Campaña iniciada' : 'Campaña guardada'}: ${targets.length} números · ${lineasConectadas.length} línea(s)`])
 
   if (proxyRotateEnabled && proxyLocation) {
       setLogs(prev => [...prev, `🌐 Proxy Rotate: Conectando con nodo ${proxyLocation.city}...`])
       await new Promise(r => setTimeout(r, 800))
-      setLogs(prev => [...prev, `✅ Ruta establecida via ${proxyLocation.city} (${proxyLocation.country}) · IP: ${proxyLocation.fakeIp} · Latencia simulada: ${proxyLocation.latency}ms`])
+      setLogs(prev => [...prev, `✅ Ruta establecida via ${proxyLocation.city} (${proxyLocation.country}) · IP: ${proxyLocation.fakeIp} · Latencia: ${proxyLocation.latency}ms`])
       await new Promise(r => setTimeout(r, 400))
       setLogs(prev => [...prev, `🔒 IP dinámica activa · Modo anti-ban agresivo`])
       await new Promise(r => setTimeout(r, 300))
@@ -879,7 +881,7 @@ const [isLoadingBlacklist, setIsLoadingBlacklist] = useState(false)
 
       setLogs(prev => [...prev, `✅ Simulacro EXITOSO: ${total} número(s) verificado(s)`])
       const avgLatency = Math.floor(simulatedLogs.reduce((a, b) => a + b.latency, 0) / simulatedLogs.length)
-      setLogs(prev => [...prev, `📊 Latencia promedio simulada: ${avgLatency}ms`])
+      setLogs(prev => [...prev, `📊 Latencia promedio: ${avgLatency}ms`])
 
       toast.success(`Simulacro exitoso: ${total} pings verificados`)
     } catch (err: any) {
@@ -990,7 +992,10 @@ const [isLoadingBlacklist, setIsLoadingBlacklist] = useState(false)
     if (e.dataTransfer.files?.[0]) handleNumberFile(e.dataTransfer.files[0])
   }
 
-
+const clearLiveLogs = () => {
+  setLogs([])
+  localStorage.removeItem('wabisend_live_logs')
+}
 
 useEffect(() => {
     if (verifyTimeout) clearTimeout(verifyTimeout)
@@ -1140,7 +1145,7 @@ useEffect(() => {
     setEditCampaignId(data.id)
     setActiveTab('campaign')
     setNumberSource('manual')
-    
+    setImageUrl(data.image_url || '')
     setCampaignName(data.name || '')
     setMessage(data.message || '')
     setImageUrl(data.image_url || '')
@@ -1168,15 +1173,54 @@ useEffect(() => {
   }
 }, [])
 
+
+useEffect(() => {
+  const tplPayload = localStorage.getItem('mb_template_payload')
+  if (tplPayload) {
+    try {
+      const data = JSON.parse(tplPayload)
+      if (Date.now() - data.timestamp < 5 * 60 * 1000) {
+        setActiveTab('campaign' as TabType)
+        setNumberSource('manual')
+        setMessage(data.message || '')
+        // ✅ Si el template trae imagen, la cargamos. Si no, limpiamos.
+        setImageUrl(data.imageUrl || '')
+        toast.info(`📄 Template "${data.templateName}" cargado`)
+      }
+      localStorage.removeItem('mb_template_payload')
+    } catch {}
+  }
+
+  const urlParams = new URLSearchParams(window.location.search)
+  const tabFromUrl = urlParams.get('tab')
+  const validTabs: TabType[] = ['plan', 'lines', 'campaign', 'logs']
+  if (tabFromUrl && validTabs.includes(tabFromUrl as TabType)) {
+    setActiveTab(tabFromUrl as TabType)
+    window.history.replaceState({}, '', '/dashboard')
+  }
+}, [])
+
+
+// Persistir logs en vivo
+useEffect(() => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('wabisend_live_logs', JSON.stringify(logs))
+  }
+}, [logs])
+
   useEffect(() => {
     if (licenseLoading || authLoading || !licenseChecked || !authChecked) return
     if (!isActive) { router.push("/setup"); return }
     if (!isAuthenticated) { router.push("/login"); return }
   }, [licenseLoading, authLoading, licenseChecked, authChecked, isActive, isAuthenticated, router])
-
+  
   useEffect(() => {
     if (isActive && isAuthenticated) fetchLines()
   }, [isActive, isAuthenticated])
+
+
+  const socketRef = useRef<any>(null)
+
 
  useEffect(() => {
   if (isDemo) {
@@ -1184,29 +1228,120 @@ useEffect(() => {
     return
   }
   
-  if (!SOCKET_URL || !isActive) return
+  if (!SOCKET_URL || !isActive) {
+    if (socketRef.current) {
+      socketRef.current.disconnect()
+      socketRef.current = null
+      setSocketConnected(false)
+    }
+    return
+  }
+  
+  if (socketRef.current?.connected) return
   
   const socket = io(SOCKET_URL, {
-    transports: ['websocket', 'polling'], // fallback si websocket falla
+    transports: ['websocket', 'polling'],
     reconnectionAttempts: 5,
     reconnectionDelay: 1000,
   })
   
+  socketRef.current = socket
+  
   socket.on("connect", () => setSocketConnected(true))
   socket.on("disconnect", () => setSocketConnected(false))
   
-  socket.on("campaign_log", (payload) => {
+  socket.on("campaign_log", (payload: any) => {
+    if (payload.isEmergencyStop) {
+      setLogs(prev => [...prev, `🚨🚨🚨 TODAS LAS LÍNEAS CAÍDAS - CAMPAÑA DETENIDA 🚨🚨🚨`])
+      return
+    }
     const icon = payload.status === 'sent' ? '✅' : '❌'
     setLogs(prev => [...prev, `${icon} ${payload.progress} → ${payload.phone} [${payload.linePhone}]`])
   })
   
-  socket.on("campaign_complete", (payload) => {
+  // ✅ CAMPAÑA COMPLETE: usar refs para valores actuales
+  socket.on("campaign_complete", async (payload: any) => {
+    console.log('📡 RECIBIDO campaign_complete:', payload)
     setLogs(prev => [...prev, `🏁 Campaña ${payload.campaignId} finalizada · ${payload.sent} enviados · ${payload.failed} fallidos`])
+    
+    // Usar refs para leer valores actuales (no stale closure)
+    const keyOk = hasAiKeyRef.current
+    const summaryEnabled = aiFeaturesRef.current?.ai_summary_enabled
+    const isDemoMode = isDemo
+    
+    console.log('🔍 hasAiKeyRef:', keyOk, 'summaryEnabled:', summaryEnabled, 'isDemo:', isDemoMode)
+    
+    if ((keyOk && summaryEnabled) || isDemoMode) {
+      console.log('✅ Condición OK, llamando a /api/ai/summary')
+      try {
+        const t = localStorage.getItem('mb_token') || ''
+        const res = await fetch('/api/ai/summary', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json', 
+            Authorization: `Bearer ${t}` 
+          },
+          body: JSON.stringify({
+            campaignId: payload.campaignId,
+            sent: payload.sent,
+            failed: payload.failed,
+            total: payload.sent + payload.failed
+          })
+        })
+        console.log('📡 Response status:', res.status)
+        const data = await res.json()
+        console.log('📡 Response data:', data)
+        if (data.summary) {
+          setCampaignSummary(data.summary)
+          setShowSummaryModal(true)
+          setLogs(prev => [...prev, `🤖 Caleb: ${data.summary}`])
+        }
+      } catch (err) {
+        console.error('❌ Error en fetch summary:', err)
+      }
+    } else {
+      console.log('❌ Condición FALLIDA')
+    }
   })
 
-  return () => { socket.disconnect() }
+  socket.on("status", (data: { lineId: string, status: string, reason?: string }) => {
+    setLines(prev => prev.map(l => 
+      l.id === data.lineId ? { ...l, status: data.status } : l
+    ))
+    if (data.status === 'DESCONECTADA') {
+      setSelectedLineIds(prev => prev.filter(id => id !== data.lineId))
+      setSelectedLine(prev => prev?.id === data.lineId ? null : prev)
+    }
+  })
+
+  return () => {
+    socket.off("connect")
+    socket.off("disconnect")
+    socket.off("campaign_log")
+    socket.off("campaign_complete")
+    socket.off("status")
+    socket.disconnect()
+    socketRef.current = null
+  }
 }, [isActive, isDemo])
 
+
+
+  useEffect(() => {
+  if (!isAuthenticated && !isDemo) return
+  const loadFeatures = async () => {
+    try {
+      const t = localStorage.getItem('mb_token') || ''
+      const res = await fetch('/api/me/ai-features', {
+        headers: { Authorization: `Bearer ${t}` },
+        cache: 'no-store'
+      })
+      const data = await res.json()
+      if (data.features) setAiFeatures(data.features)
+    } catch {}
+  }
+  loadFeatures()
+}, [isAuthenticated, isDemo])
 
       const checkBlacklistInNumbers = useCallback(async (text: string) => {
     // DEBUG: si no ves esto en consola, la función no se llama
@@ -1260,7 +1395,8 @@ useEffect(() => {
           .map((b: any) => String(b?.phone || '').replace(/\D/g, ''))
           .filter((p: string) => p.length > 0)
       )
-      console.log('[BL] Set contents:', [...blacklistedPhones])
+            console.log('[BL] Set contents:', Array.from(blacklistedPhones))
+
 
       // Match exacto
       let found = phones.filter(p => blacklistedPhones.has(p))
@@ -1317,29 +1453,63 @@ useEffect(() => {
     }
   }, [humanMode])
 
-    useEffect(() => {
-    if (!isAuthenticated && !isDemo) return
-    if (isDemo) {
-      setContactList(DEMO_CONTACTS)
-      setTags(DEMO_TAGS)
-      setTemplates(DEMO_TEMPLATES)
-      return
-    }
-    const t = localStorage.getItem('mb_token') || ''
-    fetch("/api/contacts", { headers: { Authorization: `Bearer ${t}` }, cache: "no-store" })
-      .then(r => r.json())
-      .then(data => setContactList(data.contacts || []))
-      .catch(() => { })
-    fetch("/api/tags/stats", { headers: { Authorization: `Bearer ${t}` }, cache: "no-store" })
-      .then(r => r.json())
-      .then(data => setTags(data.tags || []))
-      .catch(() => { })
-    fetch("/api/templates", { headers: { Authorization: `Bearer ${t}` }, cache: "no-store" })
-      .then(r => r.json())
-      .then(data => setTemplates(data.templates || []))
-      .catch(() => { })
-  }, [isAuthenticated, isDemo])
+useEffect(() => {
+  if (!isAuthenticated && !isDemo) return
+  
+  if (isDemo) {
+    setContactList(DEMO_CONTACTS)
+    setTags(DEMO_TAGS)
+    setTemplates(DEMO_TEMPLATES)
+    setHasAiKey(true)  // demo tiene IA
+    setAiFeatures({
+      ai_audit_enabled: true,
+      ai_title_enabled: true,
+      ai_summary_enabled: true,
+      ai_translate_enabled: true
+    })
+    return
+  }
 
+  const t = localStorage.getItem('mb_token') || ''
+
+  // Cargar todo en paralelo
+  fetch("/api/contacts", { headers: { Authorization: `Bearer ${t}` }, cache: "no-store" })
+    .then(r => r.json())
+    .then(data => setContactList(data.contacts || []))
+    .catch(() => {})
+
+  fetch("/api/tags/stats", { headers: { Authorization: `Bearer ${t}` }, cache: "no-store" })
+    .then(r => r.json())
+    .then(data => setTags(data.tags || []))
+    .catch(() => {})
+
+  fetch("/api/templates", { headers: { Authorization: `Bearer ${t}` }, cache: "no-store" })
+    .then(r => r.json())
+    .then(data => setTemplates(data.templates || []))
+    .catch(() => {})
+
+  // Verificar API key de IA (independiente)
+  fetch('/api/openai/config', { 
+    headers: { Authorization: `Bearer ${t}` },
+    cache: 'no-store'
+  })
+    .then(r => r.json())
+    .then(data => setHasAiKey(data.hasKey || false))  // ← hasKey, no hasAiKey
+    .catch(() => setHasAiKey(false))
+
+  // Cargar features de IA
+  fetch('/api/me/ai-features', {
+    headers: { Authorization: `Bearer ${t}` },
+    cache: 'no-store'
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.features) setAiFeatures(data.features)
+    })
+    .catch(() => {})
+
+}, [isAuthenticated, isDemo])
+  
 
     // DEMO: Precargar campaña con datos inflados
   useEffect(() => {
@@ -1415,6 +1585,47 @@ useEffect(() => {
     setProxyLocation(null)
     localStorage.removeItem('wabisend_proxy_location')
     setProxyScanText('Listo para escanear')
+  }
+
+
+
+      const saveProxyToHistory = async (proxy: any) => {
+  try {
+    const t = localStorage.getItem('mb_token') || ''
+    await fetch('/api/proxy/history', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json', 
+        Authorization: `Bearer ${t}` 
+      },
+      body: JSON.stringify({
+        city: proxy.city,
+        country: proxy.country,
+        code: proxy.code,
+        fakeIp: proxy.fakeIp,
+        latency: proxy.latency
+      })
+    })
+  } catch (e) {
+    console.error('Error saving proxy history:', e)
+  }
+}
+
+   const loadProxyHistory = async () => {
+    setIsLoadingHistory(true)
+    try {
+      const t = localStorage.getItem('mb_token') || ''
+      const res = await fetch('/api/proxy/history', {
+        headers: { Authorization: `Bearer ${t}` },
+        cache: 'no-store'
+      })
+      const data = await res.json()
+      setProxyHistory(data.history || [])
+    } catch {
+      setProxyHistory([])
+    } finally {
+      setIsLoadingHistory(false)
+    }
   }
 
 
@@ -2292,6 +2503,40 @@ function getSaludoPorHora(): string {
                             placeholder="Ej: Promo Mayo 2026"
                             className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-sm text-[var(--text-primary)] placeholder:text-slate-700 focus:outline-none focus:border-blue-500/50 transition-all"
                           />
+                          {message && (
+  <button
+  onClick={async () => {
+    if (!hasAiKey && !isDemo) {
+      toast.error("Configurá tu API key de IA primero")
+      return
+    }
+    if (!aiFeatures.ai_title_enabled && !isDemo) {
+      toast.error("Activá el Generador de Títulos desde IA → Implementaciones")
+      return
+    }
+    setGeneratingTitle(true)
+      try {
+        const t = localStorage.getItem('mb_token') || ''
+        const res = await fetch('/api/ai/title', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+          body: JSON.stringify({ message })
+        })
+        const data = await res.json()
+        if (data.title) setCampaignName(data.title)
+      } catch {
+        toast.error("Error generando título")
+      } finally {
+        setGeneratingTitle(false)
+      }
+    }}
+    disabled={generatingTitle}
+    className="flex items-center gap-1.5 text-[10px] text-blue-400 hover:text-blue-300 transition-colors mt-1"
+  >
+    {generatingTitle ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+    {generatingTitle ? 'Generando...' : '✨ Generar título con IA'}
+  </button>
+)}
                         </div>
                         <div>
                           <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5 block">Ejecución</label>
@@ -2459,13 +2704,17 @@ function getSaludoPorHora(): string {
                           <div className="flex items-center gap-2">
                             <div className="relative">
                               <select
-                                value=""
-                                onChange={e => {
-                                  if (isSimulationActive) return
-                                  const t = templates.find((x: any) => x.id === e.target.value)
-                                  if (t) setMessage(t.content)
-                                  e.target.value = ""
-                                }}
+  value=""
+  onChange={e => {
+    if (isSimulationActive) return
+    const t = templates.find((x: any) => x.id === e.target.value)
+    if (t) {
+      setMessage(t.content)
+      // ✅ Si el template tiene imagen, la cargamos. Si no, limpiamos la anterior.
+      setImageUrl(t.imageUrl || '')
+    }
+    e.target.value = ""
+  }}
                                 disabled={isSimulationActive}
                                 className={`appearance-none w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl pl-3 pr-10 py-2.5 text-xs focus:outline-none focus:border-blue-500/50 transition-colors ${
                                   isSimulationActive ? 'text-slate-600 cursor-not-allowed' : 'text-[var(--text-secondary)] cursor-pointer hover:border-slate-600'
@@ -2503,6 +2752,72 @@ function getSaludoPorHora(): string {
                             isSimulationActive ? 'border-amber-500/30 cursor-not-allowed opacity-60' : 'border-[var(--border-color)]'
                           }`}
                         />
+
+                        {/* ─── Auditor Anti-Ban ─── */}
+{message && (
+  <div className="mt-3">
+    <button
+  onClick={async () => {
+    if (!hasAiKey && !isDemo) {
+      toast.error("Configurá tu API key de IA primero")
+      return
+    }
+    if (!aiFeatures.ai_audit_enabled && !isDemo) {
+      toast.error("Activá el Auditor Anti-Ban desde IA → Implementaciones")
+      return
+    }
+    setAuditing(true)
+        try {
+          const t = localStorage.getItem('mb_token') || ''
+          const res = await fetch('/api/ai/audit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+            body: JSON.stringify({ message })
+          })
+          const data = await res.json()
+          setAuditResult(data)
+        } catch {
+          toast.error("Error auditando mensaje")
+        } finally {
+          setAuditing(false)
+        }
+      }}
+      disabled={auditing}
+      className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+    >
+      {auditing ? <Loader2 size={12} className="animate-spin" /> : <ShieldCheck size={12} />}
+      {auditing ? 'Analizando...' : 'Auditar mensaje'}
+    </button>
+
+    {auditResult && (
+      <motion.div
+        initial={{ opacity: 0, height: 0 }}
+        animate={{ opacity: 1, height: 'auto' }}
+        className="mt-2 p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)]/60"
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <span className={`w-2 h-2 rounded-full ${auditResult.score >= 80 ? 'bg-emerald-400' : auditResult.score >= 50 ? 'bg-amber-400' : 'bg-red-400'}`} />
+          <span className="text-xs font-bold text-[var(--text-primary)]">
+            Score: {auditResult.score}/100
+          </span>
+        </div>
+        <ul className="space-y-1">
+          {auditResult.checks.map((check: any, i: number) => (
+            <li key={i} className={`text-[10px] flex items-start gap-1.5 ${check.ok ? 'text-emerald-400' : 'text-red-400'}`}>
+              {check.ok ? <Check size={10} className="shrink-0 mt-0.5" /> : <X size={10} className="shrink-0 mt-0.5" />}
+              {check.label}
+            </li>
+          ))}
+        </ul>
+        {auditResult.suggestion && (
+          <p className="text-[10px] text-amber-400 mt-2 border-t border-[var(--border-color)]/30 pt-2">
+            💡 {auditResult.suggestion}
+          </p>
+        )}
+      </motion.div>
+    )}
+  </div>
+)}
 
                         {isSimulationActive && (
                           <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-2">
@@ -2553,15 +2868,7 @@ function getSaludoPorHora(): string {
                         )}
                       </div>
 
-                           {hasUrl(message) && (
-                          <div className="mt-2 p-3 bg-[var(--bg-card)] border border-blue-500/20 rounded-xl">
-                            <p className="text-[10px] text-blue-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-                              <Link size={10} /> Link detectado
-                            </p>
-                            <MessagePreview text={message} />
-                          </div>
-                        )}
-                      
+                     
                       </div>
 
                       
@@ -2596,15 +2903,15 @@ function getSaludoPorHora(): string {
       <p className="text-sm font-bold text-[var(--text-muted)] flex items-center gap-2"><UserCheck size={14} /> Modo Humano</p>
       <p className="text-xs text-[var(--text-muted)] mt-1">Simula escritura real para mensajes VIP</p>
     </div>
-    <button onClick={() => setShowUpgrade(true)} className="text-[10px] px-2.5 py-1.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg font-bold flex items-center gap-1">
-      <Zap size={10} /> Upgrade
+    <button onClick={() => openUpgrade('business')} className="text-[10px] px-2.5 py-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg font-bold flex items-center gap-1">
+      <Zap size={10} /> Pro 
     </button>
   </div>
 )}
 
 
 {/* ─── BLACKLIST ─── */}
-{isBusiness ? (
+{isPro ? (
   <div className={`flex items-start gap-3 p-4 rounded-xl border transition-all ${skipBlacklist ? 'bg-purple-500/10 border-purple-500/30' : 'bg-[var(--bg-card)] border-[var(--border-color)]/60'}`}>
     <input 
       type="checkbox" 
@@ -2635,8 +2942,8 @@ function getSaludoPorHora(): string {
       <p className="text-sm font-bold text-[var(--text-muted)] flex items-center gap-2"><Ban size={14} /> Blacklist / Anti-spam</p>
       <p className="text-xs text-[var(--text-muted)] mt-1">Bloqueá números y palabras clave de baja automática</p>
     </div>
-    <button onClick={() => openUpgrade('business')} className="text-[10px] px-2.5 py-1.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg font-bold flex items-center gap-1">
-      <Zap size={10} /> Business
+    <button onClick={() => openUpgrade('business')} className="text-[10px] px-2.5 py-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg font-bold flex items-center gap-1">
+      <Zap size={10} /> Pro
     </button>
   </div>
 )}
@@ -2677,7 +2984,7 @@ function getSaludoPorHora(): string {
                             </div>
                             <p className="text-xs text-[var(--text-muted)] mt-1 leading-relaxed">
                               {proxyLocation 
-                                ? <><span className="text-emerald-400 font-bold">{proxyLocation.city}, {proxyLocation.country}</span> · Latencia simulada: {proxyLocation.latency}ms</>
+                                ? <><span className="text-emerald-400 font-bold">{proxyLocation.city}, {proxyLocation.country}</span> · Latencia: {proxyLocation.latency}ms</>
                                 : "Rutea la campaña a través de nodos globales para evitar baneos por IP."}
                             </p>
                             {proxyRotateEnabled && (
@@ -2696,7 +3003,7 @@ function getSaludoPorHora(): string {
                             <p className="text-sm font-bold text-[var(--text-muted)] flex items-center gap-2"><Globe size={14} /> Proxy Rotate</p>
                             <p className="text-xs text-[var(--text-muted)] mt-1">Ruteo dinámico de IP para evitar baneos</p>
                           </div>
-                          <button onClick={() => openUpgrade('business')} className="text-[10px] px-2.5 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg font-bold flex items-center gap-1">
+                          <button onClick={() => openUpgrade('business')} className="text-[10px] px-2.5 py-1.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg font-bold flex items-center gap-1">
                             <Zap size={10} /> Business
                           </button>
                         </div>
@@ -2718,7 +3025,7 @@ function getSaludoPorHora(): string {
                         </div>
                         <div>
                           <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-2 block flex items-center gap-2">
-                            <Clock size={14} /> Delay (ms)
+                            <Clock size={14} /> Delay (ms) - Predeterminado
                           </label>
                           <div className="flex items-center gap-2">
                             <input type="number" value={delayMin} onChange={e => setDelayMin(Number(e.target.value))} className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500/50 transition-all" />
@@ -2813,9 +3120,9 @@ function getSaludoPorHora(): string {
                     <h2 className="text-xl font-bold text-[var(--text-primary)]">Logs en vivo</h2>
                     <div className="flex items-center gap-2">
                       {!isPro && <span className="text-[10px] font-bold px-2 py-1 rounded bg-purple-500/20 text-amber-400 border border-amber-500/30"><Zap size={10} className="inline" /> PRO</span>}
-                      <button onClick={() => isPro ? setLogs([]) : setShowUpgrade(true)} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${isPro ? 'border-red-500/30 text-red-400 hover:bg-red-500/10' : 'border-[var(--border-color)] text-[var(--text-muted)] cursor-not-allowed'}`}>
-                        <Trash2 size={14} /> Limpiar
-                      </button>
+                      <button onClick={() => isPro ? clearLiveLogs() : setShowUpgrade(true)} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${isPro ? 'border-red-500/30 text-red-400 hover:bg-red-500/10' : 'border-[var(--border-color)] text-[var(--text-muted)] cursor-not-allowed'}`}>
+  <Trash2 size={14} /> Limpiar
+</button>
                     </div>
                   </div>
                   <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-2xl p-4">
@@ -2909,6 +3216,16 @@ function getSaludoPorHora(): string {
           </div>
         </div>
       )}
+
+
+      {showSummaryModal && campaignSummary && (
+  <PremiumModal open={showSummaryModal} onClose={() => setShowSummaryModal(false)} title="Resumen Caleb">
+    <div className="p-4">
+      <p className="text-sm text-[var(--text-primary)] leading-relaxed">{campaignSummary}</p>
+      <button onClick={() => setShowSummaryModal(false)} className="mt-4 w-full py-2 bg-blue-600 text-white rounded-lg">Cerrar</button>
+    </div>
+  </PremiumModal>
+)}
 
       {/* MODALS */}
       <PremiumModal open={showImportNumbers} onClose={() => !importLoading && setShowImportNumbers(false)} title="Importar Números">

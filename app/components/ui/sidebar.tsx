@@ -2,7 +2,7 @@
 "use client"
 
 import { useEffect, useState, memo } from "react"
-import { motion } from "framer-motion"
+import { AnimatePresence, motion } from "framer-motion"
 import { 
   Send, 
   Users, 
@@ -19,7 +19,8 @@ import {
   Globe,
   Sparkles,
   Lock,
-  DollarSign
+  DollarSign,
+  Book
 } from "lucide-react"
 import { useTheme } from "./theme-provider"
 import { useAuth } from "@/hooks/useAuth"
@@ -111,6 +112,9 @@ export function Sidebar({ onSettings, onUpgrade }: SidebarProps) {
 
   const isBusiness = confirmedTier === 'business'
   const isPro = confirmedTier === 'pro'
+  const isStarter = confirmedTier === 'starter'
+
+  
   const isLoadingTier = confirmedTier === 'loading'
 
   useEffect(() => {
@@ -118,54 +122,63 @@ export function Sidebar({ onSettings, onUpgrade }: SidebarProps) {
   }, [collapsed])
 
   const menuItems = [
-    { id: "landing", icon: Globe, label: "Volver al sitio", path: "/", tourId: undefined },
+    ...(isDemo ? [{ id: "landing", icon: Globe, label: "Volver al sitio", path: "/", tourId: undefined }] : []),
     { id: "campaigns", icon: Send, label: "Campañas", path: "/dashboard", tourId: "nav-campaigns" },
     { id: "contacts", icon: Users, label: "Contactos", path: "/dashboard/contacts", tourId: "nav-contacts" },
     { id: "reports", icon: BarChart3, label: "Reportes", path: "/dashboard/reports", tourId: "nav-reports" },
     { id: "templates", icon: RotateCcw, label: "Templates", path: "/dashboard/templates", tourId: "nav-templates" },
     { id: "tags", icon: Tag, label: "Tags", path: "/dashboard/tags", tourId: "nav-tags" },
      
-    { 
+       { 
       id: "ai", 
       icon: Sparkles, 
       label: "IA", 
       path: "/dashboard/ai", 
       tourId: undefined,
-      locked: !isBusiness,
-      businessOnly: true 
+      locked: false, // ← desbloqueado, el blindaje es interno de la página
     },
     { id: "affiliates", icon: DollarSign, label: "Ganá plata", path: "/dashboard/affiliates", tourId: "nav-affiliates" },
   ]
 
   return (
-    <motion.aside
-      initial={false}
-      animate={{ width: collapsed ? 72 : 240 }}
+        <aside
       style={{ width: 'var(--sidebar-width)' }}
-      className="fixed left-0 top-0 h-screen bg-[var(--bg-card)] dark:bg-[var(--bg-card)] bg-white border-r border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 flex flex-col z-40 transition-all duration-300"
+      className="fixed left-0 top-0 h-screen bg-[var(--bg-card)] border-r border-[var(--border-color)] flex flex-col z-40 transition-all duration-300 ease-in-out"
     >
 {/* Logo */}
-<div className="h-16 flex items-center justify-center px-2 border-b border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200">
-  {collapsed ? (
-    <img 
-      src="/images/isotipo.png" 
-      alt="WabiSend" 
-      className="h-10 w-auto shrink-0"
-    />
-  ) : (
-    <div className="relative mt-3 flex items-center">
-      <img 
-        src={theme === "dark" ? "/images/logo_light.png" : "/images/logo_dark.png"} 
-        alt="WabiSend" 
-        className="h-12 w-auto shrink-0"
-      />
-      {/* Badge flotante arriba a la derecha del logo */}
-      <div className="absolute -top-2 -right-2">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.8 }} 
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.2 }}
-        >
+<div className="h-16 flex items-center justify-center px-2 border-b border-[var(--border-color)] overflow-hidden">
+  <AnimatePresence mode="wait" initial={false}>
+    {collapsed ? (
+      <motion.div
+        key="collapsed"
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.8 }}
+        transition={{ duration: 0.2, ease: "easeInOut" }}
+        className="flex items-center justify-center"
+      >
+        <img 
+          src="/images/isotipo.png" 
+          alt="WabiSend" 
+          className="h-10 w-auto shrink-0"
+        />
+      </motion.div>
+    ) : (
+      <motion.div
+        key="expanded"
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.8 }}
+        transition={{ duration: 0.2, ease: "easeInOut" }}
+        className="relative mt-3 flex items-center"
+      >
+        <img 
+          src={theme === "dark" ? "/images/logo_light.png" : "/images/logo_dark.png"} 
+          alt="WabiSend" 
+          className="h-12 w-auto shrink-0"
+        />
+        {/* Badge flotante arriba a la derecha del logo */}
+        <div className="absolute -top-2 -right-2">
           {isLoadingTier ? (
             <div className="h-3 w-10 bg-gray-700/40 rounded animate-pulse" />
           ) : isBusiness ? (
@@ -181,19 +194,23 @@ export function Sidebar({ onSettings, onUpgrade }: SidebarProps) {
               Starter
             </span>
           )}
-        </motion.div>
-      </div>
-    </div>
-  )}
+        </div>
+      </motion.div>
+    )}
+  </AnimatePresence>
 </div>
 
       <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
         {menuItems.map((item) => (
-          <SidebarItem
+                    <SidebarItem
             key={item.id}
             icon={item.icon}
             label={item.label}
-            active={pathname === item.path || pathname.startsWith(item.path + '/')}
+            active={
+              item.path === '/dashboard'
+                ? pathname === '/dashboard' // ← exacto para campañas, no subrutas
+                : pathname === item.path || pathname.startsWith(item.path + '/')
+            }
             locked={!!item.locked}
             collapsed={collapsed}
             onClick={() => {
@@ -246,6 +263,19 @@ export function Sidebar({ onSettings, onUpgrade }: SidebarProps) {
           <Settings size={20} />
           {!collapsed && <span className="text-sm">Configuración</span>}
         </button>
+
+        <button 
+          onClick={() => router.push("/dashboard/docs")}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
+            pathname === "/dashboard/docs" 
+              ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
+              : 'text-[var(--text-secondary)] dark:text-[var(--text-secondary)] text-gray-500 hover:text-[var(--text-primary)] dark:hover:text-[var(--text-primary)] hover:text-gray-900 hover:bg-[var(--border-color)] dark:hover:bg-[var(--border-color)] hover:bg-gray-100'
+          }`}
+          title="Documentacion"
+        >
+          <Book size={20} />
+          {!collapsed && <span className="text-sm">Docs</span>}
+        </button>
         {!isDemo && (
         <button 
           onClick={logout}
@@ -270,6 +300,6 @@ export function Sidebar({ onSettings, onUpgrade }: SidebarProps) {
       >
         {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
       </button>
-    </motion.aside>
+    </aside>
   )
 }

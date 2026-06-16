@@ -1,7 +1,7 @@
 "use client"
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { 
   BarChart3, 
@@ -30,7 +30,11 @@ import {
     Sparkles,
     CalendarClock,
     FlaskConical,
-    Globe
+    Globe,
+    MessageCircle,
+    Phone,
+    Copy,
+    Ban
 } from "lucide-react"
 import { toast } from "sonner"
 import { ConfirmDialog } from "../../components/ui/confirm-dialog"
@@ -69,6 +73,7 @@ interface Campaign {
   proxy_node?: string
   proxy_ip?: string
   sent: number
+  summary?: string
   failed: number
   status: string
   created_at: string
@@ -124,8 +129,23 @@ export default function ReportsPage() {
   const [showDetail, setShowDetail] = useState(false)
  const [showProFeaturesModal, setShowProFeaturesModal] = useState(false)
 
+ const [showRepliesModal, setShowRepliesModal] = useState(false)
+// const [globalReplies, setGlobalReplies] = useState<any[]>([])
+const [replyDetailList, setReplyDetailList] = useState<any[]>([])
+const [showReplyDetail, setShowReplyDetail] = useState(false)
+
   // FIX 1: Mapa de logs por campaign_id en vez de array global único
-  const [campaignLogsMap, setCampaignLogsMap] = useState<Record<string, any[]>>({})
+const [campaignLogsMap, setCampaignLogsMap] = useState<Record<string, any[]>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('wabisend_campaign_logs')
+        return saved ? JSON.parse(saved) : {}
+      } catch { return {} }
+    }
+    return {}
+  })
+
+  
 
   const { isOpen, options, confirm: askConfirm, onConfirm, onCancel } = useConfirm()
 
@@ -287,11 +307,14 @@ export default function ReportsPage() {
           const count = Math.min(c.sent, 25)
           for (let i = 0; i < count; i++) {
             logs.push({
-              contact_phone: `54911${String(30000000 + i).slice(-8)}`,
-              status: 'sent',
-              delayMs: Math.floor(Math.random() * 12000) + 3000,
-              humanMode: i % 4 === 0,
-            })
+  contact_phone: `54911${String(30000000 + i).slice(-8)}`,
+  status: 'sent',
+  delayMs: Math.floor(Math.random() * 12000) + 3000,
+  humanMode: i % 4 === 0,
+  has_reply: i % 7 === 0,
+  replied_at: i % 7 === 0 ? new Date().toISOString() : null,
+  contact_name: i % 3 === 0 ? `Contacto Demo ${i}` : null, // ← nombre demo
+})
           }
           for (let i = 0; i < Math.min(c.failed, 3); i++) {
             logs.push({
@@ -336,9 +359,6 @@ export default function ReportsPage() {
     }
   }, [period, token, isDemo])
 
-   useEffect(() => {
-    fetchReports()
-  }, [fetchReports])
 
   useEffect(() => {
     if (!showDetail || !selectedCampaign || isDemo) return  // ← agregar isDemo
@@ -413,11 +433,17 @@ export default function ReportsPage() {
     }
   }
 
-   const startCampaign = async (id: string) => {
+     const startCampaign = async (id: string) => {
     if (isDemo) {
-  toast.info("🎮 Acción disponible en modo real")
-  return
-}
+      toast.info("🎮 Acción disponible en modo real")
+      return
+    }
+    // Limpiar logs previos de esta campaña antes de iniciar nueva ejecución
+    setCampaignLogsMap(prev => {
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
     try {
       const res = await fetch(`/api/campaigns/${id}/start`, {
         method: "POST",
@@ -520,6 +546,31 @@ export default function ReportsPage() {
     }
   }
 
+  const handleBlacklist = async (phone: string, reason: string) => {
+  if (!isPro) {
+    toast.error("Blacklist requiere plan Business")
+    return
+  }
+  try {
+    const res = await fetch('/api/blacklist', {
+      method: 'POST',
+      headers: { 
+        Authorization: `Bearer ${token}`, 
+        'Content-Type': 'application/json' 
+      },
+      body: JSON.stringify({ phone, reason })
+    })
+    if (res.ok) {
+      toast.success(`🚫 ${phone} agregado a blacklist`)
+    } else {
+      const data = await res.json()
+      toast.error(data.error || 'Error al agregar a blacklist')
+    }
+  } catch {
+    toast.error('Error de red')
+  }
+}
+
   const cancelCampaign = async (id: string) => {
     if (isDemo) {
   toast.info("🎮 Acción disponible en modo real")
@@ -600,7 +651,35 @@ const handleExport = async (campaignId: string) => {
     toast.error("Error exportando campaña")
   }
 }
+const globalReplies = useMemo<any[]>(() => {
+  const allLogs = Object.values(campaignLogsMap).flat()
+  const seen = new Set()
+  return allLogs
+    .filter((l: any) => l.has_reply)
+    .filter((l: any) => {
+      if (seen.has(l.contact_phone)) return false
+      seen.add(l.contact_phone)
+      return true
+    })
+    .map((l: any) => ({
+      contact_phone: l.contact_phone,
+      isBlacklisted: l.isBlacklisted,
+      contact_name: l.contact_name || null,
+      replied_at: l.replied_at || l.created_at,
+      campaign_id: l.campaign_id
+    }))
+}, [campaignLogsMap])
 
+   useEffect(() => {
+    fetchReports()
+  }, [fetchReports])
+
+// Persistir campaignLogsMap en localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('wabisend_campaign_logs', JSON.stringify(campaignLogsMap))
+    }
+  }, [campaignLogsMap])
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] flex">
       <Sidebar onSettings={() => {}} />
@@ -765,7 +844,9 @@ const handleExport = async (campaignId: string) => {
               {/* Cards fantasmas */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 opacity-30 pointer-events-none">
   <StatCard icon={Eye} label="Tasa de apertura" value="—" color="text-cyan-400" bg="bg-cyan-500/10" />
-  <StatCard icon={MessageCircleReply} label="Respuestas recibidas" value="—" color="text-pink-400" bg="bg-pink-500/10" />
+
+<StatCard icon={MessageCircleReply} label="Respuestas recibidas" value="—" color="text-pink-400" bg="bg-pink-500/10" />
+
   <StatCard icon={ShieldBan} label="Blacklist activos" value="—" color="text-orange-400" bg="bg-orange-500/10" />
   <StatCard icon={Timer} label="Tiempo promedio" value="—" color="text-sky-400" bg="bg-sky-500/10" />
 </div>
@@ -782,13 +863,19 @@ const handleExport = async (campaignId: string) => {
       color="text-cyan-400" 
       bg="bg-cyan-500/10" 
     />
-    <StatCard 
-      icon={MessageCircleReply} 
-      label="Respuestas recibidas" 
-      value={stats?.repliesReceived || 0} 
-      color="text-pink-400" 
-      bg="bg-pink-500/10" 
-    />
+    <button
+  type="button"
+  onClick={() => setShowRepliesModal(true)}
+  className="text-left w-full p-0 m-0 bg-transparent border-none"
+>
+  <StatCard 
+    icon={MessageCircleReply} 
+    label="Respuestas recibidas" 
+    value={globalReplies.length} 
+    color="text-pink-400" 
+    bg="bg-pink-500/10" 
+  />
+</button>
     <StatCard 
       icon={ShieldBan} 
       label="Blacklist activos" 
@@ -935,25 +1022,40 @@ const handleExport = async (campaignId: string) => {
                 <tbody>
                   <AnimatePresence>
                     {campaigns.map((campaign) => {
-                      // --- Variables calculadas por campaña usando campaignLogsMap ---
+                                           // --- Variables calculadas por campaña usando campaignLogsMap ---
                       const total = campaign.total || 1
                       const sent = campaign.sent || 0
                       const failed = campaign.failed || 0
-                      const processed = sent + failed
-                      const progress = Math.min(100, Math.round((processed / total) * 100))
 
                       // FIX 1: Usar logs de esta campaña específica desde el mapa
                       const logsForThisCampaign = campaignLogsMap[campaign.id] || []
-                      const uniqueDelivered = new Set(
-                        logsForThisCampaign
-                          .filter((l: any) => l.status === 'sent')
-                          .map((l: any) => l.contact_phone)
+
+                      // === CÁLCULO HONESTO (igual que Sala de Control) ===
+                      const phonesWithSuccess = new Set(
+                        logsForThisCampaign.filter((l: any) => l.status === 'sent').map((l: any) => l.contact_phone)
+                      )
+                      const phonesWithFailure = new Set(
+                        logsForThisCampaign.filter((l: any) => l.status === 'failed').map((l: any) => l.contact_phone)
+                      )
+                      const phonesWithBlacklist = new Set(
+                        logsForThisCampaign.filter((l: any) => l.status === 'skipped_blacklist').map((l: any) => l.contact_phone)
+                      )
+
+                      const pureDelivered = new Set([...phonesWithSuccess].filter(p => !phonesWithFailure.has(p))).size
+                      const recoveredCount = new Set([...phonesWithFailure].filter(p => phonesWithSuccess.has(p))).size
+                      const pureFailed = new Set([...phonesWithFailure].filter(p => !phonesWithSuccess.has(p))).size
+                      const uniqueDelivered = phonesWithSuccess.size
+
+                      // Barra de progreso: contactos únicos procesados (tocados al menos una vez)
+                      const uniquePhonesProcessed = new Set(
+                        logsForThisCampaign.map((l: any) => l.contact_phone)
                       ).size
-                      const deliveryRate = total > 0 ? Math.min(100, Math.round((uniqueDelivered / total) * 100)) : 0
+                      const processed = logsForThisCampaign.length > 0 
+                        ? uniquePhonesProcessed 
+                        : Math.min((sent + failed), total)
+                      const progress = Math.min(100, Math.round((processed / total) * 100))
 
                       const isCompleted = campaign.status === 'completed'
-                      // ------------------------------------------------
-
                       return (
                         <motion.tr
                           key={campaign.id}
@@ -971,6 +1073,14 @@ const handleExport = async (campaignId: string) => {
                 <Globe size={10} /> Enviada desde {campaign.proxy_node} ({campaign.proxy_ip})
               </p>
             )}
+            {campaign.summary && (
+  
+     <p  title="Tiene resumen de IA" className="text-[10px] text-cyan-400 mt-1 flex items-center gap-1">
+                <Sparkles size={12} /> Tiene resumen IA
+              </p>
+    
+ 
+)}
             {campaign.scheduled?.execute_at && campaign.status === 'pending' && campaign.scheduled?.status === 'pending' && (
   <p className="text-[10px] text-purple-400 mt-0.5 flex items-center gap-1">
     <Calendar size={10} /> 
@@ -981,6 +1091,17 @@ const handleExport = async (campaignId: string) => {
 )}
           </div>
         </td>
+
+
+ <td className="p-4">
+                            <p className="text-sm text-[var(--text-secondary)]">
+                              {new Date(campaign.created_at).toLocaleDateString('es')}
+                            </p>
+                            <p className="text-xs text-[var(--text-muted)]">
+                              {new Date(campaign.created_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </td>
+
                                                     <td className="p-4">
                             {campaign.status === 'simulated' ? (
                               <div className="flex items-center gap-2">
@@ -988,9 +1109,9 @@ const handleExport = async (campaignId: string) => {
                                 <span className="text-xs text-amber-400 font-medium">{campaign.total} pings verificados</span>
                               </div>
                             ) : (
-                              <div className="w-full max-w-[200px]">
+                                                            <div className="w-full max-w-[200px]">
                                 <div className="flex items-center justify-between text-xs mb-1">
-                                  <span className="text-[var(--text-secondary)]">{processed} / {total}</span>
+                                  <span className="text-[var(--text-secondary)]">{processed} / {total} procesados</span>
                                   <span className={`font-medium ${isCompleted ? 'text-emerald-400' : 'text-blue-400'}`}>
                                     {progress}%
                                   </span>
@@ -1008,12 +1129,21 @@ const handleExport = async (campaignId: string) => {
                                   />
                                 </div>
                                 <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-[10px] text-emerald-400">{sent} ✓</span>
-                                  {failed > 0 && (
-                                    <span className="text-[10px] text-red-400">{failed} ✕</span>
+                                  {pureDelivered > 0 && (
+                                    <span className="text-[10px] text-emerald-400">{pureDelivered} ✓</span>
                                   )}
-                                  {processed > 0 && uniqueDelivered > 0 && (
-                                    <span className="text-[10px] text-purple-400">{uniqueDelivered} únicos</span>
+                                 
+                                                                    {phonesWithFailure.size > 0 && (
+                                    <span className="text-[10px] text-red-400">{phonesWithFailure.size} ✕</span>
+                                  )}
+                                  {recoveredCount > 0 && (
+                                    <span className="text-[10px] text-amber-400">{recoveredCount} ↻</span>
+                                  )}
+                                  {phonesWithBlacklist.size > 0 && (
+                                    <span className="text-[10px] text-purple-400">{phonesWithBlacklist.size} ⛔</span>
+                                  )}
+                                  {uniqueDelivered > 0 && (
+                                    <span className="text-[10px] text-blue-400">{uniqueDelivered} únicos</span>
                                   )}
                                 </div>
                               </div>
@@ -1242,6 +1372,8 @@ const handleExport = async (campaignId: string) => {
         </main>
       </div>
 
+      
+
       {/* MODAL: Detalle de campaña */}
       <AnimatePresence>
         {showDetail && selectedCampaign && (
@@ -1249,37 +1381,85 @@ const handleExport = async (campaignId: string) => {
             open={showDetail}
             onClose={() => setShowDetail(false)}
             title={`Sala de Control: ${selectedCampaign.name}`}
+            
           >
             {(() => {
-              // FIX 1: Usar logs de la campaña seleccionada desde el mapa
-                      const logsForSelected = campaignLogsMap[selectedCampaign.id] || []
-        const total = selectedCampaign.total || 1
-        const uniqueDelivered = new Set(
-          logsForSelected.filter((l: any) => l.status === 'sent').map((l: any) => l.contact_phone)
-        ).size
-        const sentCount = logsForSelected.filter((l: any) => l.status === 'sent').length      // ← NUEVO
-        const failedCount = logsForSelected.filter((l: any) => l.status === 'failed').length  // ← NUEVO
+                          // FIX 1: Usar logs de la campaña seleccionada desde el mapa
+              const logsForSelected = campaignLogsMap[selectedCampaign.id] || []
+              const total = selectedCampaign.total || 1
 
-        const blacklistCount = logsForSelected.filter((l: any) => l.status === 'skipped_blacklist').length
+              // === CÁLCULO HONESTO DE ALCANZADOS ===
+              const phonesWithSuccess = new Set(
+                logsForSelected.filter((l: any) => l.status === 'sent').map((l: any) => l.contact_phone)
+              )
+              const phonesWithFailure = new Set(
+                logsForSelected.filter((l: any) => l.status === 'failed').map((l: any) => l.contact_phone)
+              )
+              const phonesWithBlacklist = new Set(
+                logsForSelected.filter((l: any) => l.status === 'skipped_blacklist').map((l: any) => l.contact_phone)
+              )
 
-        const deliveryRate = total > 0 ? Math.min(100, Math.round((uniqueDelivered / total) * 100)) : 0
-        const progress = Math.min(100, Math.round(((sentCount + failedCount) / total) * 100)) // ← usa sentCount
+              // Contactos entregados LIMPIOS (sin ningún fallo previo)
+              const pureDelivered = new Set([...phonesWithSuccess].filter(p => !phonesWithFailure.has(p))).size
+              // Contactos que fallaron al menos una vez pero luego se recuperaron
+              const recoveredCount = new Set([...phonesWithFailure].filter(p => phonesWithSuccess.has(p))).size
+              // Contactos que solo fallaron (nunca llegaron)
+              const pureFailed = new Set([...phonesWithFailure].filter(p => !phonesWithSuccess.has(p))).size
+
+              const sentCount = logsForSelected.filter((l: any) => l.status === 'sent').length
+              const failedCount = logsForSelected.filter((l: any) => l.status === 'failed').length
+              const blacklistCount = logsForSelected.filter((l: any) => l.status === 'skipped_blacklist').length
+
+              const repliesCount = logsForSelected.filter((l: any) => l.has_reply).length
+              const repliesList = logsForSelected.filter((l: any) => l.has_reply)
+
+              const deliveryRate = total > 0 ? Math.min(100, Math.round((pureDelivered / total) * 100)) : 0
+              const progress = Math.min(100, Math.round(((sentCount + failedCount) / total) * 100))
+
 
               return (
                 <div className="space-y-6">
                   {/* Stats grandes */}
-                                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                                                      {/* Stats grandes */}
+                  <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
                     <div className="text-center p-2 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-                      <p className="text-2xl font-bold text-emerald-400">{uniqueDelivered}</p>
+                      <p className="text-2xl font-bold text-emerald-400">{pureDelivered}</p>
                       <p className="text-xs text-emerald-400/70 tracking-wider">Contactos alcanzados</p>
+                    </div>
+                    <div className="text-center p-2 bg-amber-500/10 rounded-xl border border-amber-500/20">
+                      <p className="text-2xl font-bold text-amber-400">{recoveredCount}</p>
+                      <p className="text-xs text-amber-400/70 tracking-wider">Recuperados</p>
                     </div>
                     <div className="text-center p-2 bg-blue-500/10 rounded-xl border border-blue-500/20">
                       <p className="text-2xl font-bold text-blue-400">{sentCount}</p>
                       <p className="text-xs text-blue-400/70 tracking-wider">Intentos totales</p>
                     </div>
-                    <div className="text-center p-2 bg-red-500/10 rounded-xl border border-red-500/20">
-                      <p className="text-2xl font-bold text-red-400">{failedCount}</p>
+                    <div 
+                      onClick={() => {
+                        setReplyDetailList(repliesList)
+                        setShowReplyDetail(true)
+                      }}
+                      className="text-center p-2 bg-pink-500/10 rounded-xl border border-pink-500/20 cursor-pointer hover:bg-pink-500/20 transition"
+                    >
+                      <p className="text-2xl font-bold text-pink-400">{repliesCount}</p>
+                      <p className="text-xs text-pink-400/70 tracking-wider">Respuestas</p>
+                    </div>
+                                        <div 
+                      onClick={() => {
+                        const failedPhones = [...phonesWithFailure].map(phone => {
+                          const hasSuccess = phonesWithSuccess.has(phone)
+                          return { phone, recovered: hasSuccess }
+                        })
+                        setReplyDetailList(failedPhones) // reutilizamos el modal de lista
+                        setShowReplyDetail(true)
+                      }}
+                      className="text-center p-2 bg-red-500/10 rounded-xl border border-red-500/20 cursor-pointer hover:bg-red-500/20 transition"
+                    >
+                      <p className="text-2xl font-bold text-red-400">{phonesWithFailure.size}</p>
                       <p className="text-xs text-red-400/70 tracking-wider">Fallidos</p>
+                      {recoveredCount > 0 && (
+                        <p className="text-[10px] text-amber-400 mt-0.5">{recoveredCount} recuperados</p>
+                      )}
                     </div>
                     <div className="text-center p-2 bg-purple-500/10 rounded-xl border border-purple-500/20">
                       <p className="text-2xl font-bold text-purple-400">{blacklistCount}</p>
@@ -1312,49 +1492,264 @@ const handleExport = async (campaignId: string) => {
                     </div>
                   </div>
 
+                  {selectedCampaign?.summary && (
+  <div className="mt-4 p-3 bg-cyan-500/5 border border-cyan-500/20 rounded-xl">
+    <p className="text-xs font-bold text-cyan-400 mb-1 flex items-center gap-1">
+      <Sparkles size={12} /> Resumen Caleb
+    </p>
+    <p className="text-xs text-slate-300 leading-relaxed">{selectedCampaign.summary}</p>
+  </div>
+)}
+
                   {/* Logs individuales */}
                   {logsForSelected.length > 0 && (
                     <div>
                       <h4 className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Logs individuales</h4>
-                      <div className="bg-[var(--bg-input)] rounded-xl p-3 h-40 overflow-y-auto border border-[var(--border-color)] space-y-1">
-                                                            {logsForSelected.map((log, i) => {
-                    const isSent = log.status === 'sent'
-                    const isBlacklist = log.status === 'skipped_blacklist'
-                    return (
-                      <div key={i} className={`text-xs flex items-center gap-2 ${
-                        isSent ? 'text-emerald-400' : isBlacklist ? 'text-purple-400' : 'text-red-400'
-                      }`}>
-                        <span className="text-[var(--text-muted)]">{log.contact_phone}</span>
-                        <span>
-                          {isSent ? '✓ Entregado' : isBlacklist ? '⛔ Blacklist' : '✕ Fallido'}
-                        </span>
-                        {log.delayMs > 0 && isSent && (
-                          <span className="text-[10px] text-amber-400 ml-auto">
-                            +{Math.round(log.delayMs / 1000)}s
-                          </span>
-                        )}
-                        {log.humanMode && isSent && (
-                          <span className="text-[10px] text-purple-400">🖊️ humano</span>
-                        )}
-                      </div>
-                    )
-                  })}
+                                            <div className="bg-[var(--bg-input)] rounded-xl p-3 h-40 overflow-y-auto border border-[var(--border-color)] space-y-1">
+                        {logsForSelected.map((log, i) => {
+                          const isSent = log.status === 'sent'
+                          const isBlacklist = log.status === 'skipped_blacklist'
+                          const isFailed = log.status === 'failed'
+                          // ¿Este número tuvo fallo previo? (para pintar reintentos)
+                          const hadFailure = isSent && phonesWithFailure.has(log.contact_phone)
+                          const hadSuccess = isFailed && phonesWithSuccess.has(log.contact_phone)
+                          
+                          return (
+                            <div key={i} className={`text-xs flex items-center gap-2 ${
+                              isSent ? 'text-emerald-400' : isBlacklist ? 'text-purple-400' : 'text-red-400'
+                            }`}>
+                              <span className="text-[var(--text-muted)]">{log.contact_phone}</span>
+                              <span>
+                                {isSent ? '✓ Entregado' : isBlacklist ? '⛔ Blacklist' : '✕ Fallido'}
+                              </span>
+                              
+                              {/* Indicador de reintento */}
+                              {hadFailure && (
+                                <span className="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                                  ⚠ reintentado
+                                </span>
+                              )}
+                              {hadSuccess && (
+                                <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                                  ↻ luego entregado
+                                </span>
+                              )}
+                              
+                              {log.delayMs > 0 && isSent && (
+                                <span className="text-[10px] text-amber-400 ml-auto">
+                                  +{Math.round(log.delayMs / 1000)}s
+                                </span>
+                              )}
+                              {log.humanMode && isSent && (
+                                <span className="text-[10px] text-purple-400">🖊️ humano</span>
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
                   )}
 
-                  <button
-                    onClick={() => setShowDetail(false)}
-                    className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] font-bold rounded-xl transition-colors"
-                  >
-                    Cerrar
-                  </button>
+                                    <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setCampaignLogsMap(prev => {
+                          const next = { ...prev }
+                          delete next[selectedCampaign.id]
+                          return next
+                        })
+                        toast.success("Logs de campaña limpiados")
+                      }}
+                      className="flex-1 py-3 bg-red-600/20 hover:bg-red-600/30 text-red-400 font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Trash2 size={16} /> Limpiar logs
+                    </button>
+                    <button
+                      onClick={() => setShowDetail(false)}
+                      className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] font-bold rounded-xl transition-colors"
+                    >
+                      Cerrar
+                    </button>
+                  </div>
                 </div>
               )
             })()}
           </PremiumModal>
         )}
       </AnimatePresence>
+
+
+<AnimatePresence>
+  {showRepliesModal && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={() => setShowRepliesModal(false)}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-5 border-b border-[var(--border-color)]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-pink-500/20 flex items-center justify-center">
+              <MessageCircle className="w-5 h-5 text-pink-400" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-[var(--text-primary)]">Números que respondieron</h3>
+              <p className="text-sm text-[var(--text-muted)]">{globalReplies.length} contactos</p>
+            </div>
+          </div>
+          <button onClick={() => setShowRepliesModal(false)} className="text-[var(--text-muted)] hover:text-white">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="flex gap-2 p-4 border-b border-[var(--border-color)]">
+          <button
+            onClick={() => navigator.clipboard.writeText(globalReplies.map(r => r.contact_phone).join('\n'))}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--bg-input)] hover:bg-[var(--border-color)] text-xs text-[var(--text-secondary)] transition"
+          >
+            <Copy size={14} /> Copiar
+          </button>
+          <button
+            onClick={() => {
+              const csv = 'Teléfono,Fecha\n' + globalReplies.map(r => `${r.contact_phone},${new Date(r.replied_at).toLocaleString()}`).join('\n')
+              const blob = new Blob([csv], { type: 'text/csv' })
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              a.href = url; a.download = `respuestas-${new Date().toISOString().split('T')[0]}.csv`; a.click()
+              URL.revokeObjectURL(url)
+            }}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--bg-input)] hover:bg-[var(--border-color)] text-xs text-[var(--text-secondary)] transition"
+          >
+            <Download size={14} /> CSV
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-2">
+          {globalReplies.length === 0 ? (
+            <div className="text-center py-10 text-[var(--text-muted)]">
+              <MessageCircle size={32} className="mx-auto mb-3 opacity-30" />
+              <p>Aún no hay respuestas registradas</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {globalReplies.map((reply: any, i: number) => (
+  <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-[var(--bg-input)]/50 group">
+    <div className="w-8 h-8 rounded-full bg-pink-500/10 flex items-center justify-center shrink-0">
+      <Phone size={14} className="text-pink-400" />
+    </div>
+    <div className="flex-1 min-w-0">
+      <p className="text-sm text-[var(--text-primary)] flex items-center gap-2 flex-wrap">
+  {reply.contact_phone}
+  {reply.contact_name && (
+    <span className="text-emerald-400">({reply.contact_name})</span>
+  )}
+  {reply.isBlacklisted && (
+    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/30 flex items-center gap-1">
+      <Ban size={10} /> BLACKLIST
+    </span>
+  )}
+</p>
+      <p className="text-xs text-[var(--text-muted)]">
+        {reply.replied_at ? new Date(reply.replied_at).toLocaleString() : '—'}
+      </p>
+    </div>
+    <button
+      onClick={() => handleBlacklist(reply.contact_phone, 'Respuesta recibida - marcado manual')}
+      className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition opacity-0 group-hover:opacity-100"
+      title="Marcar como blacklist"
+    >
+      <ShieldBan size={14} />
+    </button>
+  </div>
+))}
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
+
+{/* ========== MODAL: Replies de UNA campaña ========== */}
+<AnimatePresence>
+  {showReplyDetail && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={() => setShowReplyDetail(false)}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-5 border-b border-[var(--border-color)]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-pink-500/20 flex items-center justify-center">
+              <MessageCircle className="w-5 h-5 text-pink-400" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-[var(--text-primary)]">Respuestas de campaña</h3>
+              <p className="text-sm text-[var(--text-muted)]">{replyDetailList.length} respondieron</p>
+            </div>
+          </div>
+          <button onClick={() => setShowReplyDetail(false)} className="text-[var(--text-muted)] hover:text-white">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2">
+          {replyDetailList.length === 0 ? (
+            <div className="text-center py-10 text-[var(--text-muted)]">Sin respuestas en esta campaña</div>
+          ) : (
+            <div className="space-y-1">
+              {replyDetailList.map((reply: any, i: number) => (
+  <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-[var(--bg-input)]/50 group">
+    <Phone size={14} className="text-pink-400 shrink-0" />
+    <div className="flex-1 min-w-0">
+      <p className="text-sm text-[var(--text-primary)] flex items-center gap-2 flex-wrap">
+  {reply.contact_phone}
+  {reply.contact_name && (
+    <span className="text-emerald-400">({reply.contact_name})</span>
+  )}
+  {reply.isBlacklisted && (
+    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/30 flex items-center gap-1">
+      <Ban size={10} /> BLACKLIST
+    </span>
+  )}
+</p>
+      <p className="text-xs text-[var(--text-muted)]">
+        {reply.replied_at ? new Date(reply.replied_at).toLocaleString() : '—'}
+      </p>
+    </div>
+    <button
+      onClick={() => handleBlacklist(reply.contact_phone, 'Respuesta en campaña - marcado manual')}
+      className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition opacity-0 group-hover:opacity-100"
+      title="Marcar como blacklist"
+    >
+      <ShieldBan size={14} />
+    </button>
+  </div>
+))}
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
+      
       <ConfirmDialog open={isOpen} onClose={onCancel} onConfirm={onConfirm} {...options} />
     </div>
   )

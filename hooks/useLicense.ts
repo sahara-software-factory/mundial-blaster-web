@@ -62,19 +62,37 @@ export function useLicense() {
         headers,
       })
 
+      if (!res.ok) {
+        // 5xx/502 temporal: no confiamos en el body para decidir "inactiva".
+        throw new Error(`license status ${res.status}`)
+      }
+
       const data: LicenseData = await res.json()
       setLicense(data)
 
-      // Guardar en cache solo si es válida
+      // Guardar en cache con timestamp, para poder expirarla
       if (data.active) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ data, cachedAt: Date.now() }))
       } else {
         localStorage.removeItem(STORAGE_KEY)
       }
     } catch {
-      const fallback: LicenseData = { active: false, reason: "ERROR" }
+      // 🛡️ Error de red/backend: usamos la última licencia válida cacheada
+      // (con un margen de 24h) en vez de mandar al usuario a /setup.
+      const CACHE_TTL_MS = 24 * 60 * 60 * 1000
+      const cachedRaw = localStorage.getItem(STORAGE_KEY)
+      let fallback: LicenseData = { active: false, reason: "ERROR" }
+
+      if (cachedRaw) {
+        try {
+          const { data: cached, cachedAt } = JSON.parse(cachedRaw)
+          fallback = (Date.now() - cachedAt < CACHE_TTL_MS)
+            ? { ...cached, reason: "CACHED_FALLBACK" }
+            : { active: false, reason: "CACHE_EXPIRED" }
+        } catch {}
+      }
+
       setLicense(fallback)
-      localStorage.removeItem(STORAGE_KEY)
     } finally {
       setLoading(false)
       setChecked(true)

@@ -526,7 +526,7 @@ function SelectInput({ label, value, onChange, options, icon }: {
 
 async function sendToLeadSheet(data: {
   nombre: string; email: string; company_name?: string; phone?: string;
-  industry?: string; expected_volume?: string; timezone?: string; fecha: string
+  industry?: string; affiliate_code?: string, user_id?: string, expected_volume?: string; timezone?: string; fecha: string
 }) {
   console.log("📋 sendToLeadSheet iniciado:", data)
   try {
@@ -686,6 +686,7 @@ function OnboardingContent() {
     setForm((prev) => ({ ...prev, wantsAffiliate: true }))
     setAffiliateGenerated(true)
     setAffiliateCode("WS-" + Math.random().toString(36).substring(2, 8).toUpperCase())
+
   }
 
   const handleCopyCode = () => {
@@ -748,6 +749,7 @@ function OnboardingContent() {
         industry: form.industry,
         expected_volume: form.expected_volume,
         timezone: form.timezone,
+        affiliate_code: form.affiliate_code,
         fecha: new Date().toISOString(),
       })
 

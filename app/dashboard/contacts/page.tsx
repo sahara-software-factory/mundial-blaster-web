@@ -1,7 +1,7 @@
 "use client"
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { 
   Search, 
@@ -19,7 +19,8 @@ import {
   Filter,
   Download,
   Users,
-  Ban
+  Ban,
+  ShieldCheck
 } from "lucide-react"
 import { toast } from "sonner"
 import { ConfirmDialog } from "../../components/ui/confirm-dialog"
@@ -73,6 +74,8 @@ const [pendingImportData, setPendingImportData] = useState<any[]>([])
   const token = typeof window !== 'undefined' ? localStorage.getItem('mb_token') : ''
 const { isDemo } = useDemoMode()
 
+const [showBlacklistOnly, setShowBlacklistOnly] = useState(false)
+const [showBulkTagModal, setShowBulkTagModal] = useState(false)
 
 
   const fetchContacts = useCallback(async () => {
@@ -119,18 +122,14 @@ const { isDemo } = useDemoMode()
       // Filtrar por búsqueda
       let filtered = demoContacts
             if (search) {
-        const q = search.toLowerCase()
-        if (q === 'blacklist') {
-          filtered = filtered.filter(c => c.isBlacklisted)
-        } else {
-          filtered = filtered.filter(c => 
-            c.name.toLowerCase().includes(q) || 
-            c.phone.includes(q) || 
-            c.email?.toLowerCase().includes(q) ||
-            c.company?.toLowerCase().includes(q)
-          )
-        }
-      }
+  const q = search.toLowerCase()
+  filtered = filtered.filter(c => 
+    c.name.toLowerCase().includes(q) || 
+    c.phone.includes(q) || 
+    c.email?.toLowerCase().includes(q) ||
+    c.company?.toLowerCase().includes(q)
+  )
+}
       // Filtrar por tags múltiples
       if (selectedTags.length > 0) {
         filtered = filtered.filter(c => 
@@ -156,11 +155,8 @@ const { isDemo } = useDemoMode()
         cache: "no-store",
       })
       const data = await res.json()
-      let contacts = data.contacts || []
-      if (search?.toLowerCase() === 'blacklist') {
-        contacts = contacts.filter((c: any) => c.isBlacklisted)
-      }
-      setContacts(contacts)
+      const contacts = data.contacts || []
+setContacts(contacts)
     } catch {
       toast.error("Error cargando contactos")
     } finally {
@@ -208,13 +204,13 @@ const { isDemo } = useDemoMode()
   }
 
   const selectAll = () => {
-      if (isDemo) { toast.info("🎮 Eliminar contactos disponible en modo real"); return }
-    if (selectedIds.size === contacts.length) {
-      setSelectedIds(new Set())
-    } else {
-      setSelectedIds(new Set(contacts.map(c => c.id)))
-    }
+  if (isDemo) { toast.info("🎮 Acción disponible en modo real"); return }
+  if (selectedIds.size === displayedContacts.length && displayedContacts.length > 0) {
+    setSelectedIds(new Set())
+  } else {
+    setSelectedIds(new Set(displayedContacts.map(c => c.id)))
   }
+}
 
   const deleteSelected = async () => {
       if (isDemo) { toast.info("🎮 Eliminar contactos disponible en modo real"); return }
@@ -283,6 +279,75 @@ const { isDemo } = useDemoMode()
       toast.error("Error de red")
     }
   }
+
+  const handleAddBlacklist = async (phone: string) => {
+  if (isDemo) { toast.info("🎮 Blacklist disponible en modo real"); return }
+  try {
+    const res = await fetch('/api/blacklist', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json', 
+        Authorization: `Bearer ${token}` 
+      },
+      body: JSON.stringify({ phone, reason: 'manual desde contactos' })
+    })
+    if (res.ok) {
+      toast.success('🚫 Agregado a blacklist')
+      fetchContacts()
+    } else {
+      const data = await res.json()
+      toast.error(data.error || 'Error')
+    }
+  } catch {
+    toast.error('Error de red')
+  }
+}
+
+const handleRemoveBlacklist = async (phone: string) => {
+  if (isDemo) { toast.info("🎮 Blacklist disponible en modo real"); return }
+  try {
+    const res = await fetch(`/api/blacklist/${phone.replace(/\D/g, '')}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (res.ok) {
+      toast.success('✅ Removido de blacklist')
+      fetchContacts()
+    } else {
+      const data = await res.json()
+      toast.error(data.error || 'Error')
+    }
+  } catch {
+    toast.error('Error de red')
+  }
+}
+
+const handleBulkTag = async (tagName: string) => {
+  if (isDemo) { toast.info("🎮 Etiquetado masivo disponible en modo real"); return }
+  if (selectedIds.size === 0) return
+  try {
+    const ids = Array.from(selectedIds)
+    const updates = ids.map(id => {
+      const contact = contacts.find(c => c.id === id)
+      if (!contact || contact.tags.includes(tagName)) return Promise.resolve()
+      return fetch(`/api/contacts/${id}`, {
+        method: 'PATCH',
+        headers: { 
+          'Content-Type': 'application/json', 
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({ tags: [...contact.tags, tagName] })
+      })
+    })
+    await Promise.all(updates)
+    toast.success(`Etiqueta "${tagName}" aplicada a ${ids.length} contactos`)
+    setShowBulkTagModal(false)
+    setSelectedIds(new Set())
+    fetchContacts()
+  } catch {
+    toast.error('Error aplicando etiquetas')
+  }
+}
 
   const handleCSVImport = async (csvText: string) => {
       if (isDemo) { toast.info("🎮 Eliminar contactos disponible en modo real"); return }
@@ -512,6 +577,27 @@ const onContactDrop = (e: React.DragEvent) => {
   if (e.dataTransfer.files?.[0]) handleContactFile(e.dataTransfer.files[0])
 }
 
+
+const displayedContacts = useMemo(() => {
+  let result = contacts
+  if (showBlacklistOnly) {
+    result = result.filter(c => c.isBlacklisted)
+  }
+  if (selectedTags.length > 0) {
+    result = result.filter(c => selectedTags.some(tag => c.tags.includes(tag)))
+  }
+  if (search) {
+    const q = search.toLowerCase()
+    result = result.filter(c => 
+      c.name.toLowerCase().includes(q) || 
+      c.phone.includes(q) || 
+      c.email?.toLowerCase().includes(q) ||
+      c.company?.toLowerCase().includes(q)
+    )
+  }
+  return result
+}, [contacts, showBlacklistOnly, selectedTags, search])
+
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] flex">
       <Sidebar onSettings={() => {}} />
@@ -521,7 +607,7 @@ const onContactDrop = (e: React.DragEvent) => {
         <header className="h-16 bg-[var(--bg-card)]/60 backdrop-blur-md border-b border-[var(--border-color)]/60 flex items-center justify-between px-6 sticky top-0 z-30">
           <div>
             <h1 className="text-lg font-bold text-[var(--text-primary)]">Contactos</h1>
-                      <p className="text-xs text-[var(--text-muted)]">{contacts.length} contactos encontrados {selectedTags.length > 0 && `· ${selectedTags.length} filtros`}</p>
+                      <p className="text-xs text-[var(--text-muted)]">{displayedContacts.length} contactos encontrados {selectedTags.length > 0 && `· ${selectedTags.length} filtros`} {showBlacklistOnly && '· Blacklist'}</p>
           </div>
           <div className="flex items-center gap-2">
          
@@ -548,52 +634,80 @@ const onContactDrop = (e: React.DragEvent) => {
               />
             </div>
                                    <div className="flex gap-2 overflow-x-auto pb-1">
-              <button
-                onClick={() => setSelectedTags([])}
-                className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all whitespace-nowrap ${selectedTags.length === 0 ? 'bg-blue-600 text-[var(--text-primary)] border-blue-500' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-slate-600'}`}
-              >
-                Todos
-              </button>
-              {tags.map(tag => {
-                const isSelected = selectedTags.includes(tag.name)
-                return (
-                  <button
-                    key={tag.id}
-                    onClick={() => {
-                      if (isSelected) {
-                        setSelectedTags(prev => prev.filter(t => t !== tag.name))
-                      } else {
-                        setSelectedTags(prev => [...prev, tag.name])
-                      }
-                    }}
-                    className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all whitespace-nowrap flex items-center gap-1.5 ${isSelected ? 'text-[var(--text-primary)] border-white/30' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-slate-600'}`}
-                    style={isSelected ? { backgroundColor: tag.color + '30', borderColor: tag.color } : {}}
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tag.color }} />
-                    {tag.name}
-                    {isSelected && <span className="ml-1 text-[10px]">✓</span>}
-                  </button>
-                )
-              })}
-            </div>
+  <button
+    onClick={() => { setSelectedTags([]); setShowBlacklistOnly(false); }}
+    className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all whitespace-nowrap ${selectedTags.length === 0 && !showBlacklistOnly ? 'bg-blue-600 text-[var(--text-primary)] border-blue-500' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-slate-600'}`}
+  >
+    Todos
+  </button>
+
+  {/* Tag Blacklist */}
+  <button
+    onClick={() => {
+      setShowBlacklistOnly(!showBlacklistOnly)
+      setSelectedTags([])
+    }}
+    className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all whitespace-nowrap flex items-center gap-1.5 ${showBlacklistOnly ? 'bg-red-500/10 text-red-400 border-red-500' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-red-500/50'}`}
+  >
+    <Ban size={10} className={showBlacklistOnly ? 'text-red-400' : 'text-red-400/50'} />
+    Blacklist
+    {showBlacklistOnly && <span className="ml-1 text-[10px]">✓</span>}
+  </button>
+
+  {tags.map(tag => {
+    const isSelected = selectedTags.includes(tag.name)
+    return (
+      <button
+        key={tag.id}
+        onClick={() => {
+          if (isSelected) {
+            setSelectedTags(prev => prev.filter(t => t !== tag.name))
+          } else {
+            setSelectedTags(prev => [...prev, tag.name])
+          }
+        }}
+        className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all whitespace-nowrap flex items-center gap-1.5 ${isSelected ? 'text-[var(--text-primary)] border-white/30' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-slate-600'}`}
+        style={isSelected ? { backgroundColor: tag.color + '30', borderColor: tag.color } : {}}
+      >
+        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tag.color }} />
+        {tag.name}
+        {isSelected && <span className="ml-1 text-[10px]">✓</span>}
+      </button>
+    )
+  })}
+</div>
           </div>
 
-          {/* Bulk Actions */}
           {selectedIds.size > 0 && (
-            <motion.div 
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-3 mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl"
-            >
-              <span className="text-sm text-blue-400 font-medium">{selectedIds.size} seleccionados</span>
-              <button onClick={deleteSelected} className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-red-500/10 text-red-400 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition-colors">
-                <Trash2 size={14} /> Eliminar
-              </button>
-              <button onClick={() => setSelectedIds(new Set())} className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]">
-                Cancelar
-              </button>
-            </motion.div>
-          )}
+  <motion.div 
+    initial={{ opacity: 0, y: -10 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="flex items-center gap-3 mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl"
+  >
+    <span className="text-sm text-blue-400 font-medium">{selectedIds.size} seleccionados</span>
+    
+    <button 
+      onClick={() => setShowBulkTagModal(true)} 
+      className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+    >
+      <Tag size={14} /> Etiquetar
+    </button>
+    
+    <button 
+      onClick={deleteSelected} 
+      className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-red-500/10 text-red-400 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition-colors"
+    >
+      <Trash2 size={14} /> Eliminar
+    </button>
+    
+    <button 
+      onClick={() => setSelectedIds(new Set())} 
+      className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+    >
+      Cancelar
+    </button>
+  </motion.div>
+)}
 
           {/* Table */}
           <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-2xl overflow-hidden">
@@ -615,7 +729,8 @@ const onContactDrop = (e: React.DragEvent) => {
                 </thead>
                 <tbody>
                   <AnimatePresence>
-                    {contacts.map((contact) => (
+                    {displayedContacts.map((contact) => (
+
                       <motion.tr
                         key={contact.id}
                         initial={{ opacity: 0 }}
@@ -687,13 +802,33 @@ const onContactDrop = (e: React.DragEvent) => {
                           </div>
                         </td>
                         <td className="p-4">
-                          <button 
-                            onClick={() => setShowEdit(contact)}
-                            className="p-1.5 text-[var(--text-muted)] hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
-                          >
-                            <Edit3 size={16} />
-                          </button>
-                        </td>
+  <div className="flex items-center gap-1">
+    {contact.isBlacklisted ? (
+      <button 
+        onClick={() => handleRemoveBlacklist(contact.phone)}
+        className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors"
+        title="Quitar de blacklist"
+      >
+        <ShieldCheck size={16} />
+      </button>
+    ) : (
+      <button 
+        onClick={() => handleAddBlacklist(contact.phone)}
+        className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+        title="Agregar a blacklist"
+      >
+        <Ban size={16} />
+      </button>
+    )}
+    <button 
+      onClick={() => setShowEdit(contact)}
+      className="p-1.5 text-[var(--text-muted)] hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
+      title="Editar"
+    >
+      <Edit3 size={16} />
+    </button>
+  </div>
+</td>
                       </motion.tr>
                     ))}
                   </AnimatePresence>
@@ -701,7 +836,8 @@ const onContactDrop = (e: React.DragEvent) => {
               </table>
             </div>
             
-            {contacts.length === 0 && !loading && (
+            {displayedContacts.length === 0 && !loading && (
+
               <div className="py-16 text-center">
                 <Users size={32} className="mx-auto text-slate-700 mb-3" />
                 <p className="text-[var(--text-muted)] text-sm">No hay contactos</p>
@@ -733,8 +869,40 @@ const onContactDrop = (e: React.DragEvent) => {
         />
       )}
 
-      {/* MODAL: Importar CSV */}
-      {/* MODAL: Importar CSV */}
+      {/* MODAL: Bulk Tag */}
+<PremiumModal 
+  open={showBulkTagModal} 
+  onClose={() => setShowBulkTagModal(false)} 
+  title={`Etiquetar ${selectedIds.size} contactos`}
+>
+  <div className="space-y-4">
+    <p className="text-sm text-[var(--text-secondary)]">Seleccioná la etiqueta a aplicar:</p>
+    <div className="flex gap-2 flex-wrap">
+      {tags.map((tag) => (
+        <button
+          key={tag.id}
+          onClick={() => handleBulkTag(tag.name)}
+          className="px-3 py-2 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5 hover:scale-105"
+          style={{ 
+            backgroundColor: tag.color + '25', 
+            borderColor: tag.color + '50', 
+            color: tag.color 
+          }}
+        >
+          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tag.color }} />
+          {tag.name}
+        </button>
+      ))}
+    </div>
+    {tags.length === 0 && (
+      <p className="text-sm text-[var(--text-muted)] text-center py-4">
+        No hay etiquetas creadas. Creá una primero en <strong>Tags</strong>.
+      </p>
+    )}
+  </div>
+</PremiumModal>
+
+
 <PremiumModal open={showImport} onClose={() => !importFileLoading && setShowImport(false)} title="Importar Contactos">
   <div className="space-y-4">
     {/* Plantilla + Dropzone */}

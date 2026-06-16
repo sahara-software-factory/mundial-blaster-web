@@ -278,7 +278,7 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
                             onClick={() => setTargetTier(opt.target)}
                             className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${
                               targetTier === opt.target
-                                ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
+                                ? 'bg-purple-500/20 text-purple-400 border-purple-500/40'
                                 : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-600'
                             }`}
                           >
@@ -293,7 +293,7 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
                       <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-700/30">
                         <div className="flex items-center justify-between mb-3">
                           <span className="text-sm font-bold text-white">{selectedOption.label}</span>
-                          <span className="text-lg font-bold text-amber-400">
+                          <span className="text-lg font-bold text-purple-400">
                             {selectedOption.price} <span className="text-xs text-slate-400 font-normal">{selectedOption.extra}</span>
                           </span>
                         </div>

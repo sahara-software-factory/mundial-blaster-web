@@ -58,8 +58,7 @@ export default function TemplatesPage() {
   const { license } = useLicense()
 const isPro = license?.tier === 'pro' || license?.tier === 'business'
 
-// Estado favoritos local (optimistic UI)
-const [favorites, setFavorites] = useState<Record<string, boolean>>({})
+  
   const [templates, setTemplates] = useState<Template[]>([])
   // const [categories, setCategories] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
@@ -191,18 +190,21 @@ const { isDemo } = useDemoMode()
       ]
 
       // Filtrar por búsqueda y categoría
-      let filtered = demoTemplates
-      if (search) {
-        const q = search.toLowerCase()
-        filtered = filtered.filter(t => 
-          t.name.toLowerCase().includes(q) || 
-          t.content.toLowerCase().includes(q) ||
-          t.category.toLowerCase().includes(q)
-        )
-      }
-      if (selectedCategory !== "all") {
-        filtered = filtered.filter(t => t.category === selectedCategory)
-      }
+      // Filtrar por búsqueda y categoría
+let filtered = demoTemplates
+if (search) {
+  const q = search.toLowerCase()
+  filtered = filtered.filter(t => 
+    t.name.toLowerCase().includes(q) || 
+    t.content.toLowerCase().includes(q) ||
+    t.category.toLowerCase().includes(q)
+  )
+}
+if (selectedCategory === "favorites") {
+  filtered = filtered.filter(t => t.isFavorite)
+} else if (selectedCategory !== "all") {
+  filtered = filtered.filter(t => t.category === selectedCategory)
+}
 
       setTemplates(filtered)
       setLoading(false)
@@ -212,8 +214,12 @@ const { isDemo } = useDemoMode()
     // CÓDIGO ORIGINAL
     try {
       const params = new URLSearchParams()
-      if (search) params.append("search", search)
-      if (selectedCategory !== "all") params.append("category", selectedCategory)
+if (search) params.append("search", search)
+if (selectedCategory === "favorites") {
+  params.append("favorite", "true")
+} else if (selectedCategory !== "all") {
+  params.append("category", selectedCategory)
+}
       
       const res = await fetch(`/api/templates?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -339,37 +345,44 @@ const handleCreate = async (form: any) => {
   }
 
   const handleUse = async (template: Template, variables: Record<string, string>) => {
-     if (isDemo) { 
-      toast.success(`🎮 Template "${template.name}" cargado en demo`)
-      setShowUse(null)
-      return 
-    }
-    try {
-      // Incrementar contador
-      await fetch(`/api/templates/${template.id}/use`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      
-      // Construir mensaje final reemplazando variables
-      let finalMessage = template.content
-      Object.entries(variables).forEach(([key, val]) => {
-        finalMessage = finalMessage.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val)
-      })
-      
-      // Guardar en localStorage para que la campaña lo recupere
-      localStorage.setItem('mb_template_message', finalMessage)
-      
-      toast.success("Template cargado en campaña")
-      setShowUse(null)
-      
-      // Redirigir a campaña
-      router.push("/?tab=campaign")
-      
-    } catch {
-      toast.error("Error usando template")
-    }
+  if (isDemo) { 
+    toast.success(`🎮 Template "${template.name}" cargado en demo`)
+    setShowUse(null)
+    return 
   }
+  
+  try {
+    // Incrementar contador
+    await fetch(`/api/templates/${template.id}/use`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    
+    // Construir mensaje final reemplazando variables
+    let finalMessage = template.content
+    Object.entries(variables).forEach(([key, val]) => {
+      finalMessage = finalMessage.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val)
+    })
+    
+    // ✅ Guardar TODO el contexto del template (mensaje + imagen)
+    localStorage.setItem('mb_template_payload', JSON.stringify({
+      message: finalMessage,
+      imageUrl: template.imageUrl || null,
+      templateName: template.name,
+      templateId: template.id,
+      timestamp: Date.now()
+    }))
+    
+    toast.success(`Template "${template.name}" cargado`)
+    setShowUse(null)
+    
+    // ✅ Redirigir al dashboard con query param para activar tab campaña
+    router.push("/dashboard?tab=campaign")
+    
+  } catch {
+    toast.error("Error usando template")
+  }
+}
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] flex">
@@ -442,22 +455,33 @@ const handleCreate = async (form: any) => {
               />
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1">
-              <button
-                onClick={() => setSelectedCategory("all")}
-                className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all whitespace-nowrap ${selectedCategory === "all" ? 'bg-blue-600 text-[var(--text-primary)] border-blue-500' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-[var(--border-hover)]'}`}
-              >
-                Todas
-              </button>
-              {CATEGORIES.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(selectedCategory === cat ? "all" : cat)}
-                  className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all whitespace-nowrap ${selectedCategory === cat ? 'bg-blue-600 text-[var(--text-primary)] border-blue-500' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-[var(--border-hover)]'}`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
+  <button
+    onClick={() => setSelectedCategory("all")}
+    className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all whitespace-nowrap ${selectedCategory === "all" ? 'bg-blue-600 text-[var(--text-primary)] border-blue-500' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-[var(--border-hover)]'}`}
+  >
+    Todas
+  </button>
+  
+  {/* Tab Favoritos */}
+  <button
+    onClick={() => setSelectedCategory("favorites")}
+    className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all whitespace-nowrap flex items-center gap-1.5 ${selectedCategory === "favorites" ? 'bg-amber-500/10 text-amber-400 border-amber-500' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-amber-500/50'}`}
+  >
+    <Star size={12} className={selectedCategory === "favorites" ? 'text-amber-400 fill-amber-400' : 'text-amber-400/50'} />
+    Favoritos
+    {selectedCategory === "favorites" && <span className="ml-1 text-[10px]">✓</span>}
+  </button>
+
+  {CATEGORIES.map(cat => (
+    <button
+      key={cat}
+      onClick={() => setSelectedCategory(selectedCategory === cat ? "all" : cat)}
+      className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all whitespace-nowrap ${selectedCategory === cat ? 'bg-blue-600 text-[var(--text-primary)] border-blue-500' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-[var(--border-hover)]'}`}
+    >
+      {cat}
+    </button>
+  ))}
+</div>
           </div>
 
           {/* Grid de templates */}
@@ -490,14 +514,32 @@ const handleCreate = async (form: any) => {
     <div className="flex items-center gap-1 ml-2">
       {/* Favorito Pro */}
       {isPro && (
-        <button 
-          onClick={() => setFavorites(prev => ({ ...prev, [template.id]: !prev[template.id] }))}
-          className={`p-1.5 rounded-lg transition-colors ${favorites[template.id] ? 'text-amber-400 bg-amber-500/10' : 'text-[var(--text-muted)] hover:text-amber-400 hover:bg-amber-500/10'}`}
-          title="Favorito"
-        >
-          <Star size={14} className={favorites[template.id] ? 'fill-amber-400' : ''} />
-        </button>
-      )}
+  <button 
+    onClick={async () => {
+      if (isDemo) { toast.info("🎮 Favoritos en modo real"); return }
+      try {
+        const res = await fetch(`/api/templates/${template.id}/favorite`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (res.ok) {
+          const data = await res.json()
+          // Actualizar estado local
+          setTemplates(prev => prev.map(t => 
+            t.id === template.id ? { ...t, isFavorite: data.isFavorite } : t
+          ))
+          toast.success(data.isFavorite ? 'Agregado a favoritos' : 'Removido de favoritos')
+        }
+      } catch {
+        toast.error('Error actualizando favorito')
+      }
+    }}
+    className={`p-1.5 rounded-lg transition-colors ${template.isFavorite ? 'text-amber-400 bg-amber-500/10' : 'text-[var(--text-muted)] hover:text-amber-400 hover:bg-amber-500/10'}`}
+    title="Favorito"
+  >
+    <Star size={14} className={template.isFavorite ? 'fill-amber-400' : ''} />
+  </button>
+)}
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <button onClick={() => setShowEdit(template)} className="p-1.5 text-[var(--text-muted)] hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors" title="Editar">
           <Edit3 size={14} />
@@ -756,9 +798,39 @@ function TemplateFormModal({ open, onClose, onSubmit, categories, initial, isPro
             placeholder={isPro ? "Hola {{nombre}}, tenemos 50% OFF en {{producto}}. Escribí YA para reservar. {{saludo|atentamente|un abrazo}}" : "Hola, tenemos 50% OFF. Escribí YA para reservar. (Las variables {{...}} son Pro)"
             }
           />
+
+                  {/* ─── Spintax Presets ─── */}
+        <div className="pt-1">
+          <p className="text-[10px] text-[var(--text-muted)] mb-2">Insertar Spintax:</p>
+          <div className="flex gap-2 flex-wrap">
+            {[
+              { label: "👋 Saludo", value: "{{Hola|Buenas|Hey|Qué tal|Saludos}}" },
+              { label: "👋 Despedida", value: "{{Saludos|Un abrazo|Atentamente|Gracias|Nos vemos}}" },
+              { label: "🔥 Emoji", value: "{{👋|✨|🚀|💪|🔥|👍|🎯}}" },
+              { label: "👤 Nombre", value: "{{nombre|amigo|cliente|crack}}" },
+              { label: "🎁 Producto", value: "{{producto|artículo|item|mercadería}}" },
+              { label: "⚡ Urgencia", value: "{{Aprovechá|No te lo pierdas|Corré que vuela|Última chance}}" },
+            ].map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                onClick={() => {
+                  setForm(prev => ({ 
+                    ...prev, 
+                    content: prev.content ? `${prev.content} ${preset.value}` : preset.value 
+                  }))
+                  detectVariables((form.content ? form.content + ' ' : '') + preset.value)
+                }}
+                className="px-2.5 py-1.5 rounded-lg text-[10px] font-medium bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-muted)] hover:text-cyan-400 hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all flex items-center gap-1"
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </div>
           <div className="flex items-center justify-between mt-2">
             <span className="text-[10px] text-[var(--text-muted)]">
-              Spintax: {"{{"}opcion1|opcion2|opcion3{"}}"}{" "} · Variables: {"{{"}nombre{"}}"}
+              Spintax: Generá hasta 3 diferentes variables de texto por linea, de esta forma evitas spam por repeticion.
             </span>
             {detectedVars.length > 0 && (
               <div className="flex gap-1">

@@ -51,15 +51,21 @@ export function useAuth() {
         try {
           const hasUserRes = await fetch("/api/auth/check", { cache: "no-store" })
           const hasUserData = await hasUserRes.json()
-          setHasUser(hasUserData.hasUser || false)
+          const value = hasUserData.hasUser || false
+          setHasUser(value)
+          localStorage.setItem("mb_has_user_cache", value ? "1" : "0")
         } catch {
-          setHasUser(false) // ← Si el endpoint falla, asumir que no hay usuario
+          // 🛡️ Si /api/auth/check falla por red, no asumimos "no hay usuario".
+          // Usamos el último valor confirmado.
+          const cached = localStorage.getItem("mb_has_user_cache")
+          setHasUser(cached === "1")
         }
         setUser(null)
         setChecked(true)
         setLoading(false)
         return
       }
+
 
       const payload = decodeToken(token)
       if (payload?.is_demo) {
@@ -84,8 +90,19 @@ export function useAuth() {
         cache: "no-store",
       })
 
-      if (!res.ok) {
-        localStorage.removeItem("mb_token")
+       if (!res.ok) {
+        // 🛡️ Había token → existe un usuario en la DB, sea cual sea el motivo
+        // del fallo. hasUser=true asegura que AuthGuard mande a /login, no a /onboarding.
+        setHasUser(true)
+        localStorage.setItem("mb_has_user_cache", "1")
+
+        // Solo borramos el token si el SERVIDOR confirma que es inválido (401/403).
+        // Si es un 5xx/timeout, lo conservamos: puede ser una caída temporal,
+        // no queremos deslogear al usuario por eso.
+        if (res.status === 401 || res.status === 403) {
+          localStorage.removeItem("mb_token")
+        }
+
         setUser(null)
         setChecked(true)
         setLoading(false)
@@ -95,8 +112,12 @@ export function useAuth() {
       const data = await res.json()
       setUser(data.user)
       setHasUser(true)
+      localStorage.setItem("mb_has_user_cache", "1")
     } catch {
-      localStorage.removeItem("mb_token")
+      // No llegamos a preguntarle al servidor — pero había token, así que
+      // sabemos que hay un usuario en la DB. No lo borramos: puede ser un blip de red.
+      setHasUser(true)
+      localStorage.setItem("mb_has_user_cache", "1")
       setUser(null)
     } finally {
       setChecked(true)

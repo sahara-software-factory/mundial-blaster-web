@@ -18,9 +18,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const isOnboarding = pathname === "/onboarding"
   const isLogin = pathname === "/login"
 
-  useEffect(() => {
-    if (isLoading || redirected) return
-
+   useEffect(() => {
+    if (isLoading) return
     let target: string | null = null
 
     // 1. SIN LICENCIA → solo setup
@@ -44,18 +43,20 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         }
       }
     }
-    // 3. LICENCIA OK + NO HAY USUARIO EN DB → solo onboarding
     else {
       if (!isOnboarding) {
-        target = "/onboarding"
+        // 🛡️ HARDENING: si venías de una ruta protegida de la app (dashboard, etc.)
+        // y de golpe hasUser=false, es una caída de sesión, NO una DB vacía.
+        // Si la DB estuviera realmente vacía, nunca hubieras estado en esa ruta.
+        const isAppRoute = !isSetup && !isOnboarding && !isLogin
+        target = isAppRoute ? "/login" : "/onboarding"
       }
     }
 
     if (target) {
-      setRedirected(true)
       router.replace(target)
     }
-  }, [isLoading, isActive, user, hasUser, pathname, redirected, router, isSetup, isOnboarding, isLogin])
+  }, [isLoading, isActive, user, hasUser, pathname, router, isSetup, isOnboarding, isLogin])
 
   // Spinner
   if (isLoading) {
@@ -67,6 +68,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   // Bloqueos síncronos
+  if (isLoading) {
+    return
+  }
   if (!isActive && !isSetup) return null
   if (user && (isLogin || isSetup || isOnboarding)) return null
   if (!user && hasUser && !isLogin) return null

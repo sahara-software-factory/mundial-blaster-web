@@ -30,6 +30,9 @@ import {
   BarChart3,
   LayoutTemplate,
   History,
+  Type,
+  Globe,
+  ShieldCheck,
 } from "lucide-react"
 import { useLicense } from "@/hooks/useLicense"
 import { useUpgradeModal } from "../../components/UpgradeModalProvider"
@@ -171,14 +174,63 @@ export default function AIPage() {
   const [instruction, setInstruction] = useState("")
   const [generating, setGenerating] = useState(false)
   const [results, setResults] = useState<string[]>([])
-  const [activeTab, setActiveTab] = useState<'generate' | 'prompts' | 'history'>('generate')
+  const [activeTab, setActiveTab] = useState<'generate' | 'prompts' | 'tools' | 'history'>('generate')
   const [previewIndex, setPreviewIndex] = useState<number | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [estCost, setEstCost] = useState("~$0.00")
+
+  const [aiFeatures, setAiFeatures] = useState({
+  ai_audit_enabled: false,
+  ai_title_enabled: false,
+  ai_summary_enabled: false,
+  ai_translate_enabled: false
+})
+
+// Cargar features al montar
+useEffect(() => {
+  if (isDemo) return
+  const loadFeatures = async () => {
+    try {
+      const t = localStorage.getItem('mb_token') || ''
+      const res = await fetch('/api/me/ai-features', {
+        headers: { Authorization: `Bearer ${t}` }
+      })
+      const data = await res.json()
+      if (data.features) setAiFeatures(data.features)
+    } catch {}
+  }
+
+  
+  loadFeatures()
+}, [isDemo])
+
+const toggleFeature = async (feature: string, current: boolean) => {
+  if (isDemo) { toast.info("🎮 Features en modo real"); return }
+  try {
+    const t = localStorage.getItem('mb_token') || ''
+    const res = await fetch('/api/me/ai-features', {
+      method: 'PATCH',
+      headers: { 
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${t}` 
+      },
+      body: JSON.stringify({ feature, enabled: !current })
+    })
+    if (res.ok) {
+      setAiFeatures(prev => ({ ...prev, [feature]: !current }))
+      toast.success(!current ? 'Feature activada' : 'Feature desactivada')
+    }
+  } catch {
+    toast.error('Error actualizando feature')
+  }
+}
   /* ─── Cargar desde localStorage / demo ─── */
-    useEffect(() => {
+  /* ─── Cargar desde localStorage / demo ─── */
+  useEffect(() => {
     if (isDemo) {
       setHasKey(true)
       setSavedKey("sk-demo-wabisend")
+      setEstCost("~$0.42")  // ← Demo: número realista
       const raw = localStorage.getItem("wabisend_ai_prompts")
       if (raw) {
         try { setPrompts(JSON.parse(raw)) } catch {}
@@ -189,6 +241,8 @@ export default function AIPage() {
     const loadConfig = async () => {
       try {
         const t = localStorage.getItem('mb_token') || ''
+        
+        // API key
         const res = await fetch('/api/openai/config', {
           headers: { Authorization: `Bearer ${t}` },
           cache: 'no-store'
@@ -197,6 +251,16 @@ export default function AIPage() {
         if (data.hasKey) {
           setHasKey(true)
           setSavedKey(data.keyPreview || 'sk-...•••')
+        }
+
+        // Estimación de costo
+        const estRes = await fetch('/api/ai/estimate', {
+          headers: { Authorization: `Bearer ${t}` },
+          cache: 'no-store'
+        })
+        const estData = await estRes.json()
+        if (estData.estimatedCost !== undefined) {
+          setEstCost(estData.estimatedCost > 0 ? `~$${estData.estimatedCost.toFixed(2)}` : '~$0.00')
         }
       } catch {}
     }
@@ -443,7 +507,7 @@ export default function AIPage() {
   /* ─── Stats ─── */
   const todayCount = isDemo ? 12 : prompts.length
   const savedCount = isDemo ? 8 : prompts.length
-  const estCost = isDemo ? "~$0.42" : "~$0.00"
+  // const estCost = isDemo ? "~$0.42" : "~$0.00"
 
   /* ═══════════════════════════════════════
      RENDER: UPGRADE (no business)
@@ -537,9 +601,10 @@ export default function AIPage() {
           {/* Tabs */}
           <div className="flex gap-1 p-1 bg-[var(--bg-input)] rounded-xl mb-6 w-fit">
             {[
-              { id: 'generate' as const, label: '✨ Generar', icon: Wand2 },
-              { id: 'prompts' as const, label: '💾 Mis Prompts', icon: Bookmark },
-              { id: 'history' as const, label: '📜 Historial', icon: History },
+              { id: 'generate' as const, label: 'Generar', icon: Wand2 },
+              { id: 'prompts' as const, label: 'Mis Prompts', icon: Bookmark },
+              { id: 'tools' as const, label: 'Implementaciones', icon: Zap }, 
+              { id: 'history' as const, label: 'Historial', icon: History },
             ].map(t => (
               <button
                 key={t.id}
@@ -791,12 +856,12 @@ export default function AIPage() {
                                         >
                                           <Copy className="w-3 h-3" /> Copiar
                                         </button>
-                                        <button
-                                          onClick={() => useInCampaign(result)}
-                                          className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
-                                        >
-                                          <Send className="w-3 h-3" /> Usar en campaña
-                                        </button>
+                                       <button
+  onClick={() => copyToClipboard(result)}
+  className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
+>
+  <Copy className="w-3 h-3" /> Copiar
+</button>
                                         <button
                                           onClick={() => setPreviewIndex(i)}
                                           className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition-colors"
@@ -956,6 +1021,135 @@ export default function AIPage() {
               )}
             </div>
           )}
+
+
+{activeTab === 'tools' && (
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {/* Card: Auditor Anti-Ban */}
+    <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="w-5 h-5 text-emerald-400" />
+          <h3 className="text-sm font-bold text-[var(--text-primary)]">Auditor Anti-Ban</h3>
+        </div>
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">BETA</span>
+      </div>
+      <p className="text-xs text-[var(--text-muted)] mb-3">
+        Analiza tu mensaje antes de enviar y detecta riesgos de ban: mayúsculas excesivas, links en primer mensaje, falta de spintax, etc.
+      </p>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1">
+          <Zap size={10} className="text-amber-400" /> Consume ~150 tokens
+        </span>
+        <button
+  onClick={() => toggleFeature('ai_audit_enabled', aiFeatures.ai_audit_enabled)}
+  className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-colors ${
+    aiFeatures.ai_audit_enabled 
+      ? 'bg-emerald-600 text-white hover:bg-emerald-500' 
+      : 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30'
+  }`}
+>
+  {aiFeatures.ai_audit_enabled ? 'Activado ✓' : 'Activar'}
+</button>
+      </div>
+    </div>
+
+    {/* Card: Traductor */}
+    <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Globe className="w-5 h-5 text-blue-400" />
+          <h3 className="text-sm font-bold text-[var(--text-primary)]">Traductor + Spintax</h3>
+        </div>
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">PRO</span>
+      </div>
+      <p className="text-xs text-[var(--text-muted)] mb-3">
+        Escribí en español y traducí a portugués, inglés o francés manteniendo el spintax y las variables.
+      </p>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1">
+          <Zap size={10} className="text-amber-400" /> Consume ~300 tokens
+        </span>
+       <button
+  onClick={() => toggleFeature('ai_translate_enabled', aiFeatures.ai_translate_enabled)}
+  className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-colors ${
+    aiFeatures.ai_translate_enabled 
+      ? 'bg-emerald-600 text-white hover:bg-emerald-500' 
+      : 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30'
+  }`}
+>
+  {aiFeatures.ai_translate_enabled ? 'Activado ✓' : 'Activar'}
+</button>
+      </div>
+    </div>
+
+    {/* Card: Generador de Títulos */}
+    <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Type className="w-5 h-5 text-purple-400" />
+          <h3 className="text-sm font-bold text-[var(--text-primary)]">Generador de Títulos</h3>
+        </div>
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">AUTO</span>
+      </div>
+      <p className="text-xs text-[var(--text-muted)] mb-3">
+        Genera automáticamente nombres de campaña basados en el mensaje y la fecha. Ej: "🔥 Flash Sale Junio 2026".
+      </p>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1">
+          <Zap size={10} className="text-amber-400" /> Consume ~50 tokens
+        </span>
+        <button
+  onClick={() => toggleFeature('ai_title_enabled', aiFeatures.ai_title_enabled)}
+  className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-colors ${
+    aiFeatures.ai_title_enabled 
+      ? 'bg-emerald-600 text-white hover:bg-emerald-500' 
+      : 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30'
+  }`}
+>
+  {aiFeatures.ai_title_enabled ? 'Activado ✓' : 'Activar'}
+</button>
+      </div>
+    </div>
+
+    {/* Card: Resumen Post-Campaña */}
+    <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="w-5 h-5 text-cyan-400" />
+          <h3 className="text-sm font-bold text-[var(--text-primary)]">Resumen Post-Campaña</h3>
+        </div>
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">AUTO</span>
+      </div>
+      <p className="text-xs text-[var(--text-muted)] mb-3">
+        Al finalizar una campaña, Caleb genera un resumen ejecutivo con métricas, recomendaciones y alertas.
+      </p>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1">
+          <Zap size={10} className="text-amber-400" /> Consume ~200 tokens
+        </span>
+        <button
+  onClick={() => toggleFeature('ai_summary_enabled', aiFeatures.ai_summary_enabled)}
+  className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-colors ${
+    aiFeatures.ai_summary_enabled 
+      ? 'bg-emerald-600 text-white hover:bg-emerald-500' 
+      : 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30'
+  }`}
+>
+  {aiFeatures.ai_summary_enabled ? 'Activado ✓' : 'Activar'}
+</button>
+      </div>
+    </div>
+
+    {/* Banner tokens */}
+    <div className="md:col-span-2 p-4 rounded-xl bg-amber-500/5 border border-amber-500/10 flex items-center gap-3">
+      <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+      <p className="text-xs text-amber-200/80">
+        Todas las funciones de IA consumen tokens de tu API key de OpenAI. WabiSend no cobra por el uso de IA. Monitoreá tu consumo desde el dashboard de OpenAI.
+      </p>
+    </div>
+  </div>
+)}
 
           {/* ═══ TAB: HISTORIAL (demo / placeholder) ═══ */}
           {activeTab === 'history' && (

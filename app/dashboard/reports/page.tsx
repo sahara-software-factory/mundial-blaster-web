@@ -1041,9 +1041,9 @@ const globalReplies = useMemo<any[]>(() => {
                         logsForThisCampaign.filter((l: any) => l.status === 'skipped_blacklist').map((l: any) => l.contact_phone)
                       )
 
-                      const pureDelivered = new Set([...phonesWithSuccess].filter(p => !phonesWithFailure.has(p))).size
-                      const recoveredCount = new Set([...phonesWithFailure].filter(p => phonesWithSuccess.has(p))).size
-                      const pureFailed = new Set([...phonesWithFailure].filter(p => !phonesWithSuccess.has(p))).size
+                      const pureDelivered = new Set(Array.from(phonesWithSuccess).filter(p => !phonesWithFailure.has(p))).size
+                      const recoveredCount = new Set(Array.from(phonesWithFailure).filter(p => phonesWithSuccess.has(p))).size
+                      const pureFailed = new Set(Array.from(phonesWithFailure).filter(p => !phonesWithSuccess.has(p))).size
                       const uniqueDelivered = phonesWithSuccess.size
 
                       // Barra de progreso: contactos únicos procesados (tocados al menos una vez)

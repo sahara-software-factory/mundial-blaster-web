@@ -10,17 +10,19 @@ const SOCKET_URL = typeof window !== 'undefined'
 
 export function getSocket(): Socket {
   if (!globalSocket && SOCKET_URL) {
+    const token = typeof window !== 'undefined' 
+      ? (localStorage.getItem('mb_token') || localStorage.getItem('wabisend_token') || '') 
+      : ''
     globalSocket = io(SOCKET_URL, {
       transports: ["websocket", "polling"],
       autoConnect: true,
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 2000,
+      auth: { token }, // ← 🔒 Token enviado en handshake
     })
-
     console.log("🟢 WabiSend socket creado")
   }
-
   return globalSocket!
 }
 

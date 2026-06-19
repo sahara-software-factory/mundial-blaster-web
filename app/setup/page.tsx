@@ -440,17 +440,7 @@ export default function SetupWizard() {
           style={{ position: "relative", zIndex: 10, marginBottom: 28, textAlign: "center" }}
         >
           <div style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 10,
-              background: "linear-gradient(135deg, #00D4AA, #00A8C8)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: "0 6px 20px rgba(0,212,170,0.25)",
-            }}>
-              <Zap size={20} color="white" strokeWidth={2.5} />
-            </div>
-            <span style={{ fontSize: 22, fontWeight: 800, color: "#EEF2FF", letterSpacing: "-0.02em" }}>
-              Wabi<span style={{ color: "#00D4AA" }}>Send</span>
-            </span>
+            <img src="/images/logo_light.png" width={"400px"} alt="" />
           </div>
           <p style={{ color: "#3D5060", fontSize: 13, marginTop: 6 }}>Configuración inicial de tu instancia</p>
         </motion.div>

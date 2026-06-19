@@ -34,7 +34,9 @@ import {
     MessageCircle,
     Phone,
     Copy,
-    Ban
+    Ban,
+    Pencil,
+    AlertTriangle
 } from "lucide-react"
 import { toast } from "sonner"
 import { ConfirmDialog } from "../../components/ui/confirm-dialog"
@@ -160,7 +162,7 @@ const [campaignLogsMap, setCampaignLogsMap] = useState<Record<string, any[]>>(()
     // ========== DEMO: Métricas infladas + filtro por período ==========
     if (isDemo) {
       const allCampaigns: Campaign[] = [
-        {
+                {
           id: "demo-camp-1",
           name: "🔥 Black Friday 2026",
           line_id: "demo-line-1",
@@ -171,6 +173,9 @@ const [campaignLogsMap, setCampaignLogsMap] = useState<Record<string, any[]>>(()
           status: "completed",
           created_at: "2026-05-28T10:00:00Z",
           finished_at: "2026-05-28T11:30:00Z",
+          summary: "La campaña reciente logró una tasa de entrega del 99.8% con 4995 envíos exitosos. Se recomienda aumentar la cantidad de envíos para evaluar la respuesta del público y optimizar el contenido.",
+          proxy_node: "Frankfurt",
+          proxy_ip: "85.214.56.112",
         },
         {
           id: "demo-camp-2",
@@ -197,6 +202,7 @@ const [campaignLogsMap, setCampaignLogsMap] = useState<Record<string, any[]>>(()
           finished_at: "2026-05-22T09:45:00Z",
         },
         {
+                  
           id: "demo-camp-4",
           name: "📢 Reactivación Clientes",
           line_id: "demo-line-3",
@@ -206,6 +212,8 @@ const [campaignLogsMap, setCampaignLogsMap] = useState<Record<string, any[]>>(()
           failed: 3,
           status: "running",
           created_at: "2026-05-30T08:00:00Z",
+          proxy_node: "Londres",
+          proxy_ip: "51.104.92.11",
         },
         {
           id: "demo-camp-5",
@@ -305,16 +313,52 @@ const [campaignLogsMap, setCampaignLogsMap] = useState<Record<string, any[]>>(()
         if (c.sent > 0) {
           const logs: any[] = []
           const count = Math.min(c.sent, 25)
-          for (let i = 0; i < count; i++) {
-            logs.push({
-  contact_phone: `54911${String(30000000 + i).slice(-8)}`,
-  status: 'sent',
-  delayMs: Math.floor(Math.random() * 12000) + 3000,
-  humanMode: i % 4 === 0,
-  has_reply: i % 7 === 0,
-  replied_at: i % 7 === 0 ? new Date().toISOString() : null,
-  contact_name: i % 3 === 0 ? `Contacto Demo ${i}` : null, // ← nombre demo
-})
+                    for (let i = 0; i < count; i++) {
+            const phone = `54911${String(30000000 + i).slice(-8)}`
+            // 1 de cada 15 es blacklist
+            const isBlacklist = i % 15 === 0
+            // 1 de cada 10 es fallido (y luego reintentado exitoso para el recovered)
+            const isFailed = i % 10 === 0
+            
+            if (isBlacklist) {
+              logs.push({
+                contact_phone: phone,
+                status: 'skipped_blacklist',
+                delayMs: 0,
+                humanMode: false,
+                has_reply: false,
+                contact_name: null,
+              })
+            } else if (isFailed) {
+              // Fallido primero
+              logs.push({
+                contact_phone: phone,
+                status: 'failed',
+                delayMs: 0,
+                humanMode: false,
+                has_reply: false,
+                contact_name: null,
+              })
+              // Y reintentado exitoso (recovered)
+              logs.push({
+                contact_phone: phone,
+                status: 'sent',
+                delayMs: Math.floor(Math.random() * 8000) + 2000,
+                humanMode: false,
+                has_reply: false,
+                contact_name: null,
+              })
+            } else {
+              logs.push({
+                contact_phone: phone,
+                status: 'sent',
+                delayMs: Math.floor(Math.random() * 12000) + 3000,
+                humanMode: i % 4 === 0,
+                has_reply: i % 7 === 0,
+                replied_at: i % 7 === 0 ? new Date().toISOString() : null,
+                contact_name: i % 3 === 0 ? `Contacto Demo ${i}` : null,
+              })
+            }
           }
           for (let i = 0; i < Math.min(c.failed, 3); i++) {
             logs.push({
@@ -1073,14 +1117,26 @@ const globalReplies = useMemo<any[]>(() => {
                 <Globe size={10} /> Enviada desde {campaign.proxy_node} ({campaign.proxy_ip})
               </p>
             )}
-            {campaign.summary && (
-  
-     <p  title="Tiene resumen de IA" className="text-[10px] text-cyan-400 mt-1 flex items-center gap-1">
-                <Sparkles size={12} /> Tiene resumen IA
+                        {campaign.summary && (
+              <p title="Resumen Caleb AI" className="text-[10px] text-cyan-400 mt-1 flex items-center gap-1">
+                <Sparkles size={12} /> Resumen Caleb
               </p>
-    
- 
-)}
+            )}
+            {recoveredCount > 0 && (
+              <p className="text-[10px] text-amber-400 mt-0.5 flex items-center gap-1">
+                <RotateCcw size={10} /> {recoveredCount} recuperados
+              </p>
+            )}
+            {phonesWithBlacklist.size > 0 && (
+              <p className="text-[10px] text-purple-400 mt-0.5 flex items-center gap-1">
+                <ShieldBan size={10} /> {phonesWithBlacklist.size} saltados
+              </p>
+            )}
+            {/* {campaign.human_mode && (
+              <p className="text-[10px] text-blue-400 mt-0.5 flex items-center gap-1">
+                <Pencil size={10} /> Modo humano
+              </p>
+            )} */}
             {campaign.scheduled?.execute_at && campaign.status === 'pending' && campaign.scheduled?.status === 'pending' && (
   <p className="text-[10px] text-purple-400 mt-0.5 flex items-center gap-1">
     <Calendar size={10} /> 
@@ -1128,22 +1184,31 @@ const globalReplies = useMemo<any[]>(() => {
                                     }`}
                                   />
                                 </div>
-                                <div className="flex items-center gap-2 mt-1">
+                                                               <div className="flex items-center gap-2 mt-1">
                                   {pureDelivered > 0 && (
-                                    <span className="text-[10px] text-emerald-400">{pureDelivered} ✓</span>
+                                    <span className="text-[10px] text-emerald-400 flex items-center gap-1">
+                                      <CheckCircle2 size={10} /> {pureDelivered}
+                                    </span>
                                   )}
-                                 
-                                                                    {phonesWithFailure.size > 0 && (
-                                    <span className="text-[10px] text-red-400">{phonesWithFailure.size} ✕</span>
+                                  {phonesWithFailure.size > 0 && (
+                                    <span className="text-[10px] text-red-400 flex items-center gap-1">
+                                      <XCircle size={10} /> {phonesWithFailure.size}
+                                    </span>
                                   )}
                                   {recoveredCount > 0 && (
-                                    <span className="text-[10px] text-amber-400">{recoveredCount} ↻</span>
+                                    <span className="text-[10px] text-amber-400 flex items-center gap-1">
+                                      <RotateCcw size={10} /> {recoveredCount}
+                                    </span>
                                   )}
                                   {phonesWithBlacklist.size > 0 && (
-                                    <span className="text-[10px] text-purple-400">{phonesWithBlacklist.size} ⛔</span>
+                                    <span className="text-[10px] text-purple-400 flex items-center gap-1">
+                                      <ShieldBan size={10} /> {phonesWithBlacklist.size}
+                                    </span>
                                   )}
                                   {uniqueDelivered > 0 && (
-                                    <span className="text-[10px] text-blue-400">{uniqueDelivered} únicos</span>
+                                    <span className="text-[10px] text-blue-400 flex items-center gap-1">
+                                      <Users size={10} /> {uniqueDelivered}
+                                    </span>
                                   )}
                                 </div>
                               </div>
@@ -1425,7 +1490,8 @@ const globalReplies = useMemo<any[]>(() => {
                       <p className="text-2xl font-bold text-emerald-400">{pureDelivered}</p>
                       <p className="text-xs text-emerald-400/70 tracking-wider">Contactos alcanzados</p>
                     </div>
-                    <div className="text-center p-2 bg-amber-500/10 rounded-xl border border-amber-500/20">
+                     <div className="text-center p-2 bg-amber-500/10 rounded-xl border border-amber-500/20">
+                      {/* <RotateCcw size={16} className="mx-auto text-amber-400 mb-1" /> */}
                       <p className="text-2xl font-bold text-amber-400">{recoveredCount}</p>
                       <p className="text-xs text-amber-400/70 tracking-wider">Recuperados</p>
                     </div>
@@ -1513,30 +1579,33 @@ const globalReplies = useMemo<any[]>(() => {
                           const hadSuccess = isFailed && phonesWithSuccess.has(log.contact_phone)
                           
                           return (
-                            <div key={i} className={`text-xs flex items-center gap-2 ${
+                                                        <div key={i} className={`text-xs flex items-center gap-2 ${
                               isSent ? 'text-emerald-400' : isBlacklist ? 'text-purple-400' : 'text-red-400'
                             }`}>
                               <span className="text-[var(--text-muted)]">{log.contact_phone}</span>
-                              <span>
-                                {isSent ? '✓ Entregado' : isBlacklist ? '⛔ Blacklist' : '✕ Fallido'}
+                              <span className="flex items-center gap-1">
+                                {isSent ? <CheckCircle2 size={10} /> : isBlacklist ? <ShieldBan size={10} /> : <XCircle size={10} />}
+                                {isSent ? 'Entregado' : isBlacklist ? 'Blacklist' : 'Fallido'}
                               </span>
                               {hadFailure && (
-                                <span className="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
-                                  ⚠ reintentado
+                                <span className="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 flex items-center gap-1">
+                                  <AlertTriangle size={10} /> reintentado
                                 </span>
                               )}
                               {hadSuccess && (
-                                <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                                  ↻ luego entregado
+                                <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
+                                  <RotateCcw size={10} /> luego entregado
                                 </span>
                               )}
                               {log.delayMs > 0 && isSent && (
-                                <span className="text-[10px] text-amber-400 ml-auto">
-                                  +{Math.round(log.delayMs / 1000)}s
+                                <span className="text-[10px] text-amber-400 ml-auto flex items-center gap-1">
+                                  <Clock size={10} /> +{Math.round(log.delayMs / 1000)}s
                                 </span>
                               )}
                               {log.humanMode && isSent && (
-                                <span className="text-[10px] text-purple-400">🖊️ humano</span>
+                                <span className="text-[10px] text-purple-400 flex items-center gap-1">
+                                  <Pencil size={10} /> humano
+                                </span>
                               )}
                             </div>
                           )

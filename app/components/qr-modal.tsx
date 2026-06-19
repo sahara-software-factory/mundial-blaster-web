@@ -1,7 +1,21 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { io } from "socket.io-client"
+import { 
+  Smartphone, 
+  QrCode, 
+  Loader2, 
+  CheckCircle2, 
+  AlertTriangle, 
+  RefreshCw, 
+  Wifi, 
+  ShieldCheck, 
+  ScanLine, 
+  X,
+  ChevronRight,
+  Signal
+} from "lucide-react"
 
 interface LineaWhatsApp {
   id: string
@@ -11,6 +25,13 @@ interface LineaWhatsApp {
 }
 
 type UIStatus = "IDLE" | "CONNECTING" | "PENDING" | "FINISHING" | "CONECTADA" | "ERROR"
+
+const CONNECTING_STEPS = [
+  "Conectando con WhatsApp...",
+  "Recibiendo información del servidor...",
+  "Generando sesión segura...",
+  "Solicitando código QR...",
+]
 
 export function QRModal({
   open,
@@ -24,14 +45,25 @@ export function QRModal({
   const [uiStatus, setUiStatus] = useState<UIStatus>("IDLE")
   const [qr, setQr] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [connectStep, setConnectStep] = useState(0)
 
   useEffect(() => {
     if (open) {
       setUiStatus("IDLE")
       setQr(null)
       setError(null)
+      setConnectStep(0)
     }
   }, [open])
+
+  // Rotar textos durante CONNECTING
+  useEffect(() => {
+    if (uiStatus !== "CONNECTING") return
+    const interval = setInterval(() => {
+      setConnectStep(prev => (prev + 1) % CONNECTING_STEPS.length)
+    }, 1800)
+    return () => clearInterval(interval)
+  }, [uiStatus])
 
   useEffect(() => {
     if (!open || !line) return
@@ -42,9 +74,13 @@ export function QRModal({
       return
     }
 
+    const token = typeof window !== 'undefined' 
+      ? (localStorage.getItem('mb_token') || '') 
+      : ''
+    
     const socket = io(socketUrl, {
-      transports: ["websocket"],
-      withCredentials: true,
+      transports: ["websocket", "polling"],
+      auth: { token },
     })
 
     socket.on("qr", (payload) => {
@@ -65,12 +101,12 @@ export function QRModal({
           setTimeout(() => {
             onOpenChange(false)
             window.location.reload()
-          }, 2000)
-        }, 1500)
+          }, 2500)
+        }, 2000)
       } else if (payload.status === "QR_EXPIRED") {
         setUiStatus("ERROR")
         setQr(null)
-        setError("El código QR expiró. Reintentá.")
+        setError("El código QR expiró. Generá uno nuevo.")
       } else if (payload.status === "DESCONECTADA" || payload.status === "LOGGED_OUT") {
         setUiStatus("IDLE")
         setQr(null)
@@ -82,11 +118,12 @@ export function QRModal({
     return () => { socket.disconnect() }
   }, [open, line, onOpenChange])
 
-  const startConnection = async () => {
+  const startConnection = useCallback(async () => {
     if (!line) return
     setUiStatus("CONNECTING")
     setError(null)
     setQr(null)
+    setConnectStep(0)
 
     try {
       const token = localStorage.getItem('mb_token') || ''
@@ -107,96 +144,205 @@ export function QRModal({
       setUiStatus("ERROR")
       setError(err.message || "No se pudo contactar al servidor")
     }
-  }
+  }, [line])
 
   if (!open || !line) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-3xl shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
+      <div className="relative w-full max-w-lg bg-[#0f172a] border border-white/[0.08] rounded-3xl shadow-2xl shadow-black/50 overflow-hidden">
         
+        {/* Ambient glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-48 h-48 bg-emerald-500/5 rounded-full blur-[80px] pointer-events-none" />
+
         {/* Header */}
-        <div className="p-6 border-b border-white/10 bg-white/5 flex justify-between items-center">
-          <div>
-            <h2 className="text-xl font-bold text-[var(--text-primary)]">Vincular Dispositivo</h2>
-            <p className="text-xs text-[var(--text-secondary)] mt-1">Línea: {line.phone}</p>
+        <div className="relative p-6 border-b border-white/[0.06] flex justify-between items-start">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-blue-400 animate-pulse" />
+              <h2 className="text-lg font-bold text-white tracking-tight">Vincular WhatsApp</h2>
+            </div>
+            <p className="text-sm text-slate-400 font-medium">
+              {line.nombre} · <span className="text-slate-500">{line.phone}</span>
+            </p>
           </div>
-          <button onClick={() => onOpenChange(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xl">✕</button>
+          <button 
+            onClick={() => onOpenChange(false)} 
+            className="p-2 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-all duration-200"
+          >
+            <X size={18} />
+          </button>
         </div>
 
-        <div className="p-8 flex flex-col items-center justify-center min-h-[320px]">
+        <div className="relative p-8 flex flex-col items-center justify-center min-h-[380px]">
           
-          {/* IDLE / ERROR */}
-          {(uiStatus === "IDLE" || uiStatus === "ERROR") && (
-            <div className="text-center space-y-6">
+          {/* ========== IDLE ========== */}
+          {uiStatus === "IDLE" && (
+            <div className="flex flex-col items-center text-center space-y-8 animate-in slide-in-from-bottom-4 duration-500">
               <div className="relative">
-                <div className="absolute inset-0 bg-blue-500/20 blur-xl rounded-full" />
-                <div className="relative h-24 w-24 bg-slate-800 rounded-full flex items-center justify-center border border-white/10 mx-auto text-4xl">
-                  {error ? "⚠️" : "📱"}
+                <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-2xl animate-pulse" />
+                <div className="relative h-28 w-28 bg-[#1e293b] rounded-2xl flex items-center justify-center border border-white/[0.08] shadow-xl">
+                  <Smartphone size={48} className="text-blue-400" strokeWidth={1.5} />
+                </div>
+                <div className="absolute -bottom-2 -right-2 h-10 w-10 bg-[#0f172a] rounded-xl flex items-center justify-center border border-white/[0.08] shadow-lg">
+                  <Wifi size={18} className="text-emerald-400" />
                 </div>
               </div>
-              <div className="space-y-2">
-                <h3 className="text-lg font-semibold text-[var(--text-primary)]">{error ? "Algo salió mal" : "Listo para conectar"}</h3>
-                <p className="text-sm text-[var(--text-secondary)] max-w-[250px] mx-auto">
-                  {error || "Abrí WhatsApp en tu celular y tenelo listo para escanear."}
+              
+              <div className="space-y-3 max-w-[280px]">
+                <h3 className="text-xl font-bold text-white">Listo para conectar</h3>
+                <p className="text-sm text-slate-400 leading-relaxed">
+                  Abrí WhatsApp en tu celular y mantenelo cerca. La conexión es segura y encriptada.
                 </p>
               </div>
+
               <button 
                 onClick={startConnection} 
-                className="bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] rounded-xl px-8 py-3 font-medium shadow-lg transition-all hover:scale-105 mx-auto"
+                className="group relative flex items-center gap-3 bg-blue-600 hover:bg-blue-500 text-white px-8 py-3.5 rounded-2xl font-semibold shadow-lg shadow-blue-500/25 transition-all duration-300 hover:scale-[1.02] hover:shadow-blue-500/40 active:scale-[0.98]"
               >
-                {error ? "🔄 Reintentar" : "📡 Generar Código QR"}
+                <ScanLine size={20} className="transition-transform group-hover:rotate-12" />
+                Generar Código QR
+                <ChevronRight size={16} className="opacity-60 group-hover:translate-x-0.5 transition-transform" />
               </button>
             </div>
           )}
 
-          {/* CONNECTING */}
+          {/* ========== CONNECTING ========== */}
           {uiStatus === "CONNECTING" && (
-            <div className="flex flex-col items-center gap-4">
-              <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-slate-300">Contactando servidor...</p>
+            <div className="flex flex-col items-center text-center space-y-8 animate-in fade-in duration-300">
+              <div className="relative h-28 w-28">
+                <div className="absolute inset-0 border-2 border-blue-500/20 rounded-full" />
+                <div className="absolute inset-0 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                <div className="absolute inset-0 m-auto flex items-center justify-center">
+                  <Loader2 size={32} className="text-blue-400 animate-spin" />
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold text-white min-h-[28px]">
+                  {CONNECTING_STEPS[connectStep]}
+                </h3>
+                <div className="flex items-center justify-center gap-1.5">
+                  {[0, 1, 2, 3].map(i => (
+                    <div 
+                      key={i} 
+                      className={`h-1.5 rounded-full transition-all duration-500 ${
+                        i <= connectStep ? 'w-6 bg-blue-400' : 'w-1.5 bg-slate-700'
+                      }`} 
+                    />
+                  ))}
+                </div>
+                <p className="text-xs text-slate-500">Esto puede tardar unos segundos</p>
+              </div>
             </div>
           )}
 
-          {/* PENDING QR */}
+          {/* ========== PENDING QR ========== */}
           {uiStatus === "PENDING" && qr && (
-            <div className="text-center space-y-4">
-              <div className="relative p-2 bg-white rounded-xl shadow-2xl mx-auto w-fit">
-                <img src={qr} alt="QR WhatsApp" className="h-64 w-64 rounded-lg" />
+            <div className="flex flex-col items-center text-center space-y-6 animate-in zoom-in-95 duration-300">
+              <div className="relative p-4 bg-white rounded-2xl shadow-2xl shadow-white/10">
+                <div className="absolute -inset-1 bg-blue-500/20 rounded-3xl blur-lg animate-pulse" />
+                <img 
+                  src={qr} 
+                  alt="QR WhatsApp" 
+                  className="relative h-56 w-56 rounded-xl" 
+                />
               </div>
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-[var(--text-primary)]">📷 Escanea con tu celular</p>
-                <p className="text-xs text-[var(--text-muted)]">WhatsApp ⋮ Dispositivos Vinculados</p>
-              </div>
-            </div>
-          )}
-
-          {/* FINISHING */}
-          {uiStatus === "FINISHING" && (
-            <div className="text-center space-y-4">
-              <div className="relative h-24 w-24 mx-auto">
-                <div className="absolute inset-0 border-4 border-emerald-500/30 rounded-full" />
-                <div className="absolute inset-0 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                <span className="absolute inset-0 m-auto flex items-center justify-center text-3xl">📱</span>
-              </div>
-              <h3 className="text-xl font-bold text-[var(--text-primary)]">Verificando...</h3>
-              <p className="text-sm text-[var(--text-secondary)]">Estableciendo conexión segura</p>
-            </div>
-          )}
-
-          {/* SUCCESS */}
-          {uiStatus === "CONECTADA" && (
-            <div className="text-center space-y-6">
-              <div className="h-28 w-28 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto ring-4 ring-emerald-500/10 text-5xl">
-                ✅
-              </div>
+              
               <div className="space-y-2">
-                <h3 className="text-2xl font-bold text-[var(--text-primary)]">¡Conectado!</h3>
-                <p className="text-[var(--text-secondary)]">Tu línea está lista para enviar.</p>
+                <div className="flex items-center justify-center gap-2 text-emerald-400">
+                  <Signal size={14} className="animate-pulse" />
+                  <span className="text-xs font-bold uppercase tracking-wider">Esperando escaneo</span>
+                </div>
+                <h3 className="text-lg font-bold text-white">Escaneá con tu celular</h3>
+                <p className="text-sm text-slate-400">
+                  WhatsApp <ChevronRight size={12} className="inline" /> Menú <ChevronRight size={12} className="inline" /> Dispositivos vinculados
+                </p>
               </div>
             </div>
           )}
 
+          {/* ========== FINISHING ========== */}
+          {uiStatus === "FINISHING" && (
+            <div className="flex flex-col items-center text-center space-y-8 animate-in fade-in duration-300">
+              <div className="relative h-28 w-28">
+                <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl animate-pulse" />
+                <div className="relative h-full w-full bg-[#1e293b] rounded-full flex items-center justify-center border border-emerald-500/30 shadow-xl">
+                  <ShieldCheck size={48} className="text-emerald-400" strokeWidth={1.5} />
+                </div>
+                <div className="absolute inset-0 border-2 border-emerald-500/30 rounded-full animate-[spin_3s_linear_infinite]" />
+              </div>
+              
+              <div className="space-y-3">
+                <h3 className="text-xl font-bold text-white">Verificando sesión...</h3>
+                <p className="text-sm text-slate-400">Estableciendo conexión segura con Meta</p>
+                <div className="flex items-center justify-center gap-2">
+                  <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========== CONECTADA ========== */}
+          {uiStatus === "CONECTADA" && (
+            <div className="flex flex-col items-center text-center space-y-8 animate-in zoom-in-95 duration-500">
+              <div className="relative">
+                <div className="absolute inset-0 bg-emerald-500/30 rounded-full blur-2xl animate-pulse" />
+                <div className="relative h-28 w-28 bg-emerald-500/10 rounded-full flex items-center justify-center border-2 border-emerald-500/40 shadow-2xl">
+                  <CheckCircle2 size={56} className="text-emerald-400" strokeWidth={1.5} />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <h3 className="text-2xl font-bold text-white">¡Conectado!</h3>
+                <p className="text-sm text-slate-400">Tu línea está activa y lista para enviar</p>
+              </div>
+              
+              <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
+                <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-xs font-medium text-emerald-400">Sesión activa</span>
+              </div>
+            </div>
+          )}
+
+          {/* ========== ERROR ========== */}
+          {uiStatus === "ERROR" && (
+            <div className="flex flex-col items-center text-center space-y-8 animate-in shake duration-300">
+              <div className="relative">
+                <div className="absolute inset-0 bg-red-500/20 rounded-full blur-xl" />
+                <div className="relative h-28 w-28 bg-[#1e293b] rounded-2xl flex items-center justify-center border border-red-500/20 shadow-xl">
+                  <AlertTriangle size={48} className="text-red-400" strokeWidth={1.5} />
+                </div>
+              </div>
+              
+              <div className="space-y-3 max-w-[280px]">
+                <h3 className="text-xl font-bold text-white">Algo salió mal</h3>
+                <p className="text-sm text-red-400/80 leading-relaxed">
+                  {error || "No se pudo establecer la conexión. Intentá de nuevo."}
+                </p>
+              </div>
+
+              <button 
+                onClick={startConnection} 
+                className="group flex items-center gap-2 bg-[#1e293b] hover:bg-red-500/10 border border-white/[0.08] hover:border-red-500/30 text-white px-6 py-3 rounded-2xl font-medium transition-all duration-300 hover:scale-[1.02]"
+              >
+                <RefreshCw size={18} className="transition-transform group-hover:rotate-180 duration-500" />
+                Reintentar conexión
+              </button>
+            </div>
+          )}
+
+        </div>
+
+        {/* Footer hint */}
+        <div className="relative p-4 border-t border-white/[0.06] bg-white/[0.02]">
+          <div className="flex items-center justify-center gap-2 text-[11px] text-slate-500">
+            <ShieldCheck size={12} />
+            <span>Conexión encriptada de extremo a extremo</span>
+          </div>
         </div>
       </div>
     </div>

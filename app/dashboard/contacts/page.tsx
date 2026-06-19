@@ -349,6 +349,59 @@ const handleBulkTag = async (tagName: string) => {
   }
 }
 
+  const exportSelectedContacts = () => {
+    if (isDemo) {
+      toast.info("🎮 Exportar contactos disponible en modo real")
+      return
+    }
+    if (selectedIds.size === 0) {
+      toast.error("Seleccioná al menos un contacto para exportar")
+      return
+    }
+
+    const selected = contacts.filter(c => selectedIds.has(c.id))
+    if (selected.length === 0) return
+
+    // Headers
+    const headers = ["Nombre", "Teléfono", "Email", "Empresa", "Tags", "Notas"]
+
+    // Rows
+    const rows = selected.map(c => [
+      c.name || "",
+      c.phone || "",
+      c.email || "",
+      c.company || "",
+      c.tags?.join(";") || "",
+      c.notes || ""
+    ])
+
+    // Escape CSV: si tiene comas o comillas, envolver en comillas
+    const escapeCSV = (val: string) => {
+      const str = String(val || "")
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`
+      }
+      return str
+    }
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.map(escapeCSV).join(","))
+    ].join("\n")
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `wabisend_contactos_${selected.length}_${new Date().toISOString().split("T")[0]}.csv`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+
+    toast.success(`${selected.length} contactos exportados`)
+  }
+
   const handleCSVImport = async (csvText: string) => {
       if (isDemo) { toast.info("🎮 Eliminar contactos disponible en modo real"); return }
     setIsImporting(true)
@@ -525,42 +578,112 @@ const handleContactFile = (file: File) => {
 }
 
 const confirmImportContacts = async () => {
-    if (isDemo) { toast.info("🎮 Eliminar contactos disponible en modo real"); return }
+  if (isDemo) { toast.info("🎮 Importar contactos disponible en modo real"); return }
   if (pendingImportData.length === 0) return
   
   setImportFileLoading(true)
-  let created = 0
-  let errors = 0
   
-  for (const item of pendingImportData) {
-    try {
-      await fetch("/api/contacts", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json", 
-          Authorization: `Bearer ${token}` 
-        },
-        body: JSON.stringify({
-          name: item.name,
-          phone: item.phone,
-          email: item.email,
-          company: item.company,
-          tags: item.tags,
-          source: 'csv'
-        }),
+  try {
+    // 1. EXTRAER TODOS LOS TAGS ÚNICOS del CSV
+    const allTagsFromCSV = new Set<string>()
+    pendingImportData.forEach((item: any) => {
+      item.tags?.forEach((tag: string) => {
+        if (tag.trim()) allTagsFromCSV.add(tag.trim())
       })
-      created++
-    } catch {
-      errors++
+    })
+    
+    // 2. OBTENER TAGS EXISTENTES
+    const tagsRes = await fetch("/api/tags", {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store"
+    })
+    const existingTagsData = await tagsRes.json()
+    const existingTags: TagItem[] = existingTagsData.tags || []
+    const existingTagNames = new Set(existingTags.map((t: TagItem) => t.name.toLowerCase()))
+    
+    // 3. CREAR TAGS NUEVOS que no existan
+    const tagsToCreate = Array.from(allTagsFromCSV).filter(
+      tag => !existingTagNames.has(tag.toLowerCase())
+    )
+    
+    if (tagsToCreate.length > 0) {
+      console.log('🏷️ Creando tags nuevos:', tagsToCreate)
+      await Promise.all(tagsToCreate.map(tagName => 
+        fetch("/api/tags", {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json", 
+            Authorization: `Bearer ${token}` 
+          },
+          body: JSON.stringify({ 
+            name: tagName, 
+            color: "#3B82F6" // color default
+          }),
+        })
+      ))
+      toast.success(`${tagsToCreate.length} etiquetas nuevas creadas`)
     }
+    
+    // 4. REFRESCAR TAGS para tener los IDs actualizados
+    const freshTagsRes = await fetch("/api/tags", {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store"
+    })
+    const freshData = await freshTagsRes.json()
+    const freshTags: TagItem[] = freshData.tags || []
+    
+    // 5. IMPORTAR CONTACTOS con tags validados
+    let created = 0
+    let errors = 0
+    
+    for (const item of pendingImportData) {
+      try {
+        // Normalizar tags: asegurar que existan en el sistema
+        const normalizedTags = item.tags
+          ?.map((t: string) => t.trim())
+          .filter((t: string) => t && freshTags.some((ft: TagItem) => ft.name.toLowerCase() === t.toLowerCase()))
+          || []
+        
+        const res = await fetch("/api/contacts", {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json", 
+            Authorization: `Bearer ${token}` 
+          },
+          body: JSON.stringify({
+            name: item.name,
+            phone: item.phone,
+            email: item.email,
+            company: item.company,
+            tags: normalizedTags,
+            source: 'csv'
+          }),
+        })
+        if (res.ok) created++
+        else errors++
+      } catch {
+        errors++
+      }
+    }
+    
+    setImportFileLoading(false)
+    setShowImport(false)
+    setImportPreview([])
+    setPendingImportData([])
+    
+    toast.success(
+      `Importados: ${created} contactos${errors > 0 ? `, ${errors} errores` : ''}` +
+      `${tagsToCreate.length > 0 ? ` · ${tagsToCreate.length} tags creados` : ''}`
+    )
+    
+    fetchContacts()
+    fetchTags() // ← refrescar tags para que aparezcan en el sidebar
+    
+  } catch (e) {
+    console.error('Import error:', e)
+    setImportFileLoading(false)
+    toast.error("Error en la importación")
   }
-  
-  setImportFileLoading(false)
-  setShowImport(false)
-  setImportPreview([])
-  setPendingImportData([])
-  toast.success(`Importados: ${created} contactos${errors > 0 ? `, ${errors} errores` : ''}`)
-  fetchContacts()
 }
 
 const onContactDrag = (e: React.DragEvent) => {
@@ -678,36 +801,51 @@ const displayedContacts = useMemo(() => {
 </div>
           </div>
 
-          {selectedIds.size > 0 && (
-  <motion.div 
-    initial={{ opacity: 0, y: -10 }}
-    animate={{ opacity: 1, y: 0 }}
-    className="flex items-center gap-3 mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl"
-  >
-    <span className="text-sm text-blue-400 font-medium">{selectedIds.size} seleccionados</span>
-    
-    <button 
-      onClick={() => setShowBulkTagModal(true)} 
-      className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+            {/* Barra de acciones bulk */}
+  {selectedIds.size > 0 && (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex items-center gap-3 mb-4 px-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-xl"
     >
-      <Tag size={14} /> Etiquetar
-    </button>
-    
-    <button 
-      onClick={deleteSelected} 
-      className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-red-500/10 text-red-400 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition-colors"
-    >
-      <Trash2 size={14} /> Eliminar
-    </button>
-    
-    <button 
-      onClick={() => setSelectedIds(new Set())} 
-      className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-    >
-      Cancelar
-    </button>
-  </motion.div>
-)}
+      <span className="text-sm font-bold text-blue-400">
+        {selectedIds.size} seleccionado{selectedIds.size > 1 ? 's' : ''}
+      </span>
+      
+      <div className="w-px h-4 bg-[var(--border-color)]" />
+
+      {/* Exportar */}
+      <button
+        onClick={exportSelectedContacts}
+        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+      >
+        <Download size={14} /> Exportar CSV
+      </button>
+
+      {/* Etiquetar */}
+      <button
+        onClick={() => setShowBulkTagModal(true)}
+        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
+      >
+        <Tag size={14} /> Etiquetar
+      </button>
+
+      {/* Eliminar */}
+      <button
+        onClick={deleteSelected}
+        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors"
+      >
+        <Trash2 size={14} /> Eliminar
+      </button>
+
+      <button
+        onClick={() => setSelectedIds(new Set())}
+        className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors ml-auto"
+      >
+        Cancelar
+      </button>
+    </motion.div>
+  )}
 
           {/* Table */}
           <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-2xl overflow-hidden">

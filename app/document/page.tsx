@@ -1865,7 +1865,7 @@ export default function DocsPage() {
               <span className="px-1.5 py-0.5 rounded bg-slate-700/50 text-[10px] text-slate-500">Ctrl K</span>
             </button>
             <button
-              onClick={() => router.push("/dashboard")}
+              onClick={() => router.push("/")}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-xs text-cyan-400 hover:bg-cyan-500/20 transition"
             >
               <LayoutDashboard size={14} />

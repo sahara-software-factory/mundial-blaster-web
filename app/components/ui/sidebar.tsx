@@ -134,8 +134,9 @@ export function Sidebar({ onSettings, onUpgrade }: SidebarProps) {
       icon: Sparkles, 
       label: "IA", 
       path: "/dashboard/ai", 
-      tourId: undefined,
-      locked: false, // ← desbloqueado, el blindaje es interno de la página
+      tourId: "nav-ai",
+      locked: false,
+       // ← desbloqueado, el blindaje es interno de la página
     },
     { id: "affiliates", icon: DollarSign, label: "Ganá plata", path: "/dashboard/affiliates", tourId: "nav-affiliates" },
   ]
@@ -242,7 +243,7 @@ export function Sidebar({ onSettings, onUpgrade }: SidebarProps) {
 
       {/* Bottom */}
       <div className="p-3 border-t border-[var(--border-color)] dark:border-[var(--border-color)] border-gray-200 space-y-1">
-        <button 
+                <button 
           onClick={toggle}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[var(--text-secondary)] dark:text-[var(--text-secondary)] text-gray-500 hover:text-[var(--text-primary)] dark:hover:text-[var(--text-primary)] hover:text-gray-900 hover:bg-[var(--border-color)] dark:hover:bg-[var(--border-color)] hover:bg-gray-100 transition-all"
           title={theme === "dark" ? "Modo claro" : "Modo oscuro"}
@@ -251,7 +252,7 @@ export function Sidebar({ onSettings, onUpgrade }: SidebarProps) {
           {!collapsed && <span className="text-sm"> Switch {theme === "dark" ? "Claro" : "Oscuro"}</span>}
         </button>
         
-                <button 
+        <button 
           onClick={() => router.push("/dashboard/settings")}
           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
             pathname === "/dashboard/settings" 

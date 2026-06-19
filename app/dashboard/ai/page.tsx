@@ -13,6 +13,7 @@ import {
   Copy,
   Send,
   Save,
+  Lock,
   Trash2,
   Plus,
   MessageSquare,
@@ -33,6 +34,10 @@ import {
   Type,
   Globe,
   ShieldCheck,
+  Percent,
+  Tag,
+  CheckCircle2,
+  CheckCheck,
 } from "lucide-react"
 import { useLicense } from "@/hooks/useLicense"
 import { useUpgradeModal } from "../../components/UpgradeModalProvider"
@@ -55,37 +60,85 @@ interface DemoPrompt {
   results: string[]
 }
 
+
+// Resolver spintax: {a|b|c} → elige una opción aleatoria
+const resolveSpintax = (text: string): string => {
+  return text.replace(/\{([^}]+)\}/g, (_, options) => {
+    const choices = options.split('|')
+    return choices[Math.floor(Math.random() * choices.length)]
+  })
+}
+
 /* ═══════════════════════════════════════
    HELPERS VISUALES
    ═══════════════════════════════════════ */
-function WhatsAppPreview({ text }: { text: string }) {
+function WhatsAppPreview({ text, onClose }: { text: string; onClose: () => void }) {
   const demoName = "Juan Pérez"
-  const preview = text
+
+  const resolveSpintax = (str: string) => {
+    return str.replace(/\{([^}]+)\}/g, (_, options) => {
+      const choices = options.split('|')
+      return choices[Math.floor(Math.random() * choices.length)]
+    })
+  }
+
+  const preview = resolveSpintax(text)
     .replace(/\{\{nombre\}\}/gi, demoName)
     .replace(/\{nombre\}/gi, demoName)
     .replace(/\{\{telefono\}\}/gi, "5491123456789")
     .replace(/\{telefono\}/gi, "5491123456789")
 
   return (
-    <div className="bg-[#0b141a] rounded-2xl p-3 w-full max-w-[260px] border border-[#2a3942] shadow-xl shrink-0">
-      <div className="flex items-center gap-2 pb-2 mb-2 border-b border-[#2a3942]">
-        <div className="h-6 w-6 rounded-full bg-emerald-600 flex items-center justify-center text-[10px] text-white font-bold">
-          JP
-        </div>
-        <div className="text-[10px] text-[#8696a0] truncate">+54 9 11 2345-6789</div>
-      </div>
-      <div className="flex justify-end">
-        <div className="bg-[#005c4b] text-white text-xs p-2.5 rounded-lg rounded-tr-none max-w-[90%] relative">
-          <p className="leading-relaxed whitespace-pre-wrap break-words">{preview}</p>
-          <div className="flex items-center justify-end gap-1 mt-1">
-            <span className="text-[9px] text-emerald-200">15:42</span>
-            <svg className="w-3 h-3 text-emerald-300" fill="currentColor" viewBox="0 0 16 15">
-              <path d="M15.01 3.316l-.478-.372a.365.365 0 00-.51.063L8.666 9.879a.32.32 0 01-.484.033l-.358-.325a.319.319 0 00-.484.032l-.378.483a.418.418 0 00.036.541l1.32 1.266c.143.14.361.125.484-.033l6.272-8.048a.366.366 0 00-.064-.512zm-4.1 0l-.478-.372a.365.365 0 00-.51.063L4.566 9.879a.32.32 0 01-.484.033L1.891 7.769a.366.366 0 00-.515.006l-.423.433a.364.364 0 00.006.514l3.258 3.185c.143.14.361.125.484-.033l6.272-8.048a.365.365 0 00-.063-.51z"/>
-            </svg>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      style={{top: "-2rem"}}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+        className="bg-[#0b141a] rounded-2xl p-4 w-full max-w-[320px] border border-[#2a3942] shadow-2xl relative"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Botón cerrar */}
+        <button
+          onClick={onClose}
+          className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-[#1f2c33] border border-[#2a3942] text-[#8696a0] hover:text-white flex items-center justify-center transition-colors z-10"
+        >
+          <X size={14} />
+        </button>
+
+        {/* Header */}
+        <div className="flex items-center gap-2 pb-2 mb-2 border-b border-[#2a3942]">
+          <div className="h-8 w-8 rounded-full bg-emerald-600 flex items-center justify-center text-xs text-white font-bold">
+            JP
+          </div>
+          <div>
+            <div className="text-xs text-white font-medium">Juan Pérez</div>
+            <div className="text-[10px] text-[#8696a0]">+54 9 11 2345-6789</div>
           </div>
         </div>
-      </div>
-    </div>
+
+        {/* Burbuja */}
+        <div className="flex justify-end">
+          <div className="bg-[#005c4b] text-white text-xs p-3 rounded-lg rounded-tr-none max-w-[95%] relative">
+            <p className="leading-relaxed whitespace-pre-wrap break-words">{preview}</p>
+            <div className="flex items-center justify-end gap-1 mt-1">
+              <span className="text-[9px] text-emerald-200">
+                {new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+              <CheckCheck size={12} className="text-emerald-300" />
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
   )
 }
 
@@ -142,6 +195,19 @@ const DEMO_PROMPTS: DemoPrompt[] = [
   }
 ]
 
+
+const DEMO_RESULTS = [
+  "{Hola|Buenas|Que tal|Hey|Buen día} {nombre|amigo|crack|genio|campeón}! 🔥 {Te contamos|Te avisamos|Llegó|Tenemos} una {promo|oferta|oportunidad|locura} {imperdible|increíble|exclusiva} de {zapatillas deportivas|calzado premium|zapatillas de running|footwear top} con {70% OFF|un 70% de descuento|rebaja del 70%|70% menos} {solo por 24 horas|hasta medianoche|por tiempo limitado|solo hoy}.\n\n{El stock|La disponibilidad|Las unidades} {está volando|se agota rápido|no da abasto|se reduce cada minuto}. {Si querés|Si te interesa|Si te copa|Si te pinta} {reservar|guardar|asegurar|separar} tu par, {respondé|contestá|escribí|mandá mensaje} {ahora|ya|cuanto antes|antes de que se acaben} con tu {talle|número|medida} y {te lo preparamos|lo apartamos|lo reservamos|lo guardamos} {al toque|enseguida|sin demora|ya mismo}.\n\n{No te duermas|No te lo pierdas|No dejes pasar|Aprovechá} esta {chance|oportunidad|posibilidad|ventana}. {Saludos|Abrazo|Un saludo|Nos vemos}! 👟⚡",
+
+  "{Buenas|Hola|Que tal|Hey} {nombre|amigo|crack|maestro|capo}! 👟 {Llegó|Tenemos|Activamos|Prendimos} la {promo|oferta|campaña|movida} {más esperada|más grande|más pedida|top} del año: {zapatillas deportivas|calzado de élite|zapatillas premium|sneakers exclusivas} con {70% OFF|descuento del 70%|70% de rebaja|precio de locura}.\n\n{Esta promo|Esta oferta|Este descuento|Esta rebaja} {es válida|corre|funciona|aplica} {solo por 24hs|hasta las 23:59|por un día|hoy nada más}. {Después|Luego|Más tarde|Pasado mañana} {vuelve al precio normal|se termina|se acaba|desaparece} {sin excepciones|sin prórroga|sin aviso|de golpe}.\n\n{Escribinos|Respondé|Mandá mensaje|Contactanos} con tu {talle|número|medida} y {te confirmamos|te avisamos|te pasamos|te damos} {disponibilidad|stock|confirmación} {al instante|en minutos|ya|sin esperar}. {No te quedes afuera|No te lo pierdas|Aprovechá|Dale que va}! 💥🏃‍♂️",
+
+  "{Que tal|Hola|Buenas|Hey} {nombre|amigo|crack|genio|rey}! ⚡ {Tenemos|Preparamos|Armamos|Lanzamos} una {promo flash|oferta relámpago|rebatazo|descuento bomba} de {zapatillas deportivas|calzado running|zapatillas training|sneakers pro} con {70% OFF|70% menos|un 70% de descuento|precio irrisorio}.\n\n{La promo|La oferta|El descuento} {está activa|corre|funciona|vigente} {desde ahora|ya|desde este momento|a partir de hoy} y {termina|finaliza|se acaba|cierra} {en 24 horas|a medianoche|mañana a esta hora|pasado mañana}. {El stock|La mercadería|Los pares|Las unidades} {son limitados|no son infinitos|se agotan rápido|vuelan}.\n\n{Si querés|Si te interesa|Si te gusta|Si te copa} {aprovechar|usar|aprovechá|disfrutar} este {precio|valor|costo|monto}, {respondé|contestá|escribí|mandá} {ahora|ya|al toque|urgente} con tu {talle|número|medida} y {te lo guardamos|lo apartamos|lo reservamos|lo confirmamos}.\n\n{Abrazo|Saludos|Un abrazo|Nos vemos}! {No te duermas|No te lo pierdas|Aprovechá|Dale}! 🔥👟",
+
+  "{Hey|Hola|Buenas|Que tal} {nombre|amigo|crack|capo|maestro}! 💥 {Se prendió|Arrancó|Llegó|Comenzó} la {promo|oferta|movida|campaña} {más grande|más esperada|top|imperdible} del {año|mes|trimestre|semestre}: {zapatillas deportivas|calzado premium|sneakers exclusivas|zapatillas pro} con {70% OFF|descuento del 70%|70% de rebaja|precio de locura}.\n\n{Esta oferta|Esta promo|Este descuento|Esta rebaja} {es por tiempo limitado|dura poco|es flash|es relámpago}: {24 horas|1 día|hasta medianoche|hoy nada más}. {Después|Luego|Una vez terminada|Cuando se acabe}, {vuelve al precio original|se termina|no hay más|se acabó}.\n\n{El stock|Las unidades|Los pares|La mercadería} {está limitado|es finito|se agota|no da para todos}. {Si te interesa|Si querés|Si te copa|Si te pinta}, {respondé|escribí|mandá mensaje|contactanos} {ahora|ya|al toque|urgente} con tu {talle|número|medida} y {te lo preparamos|lo apartamos|lo reservamos|lo guardamos}.\n\n{Saludos|Abrazo|Un saludo|Nos vemos}! {No te lo pierdas|Aprovechá|Dale que va|No te duermas}! 👟⚡",
+
+  "{Buen día|Hola|Buenas|Que tal} {nombre|amigo|crack|genio|campeón}! 🏃‍♂️ {Tenemos|Llegó|Preparamos|Armamos} una {super promo|mega oferta|descuento exclusivo|rebatazo} de {zapatillas deportivas|calzado running|sneakers premium|zapatillas pro} con {70% OFF|70% de descuento|un 70% menos|precio de risa}.\n\n{La oferta|La promo|El descuento|La rebaja} {corre|está activa|funciona|vigente} {desde ya|ahora|en este momento|a partir de hoy} y {se acaba|termina|finaliza|cierra} {en 24hs|a medianoche|mañana|pasado mañana}. {Después|Luego|Más tarde|Una vez que termine}, {no hay más|se acabó|vuelve al precio normal|no se repite}.\n\n{El stock|Las unidades|Los pares|La mercadería} {es limitado|no es infinito|se agota rápido|vuela}. {Si querés|Si te interesa|Si te copa|Si te pinta} {aprovechar|usar|disfrutar|aprovechá} este {precio|valor|costo|monto}, {respondé|contestá|escribí|mandá} {ahora|ya|al toque|urgente} con tu {talle|número|medida}.\n\n{Te lo guardamos|Lo apartamos|Lo reservamos|Lo confirmamos} {al instante|en minutos|ya|sin demora}. {Abrazo|Saludos|Un abrazo|Nos vemos}! {No te lo pierdas|Aprovechá|Dale que va|No te duermas}! 🔥👟"
+]
+
 /* ═══════════════════════════════════════
    COMPONENTE PRINCIPAL
    ═══════════════════════════════════════ */
@@ -176,9 +242,10 @@ export default function AIPage() {
   const [results, setResults] = useState<string[]>([])
   const [activeTab, setActiveTab] = useState<'generate' | 'prompts' | 'tools' | 'history'>('generate')
   const [previewIndex, setPreviewIndex] = useState<number | null>(null)
+  const [previewText, setPreviewText] = useState<string>("")
   const [isSaving, setIsSaving] = useState(false)
   const [estCost, setEstCost] = useState("~$0.00")
-
+  
   const [aiFeatures, setAiFeatures] = useState({
   ai_audit_enabled: false,
   ai_title_enabled: false,
@@ -698,12 +765,13 @@ const toggleFeature = async (feature: string, current: boolean) => {
                             <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5 block">
                               Título del prompt
                             </label>
-                            <input
+                                                        <input
                               type="text"
-                              value={title}
-                              onChange={e => setTitle(e.target.value)}
-                              placeholder="Ej: Promo verano zapatillas"
-                              className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-sm text-[var(--text-primary)] placeholder:text-slate-600 focus:outline-none focus:border-purple-500/50 transition-all"
+                              value={isDemo ? "Black Friday 2026 - Mega Promo" : title}
+                              readOnly={isDemo}
+                              onChange={e => !isDemo && setTitle(e.target.value)}
+                              placeholder={isDemo ? "Black Friday 2026 - Mega Promo" : "Ej: Promo verano zapatillas"}
+                              className={`w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-sm text-[var(--text-primary)] placeholder:text-slate-600 focus:outline-none focus:border-purple-500/50 transition-all ${isDemo ? 'opacity-70 cursor-not-allowed' : ''}`}
                             />
                           </div>
 
@@ -729,18 +797,27 @@ const toggleFeature = async (feature: string, current: boolean) => {
                                 </button>
                               ))}
                               <div className="w-px h-4 bg-[var(--border-color)] mx-1" />
-                              <button onClick={() => setInstruction(prev => prev + ' 🔥')} className="text-[10px] px-2 py-1 hover:bg-white/5 rounded-md transition-colors">🔥</button>
-                              <button onClick={() => setInstruction(prev => prev + ' ⚡')} className="text-[10px] px-2 py-1 hover:bg-white/5 rounded-md transition-colors">⚡</button>
-                              <button onClick={() => setInstruction(prev => prev + ' 👟')} className="text-[10px] px-2 py-1 hover:bg-white/5 rounded-md transition-colors">👟</button>
-                              <button onClick={() => setInstruction(prev => prev + ' 🎉')} className="text-[10px] px-2 py-1 hover:bg-white/5 rounded-md transition-colors">🎉</button>
+                                                            <button onClick={() => !isDemo && setInstruction(prev => prev + ' [URGENTE]')} className={`text-[10px] px-2 py-1 rounded-md transition-colors ${isDemo ? 'opacity-30 cursor-not-allowed' : 'hover:bg-white/5'}`} disabled={isDemo} title="Urgencia"><Flame size={12} /></button>
+                              <button onClick={() => !isDemo && setInstruction(prev => prev + ' [FLASH]')} className={`text-[10px] px-2 py-1 rounded-md transition-colors ${isDemo ? 'opacity-30 cursor-not-allowed' : 'hover:bg-white/5'}`} disabled={isDemo} title="Flash"><Zap size={12} /></button>
+                              <button onClick={() => !isDemo && setInstruction(prev => prev + ' [PRODUCTO]')} className={`text-[10px] px-2 py-1 rounded-md transition-colors ${isDemo ? 'opacity-30 cursor-not-allowed' : 'hover:bg-white/5'}`} disabled={isDemo} title="Producto"><Tag size={12} /></button>
+                              <button onClick={() => !isDemo && setInstruction(prev => prev + ' [OFERTA]')} className={`text-[10px] px-2 py-1 rounded-md transition-colors ${isDemo ? 'opacity-30 cursor-not-allowed' : 'hover:bg-white/5'}`} disabled={isDemo} title="Oferta"><Percent size={12} /></button>
                             </div>
 
-                            <textarea
-                              value={instruction}
-                              onChange={e => setInstruction(e.target.value)}
-                              placeholder="Quiero vender zapatillas con 20% OFF. Tono informal, argentino, con emojis. Incluir {nombre}."
-                              rows={4}
-                              className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-4 text-sm text-[var(--text-primary)] placeholder:text-slate-600 focus:outline-none focus:border-purple-500/50 transition-all resize-none"
+                                                        <textarea
+                              value={isDemo ? `Quiero vender zapatillas deportivas con 70% OFF solo por 24 horas. Tono informal, argentino, con mucho spintax y emojis estratégicos.
+
+REGLAS:
+- Usar spintax en cada oración: {Hola|Buenas|Que tal|Hey} {nombre|amigo|crack}
+- 1 emoji cada 3-4 palabras máximo
+- Incluir {nombre} obligatoriamente
+- Máximo 2 líneas por mensaje
+- Tono urgente pero no agresivo
+- Variantes: 5 textos diferentes` : instruction}
+                              readOnly={isDemo}
+                              onChange={e => !isDemo && setInstruction(e.target.value)}
+                              placeholder={isDemo ? "Instrucción detallada con spintax..." : "Quiero vender zapatillas con 20% OFF. Tono informal, argentino, con emojis. Incluir {nombre}."}
+                              rows={isDemo ? 10 : 4}
+                              className={`w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-4 text-sm text-[var(--text-primary)] placeholder:text-slate-600 focus:outline-none focus:border-purple-500/50 transition-all resize-none ${isDemo ? 'opacity-70 cursor-not-allowed' : ''}`}
                             />
                           </div>
 
@@ -770,11 +847,19 @@ const toggleFeature = async (feature: string, current: boolean) => {
                           </div>
 
                           <div className="flex gap-3">
-                            <button
-                              onClick={generateMessages}
-                              disabled={generating || !instruction.trim()}
+                                                        <button
+                              onClick={() => {
+                                if (isDemo) {
+                                  toast.info("🎮 Generación de IA no disponible en modo demo")
+                                  return
+                                }
+                                generateMessages()
+                              }}
+                              disabled={!isDemo && (generating || !instruction.trim())}
                               className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
-                                instruction.trim() && !generating
+                                isDemo
+                                  ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                                  : instruction.trim() && !generating
                                   ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-500 hover:to-indigo-500 shadow-lg shadow-purple-500/25"
                                   : "bg-slate-800 text-slate-500 cursor-not-allowed"
                               }`}
@@ -785,11 +870,19 @@ const toggleFeature = async (feature: string, current: boolean) => {
                                 <><Wand2 className="w-4 h-4" /> Generar mensajes</>
                               )}
                             </button>
-                                                        <button
-                              onClick={savePrompt}
-                              disabled={!title.trim() || !instruction.trim() || isSaving}
+                                                                                    <button
+                              onClick={() => {
+                                if (isDemo) {
+                                  toast.info("🎮 Guardar prompts no disponible en modo demo")
+                                  return
+                                }
+                                savePrompt()
+                              }}
+                              disabled={!isDemo && (!title.trim() || !instruction.trim() || isSaving)}
                               className={`px-4 py-3 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${
-                                title.trim() && instruction.trim() && !isSaving
+                                isDemo
+                                  ? "bg-slate-800 text-slate-600 cursor-not-allowed"
+                                  : title.trim() && instruction.trim() && !isSaving
                                   ? "bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-color)] hover:border-purple-500/30"
                                   : "bg-slate-800 text-slate-600 cursor-not-allowed"
                               }`}
@@ -814,79 +907,148 @@ const toggleFeature = async (feature: string, current: boolean) => {
                       )}
 
                       {/* Resultados */}
-                      <AnimatePresence>
-                        {results.length > 0 && !generating && (
-                          <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-2xl p-6"
-                          >
-                            <div className="flex items-center justify-between mb-4">
-                              <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
-                                <Sparkles className="w-4 h-4 text-purple-400" />
-                                {results.length} variantes generadas
-                              </h3>
-                              <button
-                                onClick={() => setPreviewIndex(previewIndex === null ? 0 : null)}
-                                className="text-[10px] px-2.5 py-1.5 bg-[var(--bg-input)] border border-[var(--border-color)] rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors flex items-center gap-1"
-                              >
-                                <Smartphone size={10} />
-                                {previewIndex === null ? 'Ver en WhatsApp' : 'Ocultar preview'}
-                              </button>
-                            </div>
+                      {/* Resultados */}
+<AnimatePresence>
+  {/* ═══ DEMO: Resultados mock ═══ */}
+  {isDemo && !generating && (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-2xl p-6"
+    >
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-purple-400" />
+          5 variantes generadas
+        </h3>
+        <button
+          onClick={() => {
+            setPreviewText(DEMO_RESULTS[0])
+            setPreviewIndex(0)
+          }}
+          className="text-[10px] px-2.5 py-1.5 bg-[var(--bg-input)] border border-[var(--border-color)] rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors flex items-center gap-1"
+        >
+          <Smartphone size={10} /> Ver en WhatsApp
+        </button>
+      </div>
 
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                              {results.map((result, i) => (
-                                <motion.div
-                                  key={i}
-                                  initial={{ opacity: 0, x: -10 }}
-                                  animate={{ opacity: 1, x: 0 }}
-                                  transition={{ delay: i * 0.08 }}
-                                  className="p-4 bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)]/40 group relative"
-                                >
-                                  <div className="flex gap-4">
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed mb-3">
-                                        {result}
-                                      </p>
-                                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button
-                                          onClick={() => copyToClipboard(result)}
-                                          className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
-                                        >
-                                          <Copy className="w-3 h-3" /> Copiar
-                                        </button>
-                                       <button
-  onClick={() => copyToClipboard(result)}
-  className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
->
-  <Copy className="w-3 h-3" /> Copiar
-</button>
-                                        <button
-                                          onClick={() => setPreviewIndex(i)}
-                                          className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition-colors"
-                                        >
-                                          <Smartphone className="w-3 h-3" /> Preview
-                                        </button>
-                                      </div>
-                                    </div>
-                                    {previewIndex === i && (
-                                      <div className="hidden xl:block">
-                                        <WhatsAppPreview text={result} />
-                                      </div>
-                                    )}
-                                  </div>
-                                  {previewIndex === i && (
-                                    <div className="xl:hidden mt-3">
-                                      <WhatsAppPreview text={result} />
-                                    </div>
-                                  )}
-                                </motion.div>
-                              ))}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {DEMO_RESULTS.map((text, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: i * 0.08 }}
+            className="p-4 bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)]/40 group relative"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] text-[var(--text-muted)] font-mono">Variante {i + 1}</span>
+              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(text)
+                    toast.success("Copiado al portapapeles")
+                  }}
+                  className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
+                >
+                  <Copy className="w-3 h-3" /> Copiar
+                </button>
+                <button
+                  onClick={() => {
+                    setPreviewText(text)
+                    setPreviewIndex(i)
+                  }}
+                  className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition-colors"
+                >
+                  <Smartphone className="w-3 h-3" /> Preview
+                </button>
+              </div>
+            </div>
+            <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
+              {text}
+            </p>
+          </motion.div>
+        ))}
+      </div>
+    </motion.div>
+  )}
+
+  {/* ═══ REAL: Resultados de la API ═══ */}
+  {!isDemo && results.length > 0 && !generating && (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-2xl p-6"
+    >
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-purple-400" />
+          {results.length} variantes generadas
+        </h3>
+        <button
+          onClick={() => setPreviewIndex(previewIndex === null ? 0 : null)}
+          className="text-[10px] px-2.5 py-1.5 bg-[var(--bg-input)] border border-[var(--border-color)] rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors flex items-center gap-1"
+        >
+          <Smartphone size={10} />
+          {previewIndex === null ? 'Ver en WhatsApp' : 'Ocultar preview'}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {results.map((result, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: i * 0.08 }}
+            className="p-4 bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)]/40 group relative"
+          >
+            <div className="flex gap-4">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed mb-3">
+                  {result}
+                </p>
+                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => copyToClipboard(result)}
+                    className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
+                  >
+                    <Copy className="w-3 h-3" /> Copiar
+                  </button>
+                  <button
+                    onClick={() => setPreviewIndex(i)}
+                    className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition-colors"
+                  >
+                    <Smartphone className="w-3 h-3" /> Preview
+                  </button>
+                </div>
+              </div>
+              {previewIndex === i && (
+                <div className="hidden xl:block">
+                  <WhatsAppPreview text={result} onClose={() => setPreviewIndex(null)} />
+                </div>
+              )}
+            </div>
+            {previewIndex === i && (
+              <div className="xl:hidden mt-3">
+                <WhatsAppPreview text={result} onClose={() => setPreviewIndex(null)} />
+              </div>
+            )}
+          </motion.div>
+        ))}
+      </div>
+    </motion.div>
+  )}
+</AnimatePresence>
+
+{/* ═══ MODAL WHATSAPP ÚNICO (demo + real) ═══ */}
+<AnimatePresence>
+  {previewIndex !== null && (
+    <WhatsAppPreview text={previewText} onClose={() => setPreviewIndex(null)} />
+  )}
+</AnimatePresence>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -918,13 +1080,26 @@ const toggleFeature = async (feature: string, current: boolean) => {
                 )}
 
                 {/* Prompts recientes (mini lista) */}
+                                {/* Prompts recientes (mini lista) */}
                 <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-2xl p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-xs font-bold text-[var(--text-primary)]">Recientes</h3>
-                    <span className="text-[10px] text-[var(--text-muted)]">{prompts.length}</span>
+                    <span className="text-[10px] text-[var(--text-muted)]">{isDemo ? 4 : prompts.length}</span>
                   </div>
                   <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                    {prompts.length === 0 ? (
+                    {isDemo ? (
+                      [
+                        { title: "Black Friday Zapatillas", instruction: "70% OFF, spintax, emojis" },
+                        { title: "Reactivación Clientes", instruction: "20% OFF, tono cercano" },
+                        { title: "Lanzamiento Producto X", instruction: "Hype, spintax en CTAs" },
+                        { title: "Recordatorio Pagos", instruction: "Profesional amigable" },
+                      ].map((p, i) => (
+                        <div key={i} className="w-full text-left p-2.5 rounded-lg bg-[var(--bg-input)]/50 opacity-60 cursor-not-allowed">
+                          <p className="text-xs font-medium text-[var(--text-primary)] truncate">{p.title}</p>
+                          <p className="text-[10px] text-[var(--text-muted)] truncate">{p.instruction}</p>
+                        </div>
+                      ))
+                    ) : prompts.length === 0 ? (
                       <p className="text-[10px] text-[var(--text-muted)] text-center py-4">
                         No hay prompts guardados
                       </p>
@@ -944,17 +1119,25 @@ const toggleFeature = async (feature: string, current: boolean) => {
                 </div>
 
                 {/* Tips */}
+                                {/* Tips */}
                 <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-2xl p-4">
                   <h3 className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-2 mb-3">
                     <Lightbulb className="w-3.5 h-3.5 text-amber-400" /> Consejos
                   </h3>
                   <ul className="space-y-2">
-                    {[
+                    {(isDemo ? [
                       "Usá {nombre} para personalizar automáticamente",
                       "Mensajes cortos = más lecturas en WhatsApp",
                       "1 emoji cada 3-4 palabras es el sweet spot",
                       "Probá el modo 'urgencia' para promos flash",
-                    ].map((tip, i) => (
+                      "Spintax aumenta la entrega en un 40%",
+                      "5 variantes = menos baneos por contenido duplicado",
+                    ] : [
+                      "Usá {nombre} para personalizar automáticamente",
+                      "Mensajes cortos = más lecturas en WhatsApp",
+                      "1 emoji cada 3-4 palabras es el sweet spot",
+                      "Probá el modo 'urgencia' para promos flash",
+                    ]).map((tip, i) => (
                       <li key={i} className="text-[10px] text-[var(--text-muted)] flex items-start gap-1.5">
                         <ChevronRight className="w-3 h-3 text-blue-400 shrink-0 mt-0.5" />
                         {tip}
@@ -967,13 +1150,36 @@ const toggleFeature = async (feature: string, current: boolean) => {
           )}
 
           {/* ═══ TAB: MIS PROMPTS ═══ */}
-          {activeTab === 'prompts' && (
+                    {activeTab === 'prompts' && (
             <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-2xl p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-sm font-bold text-[var(--text-primary)]">Prompts guardados</h3>
-                <span className="text-xs text-[var(--text-muted)]">{prompts.length} total</span>
+                <span className="text-xs text-[var(--text-muted)]">{isDemo ? 4 : prompts.length} total</span>
               </div>
-              {prompts.length === 0 ? (
+              {isDemo ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[
+                    { title: "Black Friday Zapatillas", instruction: "Vender zapatillas con 70% OFF. Tono urgente, argentino, mucho spintax. 5 variantes.", results: 5 },
+                    { title: "Reactivación Clientes", instruction: "Reactivar clientes inactivos con 20% OFF. Tono cercano, emojis moderados.", results: 3 },
+                    { title: "Lanzamiento Producto X", instruction: "Lanzar nuevo producto. Tono hype, spintax en saludos y CTAs.", results: 4 },
+                    { title: "Recordatorio Pagos", instruction: "Recordar pago pendiente. Tono profesional pero amigable.", results: 2 },
+                  ].map((p, i) => (
+                    <div key={i} className="p-4 bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)]/40 opacity-70">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h4 className="text-sm font-bold text-[var(--text-primary)]">{p.title}</h4>
+                        <Lock size={14} className="text-[var(--text-muted)]" />
+                      </div>
+                      <p className="text-[10px] text-[var(--text-muted)] mb-3 line-clamp-2">{p.instruction}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 opacity-50 cursor-not-allowed">
+                          Cargar
+                        </span>
+                        <span className="text-[10px] text-[var(--text-muted)]">{p.results} variantes</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : prompts.length === 0 ? (
                 <div className="text-center py-12">
                   <Bookmark className="w-8 h-8 text-[var(--text-muted)]/30 mx-auto mb-3" />
                   <p className="text-sm text-[var(--text-muted)]">No tenés prompts guardados todavía</p>
@@ -1152,15 +1358,41 @@ const toggleFeature = async (feature: string, current: boolean) => {
 )}
 
           {/* ═══ TAB: HISTORIAL (demo / placeholder) ═══ */}
-          {activeTab === 'history' && (
+                    {activeTab === 'history' && (
             <div className="bg-[var(--bg-card)] border border-[var(--border-color)]/60 rounded-2xl p-6">
-              <div className="text-center py-12">
-                <History className="w-8 h-8 text-[var(--text-muted)]/30 mx-auto mb-3" />
-                <p className="text-sm text-[var(--text-muted)]">Historial de generaciones</p>
-                <p className="text-[10px] text-[var(--text-muted)]/60 mt-1">
-                  Próximamente: estadísticas por prompt, tokens consumidos y costos reales.
-                </p>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-sm font-bold text-[var(--text-primary)]">Historial de generaciones</h3>
+                <span className="text-xs text-[var(--text-muted)]">{isDemo ? 12 : 0} total</span>
               </div>
+              {isDemo ? (
+                <div className="space-y-3">
+                  {[
+                    { title: "Black Friday Zapatillas", date: "Hace 2 horas", tokens: 2450, cost: 0.0049, variants: 5 },
+                    { title: "Reactivación Clientes", date: "Hace 5 horas", tokens: 1800, cost: 0.0036, variants: 3 },
+                    { title: "Lanzamiento Producto X", date: "Ayer", tokens: 3200, cost: 0.0064, variants: 4 },
+                    { title: "Recordatorio Pagos", date: "Ayer", tokens: 1200, cost: 0.0024, variants: 2 },
+                    { title: "Promo Verano", date: "Hace 3 días", tokens: 2100, cost: 0.0042, variants: 3 },
+                  ].map((h, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)]/40">
+                      <div>
+                        <p className="text-sm font-medium text-[var(--text-primary)]">{h.title}</p>
+                        <p className="text-[10px] text-[var(--text-muted)]">{h.date} · {h.tokens} tokens · ${h.cost.toFixed(4)}</p>
+                      </div>
+                      <span className="text-[10px] px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        {h.variants} variantes
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <History className="w-8 h-8 text-[var(--text-muted)]/30 mx-auto mb-3" />
+                  <p className="text-sm text-[var(--text-muted)]">Historial de generaciones</p>
+                  <p className="text-[10px] text-[var(--text-muted)]/60 mt-1">
+                    Próximamente: estadísticas por prompt, tokens consumidos y costos reales.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

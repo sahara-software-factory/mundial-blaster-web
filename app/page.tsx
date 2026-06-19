@@ -55,10 +55,15 @@ import {
   CreditCard,
   X,
   Server,
-  KeyRound
+  KeyRound,
+  Flame,
+  Globe2,
+  Keyboard
 } from "lucide-react"
 import Link from "next/link"
-
+import { gsap } from "gsap"
+import { ScrollTrigger } from "gsap/ScrollTrigger"
+import { useGSAP } from "@gsap/react"
 /* ============================================================
    WabiSend — Landing Page v1.0
    Light mode profesional. Sin emojis. Solo Lucide.
@@ -252,159 +257,189 @@ function MenuIcon() {
   )
 }
 
-function HeroBackground() {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    let w = window.innerWidth
-    let h = window.innerHeight
-    canvas.width = w
-    canvas.height = h
-
-    const particles: Array<{
-      x: number
-      y: number
-      vx: number
-      vy: number
-      size: number
-    }> = []
-
-    const count = Math.min(w < 768 ? 55 : 90, Math.floor((w * h) / 12000))
-
-    for (let i = 0; i < count; i++) {
-      particles.push({
-        x: Math.random() * w,
-        y: Math.random() * h,
-        vx: (Math.random() - 0.5) * 0.7,
-        vy: (Math.random() - 0.5) * 0.7,
-        size: Math.random() * 2.5 + 1.5,
-      })
-    }
-
-    let animId: number
-
-    const draw = () => {
-      ctx.clearRect(0, 0, w, h)
-
-      for (const p of particles) {
-        p.x += p.vx
-        p.y += p.vy
-        if (p.x < 0 || p.x > w) p.vx *= -1
-        if (p.y < 0 || p.y > h) p.vy *= -1
-
-        ctx.beginPath()
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
-        ctx.fillStyle = "rgba(79, 70, 229, 0.75)"
-        ctx.fill()
-      }
-
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x
-          const dy = particles[i].y - particles[j].y
-          const dist = Math.sqrt(dx * dx + dy * dy)
-          if (dist < 140) {
-            ctx.beginPath()
-            ctx.moveTo(particles[i].x, particles[i].y)
-            ctx.lineTo(particles[j].x, particles[j].y)
-            ctx.strokeStyle = `rgba(124, 58, 237, ${0.3 * (1 - dist / 140)})`
-            ctx.lineWidth = 1.2
-            ctx.stroke()
-          }
-        }
-      }
-
-      animId = requestAnimationFrame(draw)
-    }
-
-    const handleResize = () => {
-      w = window.innerWidth
-      h = window.innerHeight
-      canvas.width = w
-      canvas.height = h
-    }
-
-    draw()
-
-    window.addEventListener("resize", handleResize)
-    return () => {
-      cancelAnimationFrame(animId)
-      window.removeEventListener("resize", handleResize)
-    }
-  }, [])
-
-  return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 z-0"
-      style={{ width: "100%", height: "100%" }}
-    />
-  )
-}
+gsap.registerPlugin(ScrollTrigger)
 
 function Hero() {
-  return (
-    <section className="relative pt-32 pb-20 lg:pt-40 lg:pb-32 overflow-hidden bg-white">
-      {/* Canvas de partículas — ahora con z-0 para que se vea */}
-      <HeroBackground />
+  const containerRef = useRef<HTMLElement>(null)
+  const textRef = useRef<HTMLDivElement>(null)
+  const mockupRef = useRef<HTMLDivElement>(null)
+  const particlesRef = useRef<HTMLDivElement>(null)
 
-      {/* Blobs fluidos que respiran */}
-      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-gradient-to-b from-indigo-100/80 via-violet-100/50 to-transparent rounded-full blur-3xl animate-[pulse_6s_ease-in-out_infinite]" />
-        <div className="absolute top-[20%] right-[-10%] w-[400px] h-[400px] bg-blue-200/40 rounded-full blur-3xl animate-[pulse_5s_ease-in-out_infinite_1s]" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-fuchsia-200/40 rounded-full blur-3xl animate-[pulse_7s_ease-in-out_infinite_2s]" />
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768
+  const scrubAmount = isMobile ? 0.6 : 1.0
+  const endDistance = isMobile ? "+=120%" : "+=150%"
+  const particleCount = isMobile ? 6 : 14
+
+  const particleConfigs = [
+    { x: "5%", y: "15%", size: 10, color: "bg-cyan-400" },
+    { x: "92%", y: "10%", size: 8, color: "bg-violet-400" },
+    { x: "80%", y: "50%", size: 12, color: "bg-sky-400" },
+    { x: "12%", y: "60%", size: 7, color: "bg-fuchsia-400" },
+    { x: "55%", y: "5%", size: 9, color: "bg-blue-400" },
+    { x: "95%", y: "70%", size: 6, color: "bg-indigo-400" },
+    { x: "2%", y: "40%", size: 11, color: "bg-cyan-300" },
+    { x: "65%", y: "80%", size: 5, color: "bg-violet-300" },
+    { x: "35%", y: "25%", size: 8, color: "bg-sky-300" },
+    { x: "85%", y: "35%", size: 10, color: "bg-fuchsia-300" },
+    { x: "20%", y: "82%", size: 6, color: "bg-blue-300" },
+    { x: "72%", y: "20%", size: 9, color: "bg-cyan-400" },
+    { x: "45%", y: "70%", size: 7, color: "bg-indigo-300" },
+    { x: "8%", y: "90%", size: 5, color: "bg-sky-400" },
+  ].slice(0, particleCount)
+
+  useGSAP(() => {
+    const ctx = gsap.context(() => {
+      const particleElements = particlesRef.current?.children
+      if (particleElements) {
+        gsap.fromTo(
+          particleElements,
+          { y: 0, opacity: 0.2, scale: 0.5 },
+          {
+            y: "random(-50, 50)",
+            opacity: "random(0.3, 0.7)",
+            scale: "random(0.6, 1.4)",
+            duration: "random(3, 8)",
+            repeat: -1,
+            yoyo: true,
+            ease: "sine.inOut",
+            stagger: { amount: 4, from: "random" },
+            force3D: true,
+          }
+        )
+      }
+
+      const textElements = textRef.current?.children
+      if (textElements) {
+        gsap.fromTo(
+          textElements,
+          { y: 60, opacity: 0, filter: "blur(10px)" },
+          {
+            y: 0,
+            opacity: 1,
+            filter: "blur(0px)",
+            duration: 1,
+            ease: "power3.out",
+            stagger: 0.12,
+            delay: 0.15,
+            force3D: true,
+          }
+        )
+        // gsap.set(textRef.current, { autoAlpha: 1 })
+      }
+
+      gsap.set(mockupRef.current, { x: "100vw", autoAlpha: 0, force3D: true });
+
+      const scrollTl = gsap.timeline({
+        scrollTrigger: {
+          trigger: containerRef.current,
+          start: "top top",
+          end: endDistance,
+          pin: true,
+          scrub: scrubAmount,
+          anticipatePin: 1,
+        },
+      })
+
+      scrollTl.to(
+        textRef.current,
+        {
+          x: isMobile ? "-60vw" : "-80vw",
+          autoAlpha: 0,
+          scale: isMobile ? 0.95 : 0.9,
+          filter: isMobile ? "blur(0px)" : "blur(3px)",
+          ease: "power2.in",
+          force3D: true,
+        },
+        0
+      )
+
+      scrollTl.to(
+        mockupRef.current,
+        {
+          x: 0,
+          autoAlpha: 1,
+          ease: "power3.out",
+          force3D: true,
+        },
+        0.25
+      )
+
+      if (!isMobile) {
+        scrollTl.to(
+          ".mockup-glow",
+          {
+            opacity: 0.8,
+            scale: 1.3,
+            ease: "none",
+          },
+          0.25
+        )
+      }
+    }, containerRef)
+
+    return () => ctx.revert()
+  }, { scope: containerRef })
+
+  return (
+    <section
+      ref={containerRef}
+      className="relative overflow-visible bg-white"
+      style={{ minHeight: "100vh" }}
+    >
+      {/* Partículas */}
+      <div ref={particlesRef} className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+        {particleConfigs.map((p, i) => (
+          <div
+            key={i}
+            className={`absolute rounded-full ${p.color}`}
+            style={{
+              width: p.size,
+              height: p.size,
+              left: p.x,
+              top: p.y,
+              filter: "blur(2px)",
+              opacity: 0.25,
+              willChange: "transform, opacity",
+            }}
+          />
+        ))}
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto">
-          {/* Badge */}
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/90 backdrop-blur-md border border-cyan-100 text-cyan-700 text-sm font-medium mb-8 shadow-sm"
-          >
-            <Sparkles className="w-4 h-4" />
-            Licencia ilimitada · Pagás una vez
-          </motion.div>
+      {/* Blobs (ocultos en mobile) */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none hidden sm:block">
+        <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-gradient-to-b from-indigo-100/80 via-violet-100/50 to-transparent rounded-full blur-3xl" />
+        <div className="absolute top-[20%] right-[-10%] w-[400px] h-[400px] bg-blue-200/40 rounded-full blur-3xl" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-fuchsia-200/40 rounded-full blur-3xl" />
+      </div>
 
-          {/* Headline */}
-          <motion.h1
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-slate-900 tracking-tight leading-[1.05]"
-          >
+      {/* Contenedor central */}
+      <div
+        className="relative z-10 flex items-center justify-center min-h-screen"
+        style={{ transform: "translateZ(0)" }}
+      >
+        {/* Texto */}
+        <div
+          ref={textRef}
+          className="absolute inset-0 flex flex-col items-center justify-center text-center max-w-3xl mx-auto px-4 will-change-transform"
+          // style={{ opacity: 0, visibility: "hidden" }}
+        >
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/90 backdrop-blur-md border border-cyan-100 text-cyan-700 text-sm font-medium mb-8 shadow-sm">
+            
+            Licencia ilimitada · Pagás una vez
+          </div>
+
+          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-slate-900 tracking-tight leading-[1.05]">
             WhatsApp masivo{" "}
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-600">
               sin límites
             </span>
-          </motion.h1>
+          </h1>
 
-          {/* Subheadline */}
-          <motion.p
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="mt-6 text-lg sm:text-xl text-slate-600 max-w-lg mx-auto leading-relaxed"
-          >
-            Plataforma self-hosted. Sin mensualidades, sin techo de envíos, sin que nadie toque tus datos.
-          </motion.p>
+          <p className="mt-6 text-lg sm:text-xl text-slate-600 max-w-xl mx-auto leading-relaxed">
+            Plataforma self-hosted. Sin mensualidades, sin techo de envíos, sin creditos IA, sin que nadie toque tus datos.
+          </p>
 
-          {/* CTAs */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
-          >
-            {/* Primary: Conocer WabiSend — plano, elegante */}
+          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="#pricing"
               className="group inline-flex items-center gap-2 px-8 py-4 rounded-full bg-slate-900 text-white font-semibold text-base hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20 hover:shadow-slate-900/30 hover:-translate-y-0.5"
@@ -413,52 +448,37 @@ function Hero() {
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
 
-            {/* DEMO: borde de gradiente que fluye infinitamente */}
             <div className="relative inline-flex rounded-full p-[2.5px] overflow-hidden group cursor-pointer">
-  <motion.div
-    className="absolute inset-[-50%] rounded-full"
-    style={{
-      background: "conic-gradient(from 0deg, #6366f1, #8b5cf6, #d946ef, #a855f7, #6366f1)",
-    }}
-    animate={{ rotate: 360 }}
-    transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-  />
-  <Link
-    href="/demo"
-    className="relative inline-flex items-center gap-2 px-8 py-4 rounded-full bg-white text-slate-900 font-semibold text-base hover:bg-cyan-50 transition-colors z-10"
-  >
-    <Play className="w-4 h-4 text-cyan-600" />
-    Ingresar a DEMO
-  </Link>
-</div>
-          </motion.div>
+              <div
+                className="absolute inset-[-50%] rounded-full animate-[spin_4s_linear_infinite]"
+                style={{
+                  background: "conic-gradient(from 0deg, #6366f1, #8b5cf6, #d946ef, #a855f7, #6366f1)",
+                }}
+              />
+              <Link href="/demo"
+                className="relative inline-flex items-center gap-2 px-8 py-4 rounded-full bg-white text-slate-900 font-semibold text-base hover:bg-cyan-50 transition-colors z-10"
+              >
+                <Play className="w-4 h-4 text-cyan-600" />
+                Ingresar a DEMO
+              </Link>
+            </div>
+          </div>
 
-          {/* Trust */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6 }}
-            className="mt-6 text-sm text-slate-500 flex items-center justify-center gap-2"
-          >
+          <p className="mt-6 text-sm text-slate-500 flex items-center justify-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-500" />
             Pago único · Base de datos propia · Sin suscripciones
-          </motion.p>
+          </p>
         </div>
 
-        {/* Mockup con float */}
-        <motion.div
-          initial={{ opacity: 0, y: 60, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.8, delay: 0.4 }}
-          className="mt-16 lg:mt-20 max-w-5xl mx-auto"
+        {/* Mockup */}
+        <div
+          ref={mockupRef}
+          className="absolute inset-0 flex items-center justify-center max-w-5xl mx-auto px-4 will-change-transform"
+          style={{ opacity: 0, visibility: "hidden" }}
         >
-          <motion.div
-            animate={{ y: [0, -10, 0] }}
-            transition={{ duration: 5, repeat: 999999, ease: "easeInOut" }}
-            className="relative"
-          >
-            <div className="absolute -inset-4 bg-gradient-to-r from-cyan-500/20 via-sky-500/20 to-blue-500/20 rounded-[2.5rem] blur-2xl animate-pulse" />
-            <div className="relative bg-slate-900 rounded-t-2xl sm:rounded-t-3xl p-2 sm:p-3 shadow-2xl">
+          <div className="relative w-full">
+            <div className="mockup-glow absolute -inset-4 bg-gradient-to-r from-cyan-500/20 via-sky-500/20 to-blue-500/20 rounded-[2.5rem] blur-2xl opacity-0" />
+            <div  className="relative bg-slate-900 rounded-t-2xl sm:rounded-t-3xl p-2 sm:p-3 shadow-lg sm:shadow-2xl mt-16 lg:mt-20">
               <div className="flex items-center gap-2 px-2 pb-3">
                 <div className="w-3 h-3 rounded-full bg-red-400" />
                 <div className="w-3 h-3 rounded-full bg-amber-400" />
@@ -467,7 +487,6 @@ function Hero() {
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-slate-800 text-slate-400 text-xs">
                     <Lock className="w-3 h-3" />
                     app.tudominio.com
-
                   </div>
                 </div>
               </div>
@@ -483,12 +502,14 @@ function Hero() {
               <div className="h-3 sm:h-4 bg-gradient-to-b from-slate-700 to-slate-800 rounded-b-xl sm:rounded-b-2xl shadow-xl" />
               <div className="h-1 sm:h-1.5 bg-slate-600 rounded-b-lg mx-auto w-1/3" />
             </div>
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
       </div>
     </section>
   )
 }
+
+
 
 function Logos() {
   const items = [
@@ -535,43 +556,61 @@ function Logos() {
 
 function Features() {
   const features = [
-    {
-      icon: Send,
-      title: "Envío masivo real",
-      desc: "Conectá múltiples líneas de WhatsApp y distribuí el envío automáticamente. Sin caídas, sin saturación.",
-      color: "from-indigo-500 to-blue-500",
-    },
-    {
-      icon: Hash,
-      title: "Spintax inteligente",
-      desc: "Cada mensaje es único. Variaciones automáticas de texto para evitar bloqueos y mejorar entregabilidad.",
-      color: "from-sky-500 to-blue-500",
-    },
-    {
-      icon: Calendar,
-      title: "Programación avanzada",
-      desc: "Agendá campañas para días y horarios específicos. Dejá que WabiSend trabaje mientras dormís.",
-      color: "from-blue-500 to-cyan-500",
-    },
-    {
-      icon: BarChart3,
-      title: "Reportes en tiempo real",
-      desc: "Tracking de entregas, aperturas y respuestas. Métricas claras para saber qué funciona y qué no.",
-      color: "from-emerald-500 to-teal-500",
-    },
-    {
-      icon: Users,
-      title: "Contactos ilimitados",
-      desc: "Importá miles de contactos por CSV, organizalos con etiquetas y segmentalos sin restricciones.",
-      color: "from-amber-500 to-orange-500",
-    },
-    {
-      icon: Database,
-      title: "Tu base, tu servidor",
-      desc: "Los datos son tuyos. Instalado en tu infraestructura. Nada en la nube de terceros. Control total.",
-      color: "from-rose-500 to-red-500",
-    },
-  ]
+  {
+    icon: Send,
+    title: "Envío masivo real",
+    desc: "Conectá múltiples líneas de WhatsApp y distribuí el envío automáticamente. Sin caídas, sin saturación.",
+    color: "from-emerald-500 to-green-500", // verde → éxito, fluidez
+  },
+  {
+    icon: Hash,
+    title: "Spintax inteligente",
+    desc: "Cada mensaje es único. Variaciones automáticas de texto para evitar bloqueos y mejorar entregabilidad.",
+    color: "from-violet-500 to-purple-500", // púrpura → creatividad, inteligencia
+  },
+  {
+    icon: Calendar,
+    title: "Programación avanzada",
+    desc: "Agendá campañas para días y horarios específicos. Dejá que WabiSend trabaje mientras dormís.",
+    color: "from-sky-400 to-cyan-500", // azul cielo → tiempo, planificación
+  },
+  {
+    icon: BarChart3,
+    title: "Reportes en tiempo real",
+    desc: "Tracking de entregas, aperturas y respuestas. Métricas claras para saber qué funciona y qué no.",
+    color: "from-amber-500 to-orange-500", // naranja/ámbar → datos, alertas
+  },
+  {
+    icon: Users,
+    title: "Contactos ilimitados",
+    desc: "Importá miles de contactos por CSV, organizalos con etiquetas y segmentalos sin restricciones.",
+    color: "from-blue-500 to-indigo-500", // azul índigo → expansión, infinito
+  },
+  {
+    icon: Database,
+    title: "Tu base, tu servidor",
+    desc: "Los datos son tuyos. Instalado en tu infraestructura. Nada en la nube de terceros. Control total.",
+    color: "from-slate-700 to-slate-900", // gris oscuro → servidores, control
+  },
+  {
+    icon: Flame,
+    title: "Calentá tus lineas",
+    desc: "Que tus lineas no caigan a la primera! Hace ping y calenta hasta 100 lineas de whatsapp en una sola sesion con nuestro Modo Simulacro",
+    color: "from-red-500 to-orange-500", // fuego → calentamiento, energía
+  },
+  {
+    icon: Globe2,
+    title: "Cambia tu IP dinámica",
+    desc: "Usá nuestra funcion Proxy Rotate y selecciona una ubicacion optima en todo el mundo para despegar tus campañas, tu ip segura, tu campaña segura",
+    color: "from-cyan-500 to-blue-500", // azul global → mundo, IP
+  },
+  {
+    icon: Keyboard,
+    title: "Modo humano ON",
+    desc: "Simula escritura REAL letra por letra ('escribiendo') para hacerle creer a WhatsApp que hay una persona real del otro lado escribiendo ¡Olvidate del spam!",
+    color: "from-fuchsia-500 to-rose-500", // fucsia/rosa → toque humano, escritura
+  },
+]
 
   return (
     <section id="features" className="py-24 lg:py-32">
@@ -868,7 +907,7 @@ function DemoSection() {
 }
 
 function Pricing() {
-  const plans = [
+    const plans = [
     {
       name: "Starter",
       price: "$500",
@@ -877,6 +916,8 @@ function Pricing() {
         "1 licencia de por vida",
         "Hasta 2 líneas de WhatsApp",
         "Envíos masivos ilimitados",
+        "5 templates de mensajes",
+        "10 campañas en espera",
         "Spintax básico",
         "Reportes estándar",
         "Soporte por email",
@@ -888,14 +929,21 @@ function Pricing() {
     {
       name: "Pro",
       price: "$750",
-      desc: "Para agencias y equipos de ventas que necesitan potencia total sin techo.",
+      desc: "Para agencias y equipos de ventas que necesitan potencia total sin techo artificial.",
       features: [
-        "1 licencia de por vida",
-        "Hasta 5 líneas de WhatsApp",
-        "Envíos masivos ilimitados",
+        "Todo lo de Starter",
+        "Hasta 3 líneas de WhatsApp",
+        "Templates ilimitados",
+        "50 campañas en espera",
         "Spintax avanzado + variables",
         "Programación de campañas",
-        "Reportes avanzados + export",
+        "Modo humano",
+        "Round Robin (hasta 3 líneas)",
+        "Export CSV",
+        "Blacklist + Whitelist",
+        "Métricas avanzadas",
+        "Simulacro Lite",
+        "Tracking de respuestas",
         "Soporte prioritario WhatsApp",
         "Actualizaciones de por vida",
       ],
@@ -908,10 +956,15 @@ function Pricing() {
       desc: "Para agencias, resellers y equipos que venden el servicio a terceros. Sin techo.",
       features: [
         "Todo lo de Pro",
-        "Multi Agentes",
-        "Blacklist global + Whitelist",
+        "Líneas WhatsApp ilimitadas",
+        "Round Robin (Ilimitado)",
+        "Campañas en espera ilimitadas",
+        "Multi-usuario (multi-agente)",
+        "Asistente IA (Caleb)",
+        "Proxy Rotate",
+        "Simulacro Full",
+        "Campañas recurrentes",
         "Backup automático diario",
-        "IA para generar mensajes",
         "Soporte 1-a-1 dedicado",
         "Acceso anticipado a betas",
         "Instalación remota incluida",
@@ -1287,7 +1340,9 @@ function FAQ() {
 
 // Sección "Deploy en 4 pasos" para la landing
 
-function deploy(){
+function Deploy(){
+
+return (
     <section className="py-20 px-4">
   <div className="max-w-4xl mx-auto text-center">
     <h2 className="text-3xl font-bold text-white mb-4">Deploy en 4 pasos</h2>
@@ -1318,7 +1373,7 @@ function deploy(){
     </div>
   </div>
 </section>
-
+)
 }
 
 function CTAFinal() {
@@ -1366,7 +1421,7 @@ function CTAFinal() {
 
           <p className="mt-6 text-sm text-slate-400 flex items-center justify-center gap-2">
             <ShieldCheck className="w-4 h-4" />
-            Garantía de satisfacción 7 días. Si no te convence, te devolvemos el 100%.
+            Tus datos siempre estan seguros, tenes control total de tu base de datos y de tu servidor
           </p>
         </motion.div>
       </div>
@@ -1388,8 +1443,8 @@ function Footer() {
     {
       title: "Recursos",
       links: [
-        { label: "Documentación", href: "#" },
-        { label: "Guía de inicio", href: "#" },
+        { label: "Documentación", href: "/documentacion" },
+        { label: "Guía de inicio", href: "/documentacion" },
         { label: "Blog", href: "#" },
         { label: "Changelog", href: "#" },
       ],
@@ -1556,6 +1611,7 @@ export default function LandingPage() {
       <Features />
       <SelfHosted />
       <DemoSection />
+      <Deploy />
       <Pricing />
       <Testimonials />
       <FAQ />

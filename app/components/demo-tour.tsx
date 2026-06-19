@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Play, X, HelpCircle, ChevronRight, ChevronLeft, RotateCcw } from "lucide-react"
+import { Play, X, HelpCircle, ChevronRight, ChevronLeft } from "lucide-react"
 
+/* ---------- Tipos ---------- */
 interface TourStep {
   target: string
   title: string
@@ -11,6 +12,7 @@ interface TourStep {
   placement: "right" | "left" | "top" | "bottom"
 }
 
+/* ---------- Datos ---------- */
 const tourSteps: TourStep[] = [
   {
     target: '[data-tour="nav-campaigns"]',
@@ -24,10 +26,10 @@ const tourSteps: TourStep[] = [
     content: "Gestioná miles de contactos, importalos por CSV y asignales etiquetas para campañas dirigidas.",
     placement: "right",
   },
-  {
-    target: '[data-tour="nav-tags"]',
-    title: "Tags",
-    content: "Organizá tus contactos con etiquetas de colores. Filtrá por tags al crear una campaña.",
+   {
+    target: '[data-tour="nav-reports"]',
+    title: "Reportes",
+    content: "Reportes avanzados con gráficos de entrega, apertura y conversión. Exportá todo a CSV.",
     placement: "right",
   },
   {
@@ -37,27 +39,30 @@ const tourSteps: TourStep[] = [
     placement: "right",
   },
   {
-    target: '[data-tour="nav-reports"]',
-    title: "Reportes",
-    content: "Reportes avanzados con gráficos de entrega, apertura y conversión. Exportá todo a CSV.",
+    target: '[data-tour="nav-tags"]',
+    title: "Tags",
+    content: "Organizá tus contactos con etiquetas de colores. Filtrá por tags al crear una campaña.",
     placement: "right",
   },
+  
+ 
   {
     target: '[data-tour="nav-ai"]',
     title: "Ia",
-    content: "Utiliza chat GPT para poder generar textos aleatorios usando spintax en cuestion de segundos, tambien vas a poder guardar las plantillas generadas para usarlas las veces que quieras en las campañas",
+    content: "Utiliza chat GPT para poder generar textos aleatorios usando spintax en cuestión de segundos, también vas a poder guardar las plantillas generadas para usarlas las veces que quieras en las campañas.",
     placement: "right",
   },
   {
     target: '[data-tour="nav-affiliates"]',
     title: "Afiliados",
-    content: "¡Ganá dinero con WabiSend! Recomenda nuestro de motor de envios y gana hasta 250usd por venta! Generá tu código de afiliado y compartilo, tu ganancia o tus ventas seran puestas en las tablas de esta seccion.",
+    content: "¡Ganá dinero con WabiSend! Recomendá nuestro motor de envíos y ganá hasta 250usd por venta. Generá tu código de afiliado y compartilo, tu ganancia o tus ventas serán puestas en las tablas de esta sección.",
     placement: "right",
   },
 ]
 
 const STORAGE_KEY = "nexa_demo_tour_custom"
 
+/* ---------- Helpers de almacenamiento ---------- */
 function getSavedState() {
   if (typeof window === "undefined") return null
   try {
@@ -70,6 +75,7 @@ function saveState(state: { run: boolean; step: number; done: boolean }) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
 }
 
+/* ---------- Componente ---------- */
 export function DemoTour() {
   const [showIntro, setShowIntro] = useState(true)
   const [run, setRun] = useState(false)
@@ -77,6 +83,10 @@ export function DemoTour() {
   const [mounted, setMounted] = useState(false)
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
 
+  // Ref para el intervalo de actualización (lo eliminamos usando eventos)
+  const rafRef = useRef<number | null>(null)
+
+  // Inicialización
   useEffect(() => {
     setMounted(true)
     const saved = getSavedState()
@@ -94,35 +104,37 @@ export function DemoTour() {
     }
   }, [])
 
-  // Calcular posición del target activo
-  useEffect(() => {
+  // Calcular posición del target activo (sin intervalos, solo eventos)
+  const updateRect = useCallback(() => {
     if (!run) {
       setTargetRect(null)
       return
     }
     const currentStep = tourSteps[step]
     if (!currentStep) return
-
-    const updateRect = () => {
-      const el = document.querySelector(currentStep.target)
-      if (el) {
-        setTargetRect(el.getBoundingClientRect())
-      }
-    }
-
-    updateRect()
-    // Re-calcular en resize/scroll
-    window.addEventListener("resize", updateRect)
-    window.addEventListener("scroll", updateRect, true)
-    const interval = setInterval(updateRect, 200)
-
-    return () => {
-      window.removeEventListener("resize", updateRect)
-      window.removeEventListener("scroll", updateRect, true)
-      clearInterval(interval)
+    const el = document.querySelector(currentStep.target)
+    if (el) {
+      setTargetRect(el.getBoundingClientRect())
+    } else {
+      setTargetRect(null) // por si el elemento no existe aún
     }
   }, [run, step])
 
+  useEffect(() => {
+    updateRect()
+    window.addEventListener("resize", updateRect)
+    window.addEventListener("scroll", updateRect, true)
+    // Por si hay cambios de layout retardados
+    const observer = new ResizeObserver(updateRect)
+    observer.observe(document.body)
+    return () => {
+      window.removeEventListener("resize", updateRect)
+      window.removeEventListener("scroll", updateRect, true)
+      observer.disconnect()
+    }
+  }, [updateRect])
+
+  // Navegación
   const startTour = useCallback(() => {
     setShowIntro(false)
     setStep(0)
@@ -169,35 +181,27 @@ export function DemoTour() {
 
   return (
     <>
-      {/* OVERLAY OSCURO */}
-      <AnimatePresence>
-        {run && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9990] bg-black/60"
-            onClick={() => { /* no cerrar al clickear overlay */ }}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* SPOTLIGHT (recorte alrededor del target) */}
+      {/* SPOTLIGHT único que oscurece todo menos el target */}
       <AnimatePresence>
         {run && targetRect && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
             className="fixed inset-0 z-[9991] pointer-events-none"
             style={{
+              // Creamos un fondo oscuro con un "hueco" transparente sobre el target
               background: `
-                linear-gradient(to right, rgba(0,0,0,0.6) ${targetRect.left - 8}px, transparent ${targetRect.left - 8}px),
-                linear-gradient(to left, rgba(0,0,0,0.6) calc(100% - ${targetRect.right + 8}px), transparent calc(100% - ${targetRect.right + 8}px)),
-                linear-gradient(to bottom, rgba(0,0,0,0.6) ${targetRect.top - 8}px, transparent ${targetRect.top - 8}px),
-                linear-gradient(to top, rgba(0,0,0,0.6) calc(100% - ${targetRect.bottom + 8}px), transparent calc(100% - ${targetRect.bottom + 8}px))
+                linear-gradient(to right, rgba(0,0,0,0.7) ${targetRect.left - 4}px, transparent ${targetRect.left - 4}px),
+                linear-gradient(to left, rgba(0,0,0,0.7) calc(100% - ${targetRect.right + 4}px), transparent calc(100% - ${targetRect.right + 4}px)),
+                linear-gradient(to bottom, rgba(0,0,0,0.7) ${targetRect.top - 4}px, transparent ${targetRect.top - 4}px),
+                linear-gradient(to top, rgba(0,0,0,0.7) calc(100% - ${targetRect.bottom + 4}px), transparent calc(100% - ${targetRect.bottom + 4}px))
               `,
+              willChange: "background",
             }}
+            // Añadimos un borde sutil alrededor del hueco para destacarlo (opcional)
+            aria-hidden="true"
           />
         )}
       </AnimatePresence>
@@ -210,10 +214,12 @@ export function DemoTour() {
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
-            transition={{ duration: 0.25 }}
+            transition={{ duration: 0.2 }}
             className="fixed z-[9992] w-80"
             style={{
-              left: currentStep.placement === "right" ? targetRect.right + 16 : targetRect.left - 336,
+              left: currentStep.placement === "right"
+                ? Math.min(targetRect.right + 16, window.innerWidth - 340)
+                : Math.max(targetRect.left - 336, 20),
               top: Math.min(
                 Math.max(targetRect.top + targetRect.height / 2 - 80, 16),
                 window.innerHeight - 200
@@ -229,6 +235,7 @@ export function DemoTour() {
                 <button
                   onClick={skipTour}
                   className="text-slate-500 hover:text-slate-300 transition-colors"
+                  aria-label="Cerrar tour"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -299,11 +306,11 @@ export function DemoTour() {
               <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-cyan-500/20 rounded-full blur-2xl" />
 
               <div className="relative z-10">
-                <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-5 shadow-lg shadow-blue-500/30">
-                  <Play className="w-7 h-7 text-white ml-1" />
+                <div className="mx-auto flex items-center justify-center mb-5">
+                  <img className="h-16" src="/images/logo_light.png" alt="WabiSend" />
                 </div>
                 <h2 className="text-2xl font-bold text-white mb-2">
-                  Bienvenido a NEXA
+                  ¡Bienvenid@!
                 </h2>
                 <p className="text-sm text-slate-400 leading-relaxed mb-8">
                   Te vamos a mostrar en menos de 2 minutos cómo funciona cada sección del sistema.
@@ -330,7 +337,7 @@ export function DemoTour() {
         )}
       </AnimatePresence>
 
-      {/* BOTÓN LATENTE REINICIAR */}
+      {/* BOTÓN DE REINICIO (visible cuando el tour no está activo) */}
       <AnimatePresence>
         {!showIntro && !run && (
           <motion.button
@@ -340,13 +347,11 @@ export function DemoTour() {
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.95 }}
             onClick={restartTour}
-            className="fixed bottom-6 left-6 z-[9990] flex items-center gap-2 px-4 py-3 rounded-full bg-slate-800/90 backdrop-blur-md border border-slate-700/50 text-slate-300 text-xs font-semibold shadow-xl hover:bg-slate-700/90 hover:text-white hover:border-blue-500/30 transition-all group"
+            className="fixed bottom-6 left-6 z-[9993] flex items-center gap-2 px-4 py-3 rounded-full bg-slate-800/90 backdrop-blur-md border border-slate-700/50 text-slate-300 text-xs font-semibold shadow-xl hover:bg-slate-700/90 hover:text-white hover:border-blue-500/30 transition-all group"
             title="Reiniciar recorrido"
+            aria-label="Reiniciar tour"
           >
-            <div className="relative">
-              <HelpCircle className="w-4 h-4 text-blue-400 group-hover:rotate-12 transition-transform" />
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-            </div>
+            <HelpCircle className="w-4 h-4 text-blue-400 group-hover:rotate-12 transition-transform" />
             <span className="hidden sm:inline">Ver recorrido</span>
           </motion.button>
         )}

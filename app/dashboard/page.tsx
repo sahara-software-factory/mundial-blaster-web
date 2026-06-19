@@ -58,7 +58,10 @@ import {
   Gauge,
   Crosshair,
   Loader2,
-  ShieldCheck
+  ShieldCheck,
+  Info,
+  ShieldBan,
+  XCircle
 } from "lucide-react"
 import { QRModal } from "../components/qr-modal"
 import { useUpgradeModal } from "../components/UpgradeModalProvider"
@@ -146,6 +149,7 @@ interface TierConfig {
   hasAI: boolean
   hasBlacklist: boolean
   hasSimulacroLite: boolean
+  hasTemplateFavorite: boolean
   hasSimulacroFull: boolean
   hasProxyRotate: boolean
 }
@@ -166,14 +170,16 @@ const TIER_CONFIG: Record<TierName, TierConfig> = {
     hasSimulacroLite: false,
     hasSimulacroFull: false,
     hasProxyRotate: false,
+    hasTemplateFavorite: false
   },
   pro: {
-    maxLines: 5,
+    maxLines: 3,
     maxTemplates: Infinity,
     hasCron: true,
     hasExport: true,
     hasRoundRobin: true,
     hasHumanMode: true,
+    hasTemplateFavorite: true,
     hasClone: true,
     hasAdvancedSpintax: true,
     hasTemplateVars: true,
@@ -188,6 +194,7 @@ const TIER_CONFIG: Record<TierName, TierConfig> = {
     maxTemplates: Infinity,
     hasCron: true,
     hasExport: true,
+    hasTemplateFavorite: true,
     hasRoundRobin: true,
     hasHumanMode: true,
     hasClone: true,
@@ -331,6 +338,35 @@ function ensureClickableUrls(text: string): string {
     )
 }
 
+
+const getLogMeta = (log: string) => {
+  if (log.startsWith('[OK]') || log.startsWith('[DONE]')) 
+    return { icon: CheckCircle2, color: 'text-emerald-400' }
+  if (log.startsWith('[ERR]')) 
+    return { icon: XCircle, color: 'text-red-400' }
+  if (log.startsWith('[SIM]')) 
+    return { icon: FlaskConical, color: 'text-amber-400' }
+  if (log.startsWith('[PROXY]')) 
+    return { icon: Globe, color: 'text-cyan-400' }
+  if (log.startsWith('[INFO]')) 
+    return { icon: Info, color: 'text-blue-400' }
+  if (log.startsWith('[WARN]')) 
+    return { icon: AlertTriangle, color: 'text-orange-400' }
+  if (log.startsWith('[CSV]')) 
+    return { icon: Download, color: 'text-purple-400' }
+  if (log.startsWith('[BL]')) 
+    return { icon: ShieldBan, color: 'text-purple-400' }
+  if (log.startsWith('[CAL]')) 
+    return { icon: CalendarClock, color: 'text-pink-400' }
+  if (log.startsWith('[CLONE]')) 
+    return { icon: Copy, color: 'text-teal-400' }
+  if (log.startsWith('[RECON]')) 
+    return { icon: RotateCcw, color: 'text-sky-400' }
+  if (log === '') 
+    return { icon: null, color: 'h-2' } // separador
+  return { icon: null, color: 'text-[var(--text-secondary)]' }
+}
+
 export default function Dashboard() {
   const router = useRouter()
   const { license, loading: licenseLoading, checked: licenseChecked, isActive } = useLicense()
@@ -352,13 +388,13 @@ export default function Dashboard() {
   const { openUpgrade } = useUpgradeModal()
 
   // Campaña
-  const [numbersText, setNumbersText] = useState("")
+  const [numbersText, setNumbersText] = useState(isDemo ? "549115457458\n549115457458\n5492604500364" : "")
   const [message, setMessage] = useState("")
 
   const [isEditMode, setIsEditMode] = useState(false)
 const [editCampaignId, setEditCampaignId] = useState<string | null>(null)
  const [skipBlacklist, setSkipBlacklist] = useState(true)
-const [blacklistCount, setBlacklistCount] = useState(0)
+// const [blacklistCount, setBlacklistCount] = useState(0)
 
   const ensureClickableUrls = (text: string): string => {
     if (!text) return text
@@ -392,7 +428,6 @@ const [blacklistCount, setBlacklistCount] = useState(0)
 
   const [validationErrors, setValidationErrors] = useState<string[]>([])
 
-  const [duplicateNumbers, setDuplicateNumbers] = useState<string[]>([])
   const [verifyTimeout, setVerifyTimeout] = useState<NodeJS.Timeout | null>(null)
 
   // Contactos + Tags
@@ -437,10 +472,29 @@ const [blacklistCount, setBlacklistCount] = useState(0)
   const [distributionMode, setDistributionMode] = useState<"single" | "round_robin">("single")
   const [selectedLineIds, setSelectedLineIds] = useState<string[]>([])
 
-  const [blacklistInList, setBlacklistInList] = useState<string[]>([])
-const [showBlacklistModal, setShowBlacklistModal] = useState(false)
-const [blacklistNumbers, setBlacklistNumbers] = useState<string[]>([])
+  const [showBlacklistModal, setShowBlacklistModal] = useState(false)
+  const DEMO_BLACKLIST = ["549115457458", "5492604500364"]
+
+const [blacklistNumbers, setBlacklistNumbers] = useState<string[]>(isDemo ? DEMO_BLACKLIST : [])
+const [blacklistInList, setBlacklistInList] = useState<string[]>(isDemo ? DEMO_BLACKLIST : [])
+const [blacklistCount, setBlacklistCount] = useState(isDemo ? DEMO_BLACKLIST.length : 0)
 const [isLoadingBlacklist, setIsLoadingBlacklist] = useState(false)
+const [duplicateNumbers, setDuplicateNumbers] = useState<string[]>(isDemo ? ["549115457458", "5491131237458", "54912223234"] : [])
+
+
+  // Demo: inicializar datos de prueba después de montar
+  // useEffect(() => {
+  //   if (isDemo) {
+  //     const DEMO_BLACKLIST = ["549115457458", "5492604500364"]
+  //     const DEMO_NUMBERS = "549115457458\n549115457458\n5492604500364\n5492604621921"
+      
+  //     setNumbersText(DEMO_NUMBERS)
+  //     setBlacklistNumbers(DEMO_BLACKLIST)
+  //     setBlacklistInList(DEMO_BLACKLIST)
+  //     setBlacklistCount(DEMO_BLACKLIST.length)
+  //     setDuplicateNumbers(["549115457458"])
+  //   }
+  // }, [isDemo])
 
   const [simulationMode, setSimulationMode] = useState<'off' | 'lite' | 'full'>('off')
   const [isSimulating, setIsSimulating] = useState(false)
@@ -545,7 +599,42 @@ aiFeaturesRef.current = aiFeatures
     }
   }
 
-   const verifyCampaign = useCallback(() => {
+
+  const deleteLine = async (lineId: string) => {
+    const ok = await askConfirm({
+      title: "Eliminar línea",
+      description: "¿Eliminar esta línea permanentemente? Se perderá la sesión de WhatsApp y el historial asociado.",
+      confirmText: "Eliminar",
+      cancelText: "Cancelar",
+      variant: "danger",
+    })
+    if (!ok) return
+    try {
+      const t = localStorage.getItem('mb_token') || ''
+      const res = await fetch(`/api/lineas/${lineId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${t}` }
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        fetchLines()
+        if (selectedLine?.id === lineId) setSelectedLine(null)
+        setSelectedLineIds(prev => prev.filter(id => id !== lineId))
+        toast.success("Línea eliminada")
+      } else {
+        toast.error(data.error || "Error al eliminar")
+      }
+    } catch {
+      toast.error("Error de red")
+    }
+  }
+
+
+     const verifyCampaign = useCallback(() => {
+    if (isDemo) {
+      toast.info("🎮 No podés enviar campañas en modo demo")
+      return false
+    }
     if (isSimulationActive) {
       if (!numbersText.trim()) {
         toast.error("Agregá al menos un número para simular")
@@ -570,15 +659,15 @@ aiFeaturesRef.current = aiFeatures
     }
     
     const seen = new Set<string>()
-    const dups: string[] = []
+    const dupSet = new Set<string>() // ← únicos para visualización
     for (const n of numbers) {
       const clean = n.replace(/\D/g, '')
-      if (seen.has(clean)) dups.push(n)
+      if (seen.has(clean)) dupSet.add(clean)
       else seen.add(clean)
     }
-    setDuplicateNumbers(dups)
+    setDuplicateNumbers(Array.from(dupSet)) // ← 1 solo por número
     
-    if (dups.length > 0) {
+    if (dupSet.size > 0) {
       setIsVerifying(false)
       return false
     }
@@ -598,7 +687,7 @@ aiFeaturesRef.current = aiFeatures
     
     setIsVerifying(false)
     return true
-  }, [numbersText, message, lines, selectedLineIds, isSimulationActive, setIsVerifying, setValidationErrors, setDuplicateNumbers])
+  }, [numbersText, message, lines, selectedLineIds, isSimulationActive, isDemo, setIsVerifying, setValidationErrors, setDuplicateNumbers])
 
 
   const addLine = async () => {
@@ -711,9 +800,9 @@ aiFeaturesRef.current = aiFeatures
       await new Promise(r => setTimeout(r, 300))
     }
     if ((scheduleMode === 'pending' || scheduleMode === 'scheduled') && !proxyRotateEnabled) {
-      router.push("/reports")
+      router.push("dashboard/reports")
     } else if (scheduleMode === 'pending' || scheduleMode === 'scheduled') {
-      setTimeout(() => router.push("/reports"), 2000) // ← dar 2s para leer logs
+      setTimeout(() => router.push("dashboard/reports"), 2000) // ← dar 2s para leer logs
     }
   try {
     const t = localStorage.getItem('mb_token') || ''
@@ -725,8 +814,8 @@ aiFeaturesRef.current = aiFeatures
       delay_min: delayMin,
       delay_max: delayMax,
       schedule: scheduleMode,
-      execute_at: scheduleMode === 'scheduled' && scheduleDate 
-        ? new Date(scheduleDate).toISOString()
+       execute_at: scheduleMode === 'scheduled' && scheduleDate 
+        ? new Date(scheduleDate).toISOString() // ← el input datetime-local ya viene en hora local del navegador, lo convertimos a UTC ISO
         : undefined,
       line_ids: lineasConectadas.map(l => l.id),
       distribution_mode: isRoundRobin ? 'round_robin' : 'single',
@@ -770,7 +859,7 @@ aiFeaturesRef.current = aiFeatures
       setLogs(prev => [...prev, `✅ ${isEditMode ? 'Editada' : 'Creada'} ${data.campaign?.id || ''} | ${targets.length} msgs`])
       
       if (scheduleMode === 'pending' || scheduleMode === 'scheduled') {
-        router.push("/reports")
+        router.push("dashboard/reports")
       } else {
         setActiveTab("logs")
       }
@@ -998,6 +1087,7 @@ const clearLiveLogs = () => {
 }
 
 useEffect(() => {
+  if (isDemo) return
     if (verifyTimeout) clearTimeout(verifyTimeout)
     const raw = numbersText.trim()
     if (!raw) {
@@ -1045,7 +1135,7 @@ useEffect(() => {
     }
   }
 
-   const removeAllDuplicates = () => {
+     const removeAllDuplicates = () => {
     const lines = numbersText.split('\n').map(n => n.trim()).filter(Boolean)
     const seen = new Set<string>()
     const unique: string[] = []
@@ -1060,9 +1150,11 @@ useEffect(() => {
     
     setNumbersText(unique.join('\n'))
     setDuplicateNumbers([])
+    toast.success("Duplicados eliminados. Se conservó 1 de cada número.")
   }
 
   const removeSpecificNumber = (numToRemove: string) => {
+    if (isDemo) return
     const cleanRemove = numToRemove.replace(/\D/g, '')
     const lines = numbersText.split('\n').map(n => n.trim()).filter(Boolean)
     const filtered = lines.filter(n => n.replace(/\D/g, '') !== cleanRemove)
@@ -1239,10 +1331,15 @@ useEffect(() => {
   
   if (socketRef.current?.connected) return
   
+    const token = typeof window !== 'undefined' 
+    ? (localStorage.getItem('mb_token') || localStorage.getItem('wabisend_token') || '') 
+    : ''
+  
   const socket = io(SOCKET_URL, {
     transports: ['websocket', 'polling'],
     reconnectionAttempts: 5,
     reconnectionDelay: 1000,
+    auth: { token }, // ← 🔒 Token para pasar el middleware
   })
   
   socketRef.current = socket
@@ -1343,12 +1440,13 @@ useEffect(() => {
   loadFeatures()
 }, [isAuthenticated, isDemo])
 
-      const checkBlacklistInNumbers = useCallback(async (text: string) => {
-    // DEBUG: si no ves esto en consola, la función no se llama
-    console.log('[BL] Starting check. isBusiness:', isBusiness, 'text:', text?.slice(0, 30))
+  const checkBlacklistInNumbers = useCallback(async (text: string) => {
+    if (isDemo) return // demo ya tiene datos hardcodeados
 
-    if (!isBusiness) {
-      console.log('[BL] Abort: isBusiness is false')
+    console.log('[BL] Starting check. hasBlacklist:', tierConfig?.hasBlacklist, 'text:', text?.slice(0, 30))
+
+    if (!tierConfig?.hasBlacklist) {  // ← ✅ FIX: Pro y Business tienen hasBlacklist
+      console.log('[BL] Abort: plan sin blacklist')
       setBlacklistInList([])
       return
     }
@@ -1382,33 +1480,29 @@ useEffect(() => {
       const data = await res.json()
       console.log('[BL] API response:', data)
 
-      // Soportar: { blacklist: [...] } o [...] directo
       const rawList: any[] = Array.isArray(data?.blacklist) 
         ? data.blacklist 
         : (Array.isArray(data) ? data : [])
       
       console.log('[BL] Raw entries:', rawList.length, rawList.slice(0, 3))
 
-      // Normalizar a string limpio
       const blacklistedPhones = new Set(
         rawList
           .map((b: any) => String(b?.phone || '').replace(/\D/g, ''))
           .filter((p: string) => p.length > 0)
       )
-            console.log('[BL] Set contents:', Array.from(blacklistedPhones))
+      console.log('[BL] Set contents:', Array.from(blacklistedPhones))
 
-
-      // Match exacto
       let found = phones.filter(p => blacklistedPhones.has(p))
-      console.log('[BL] Exact matches:', found)
+      found = Array.from(new Set(found))
 
-      // Fallback: match por últimos 10 dígitos si no hay exacto
       if (found.length === 0 && blacklistedPhones.size > 0) {
         const phonesShort = phones.map(p => p.slice(-10))
         const blacklistShort = new Set(
           Array.from(blacklistedPhones).map((p: string) => p.slice(-10))
         )
         found = phones.filter((_, i) => blacklistShort.has(phonesShort[i]))
+        found = Array.from(new Set(found))
         console.log('[BL] Fallback matches (last 10):', found)
       }
 
@@ -1418,11 +1512,11 @@ useEffect(() => {
       console.error('[BL] Catch error:', err)
       setBlacklistInList([])
     }
-  }, [isBusiness])
+  }, [tierConfig?.hasBlacklist, isDemo])  // ← dependencia cambiada
 
 
-  useEffect(() => {
-    if (!isBusiness || !numbersText.trim()) {
+    useEffect(() => {
+    if (!tierConfig?.hasBlacklist || !numbersText.trim()) {
       setBlacklistInList([])
       return
     }
@@ -1430,13 +1524,20 @@ useEffect(() => {
       checkBlacklistInNumbers(numbersText)
     }, 600)
     return () => clearTimeout(timer)
-  }, [numbersText, isBusiness, checkBlacklistInNumbers])
+  }, [numbersText, tierConfig?.hasBlacklist, checkBlacklistInNumbers])
+
+  useEffect(() => {
+    if (tierConfig?.hasBlacklist && numbersText.trim()) {
+      console.log('[BL] hasBlacklist true, re-checking...')
+      checkBlacklistInNumbers(numbersText)  
+    }
+  }, [tierConfig?.hasBlacklist, numbersText, checkBlacklistInNumbers])
 
   // Efecto 2: cuando isBusiness pasa de false a true y ya hay texto
   useEffect(() => {
     if (isBusiness && numbersText.trim()) {
       console.log('[BL] isBusiness became true, re-checking...')
-      checkBlacklistInNumbers(numbersText)
+      checkBlacklistInNumbers(numbersText)  
     }
   }, [isBusiness, numbersText, checkBlacklistInNumbers])
 
@@ -1530,12 +1631,12 @@ useEffect(() => {
     }
   }, [isDemo, activeTab])
 
-  useEffect(() => {
-  if (!isBusiness) return
+useEffect(() => {
+  if (!tierConfig?.hasBlacklist && !isDemo) return
   const load = async () => {
     try {
       const t = localStorage.getItem('mb_token') || ''
-      const res = await fetch('/api/blacklist', { headers: { Authorization: `Bearer ${token}` } })
+      const res = await fetch('/api/blacklist', { headers: { Authorization: `Bearer ${t}` } })
       if (res.ok) {
         const data = await res.json()
         setBlacklistCount(data.blacklist?.length || 0)
@@ -1543,7 +1644,7 @@ useEffect(() => {
     } catch {}
   }
   load()
-}, [isBusiness, token])
+}, [tierConfig?.hasBlacklist, isDemo])
 
 
     const PROXY_NODES = [
@@ -1589,10 +1690,27 @@ useEffect(() => {
 
 
 
-      const saveProxyToHistory = async (proxy: any) => {
-  try {
-    const t = localStorage.getItem('mb_token') || ''
-    await fetch('/api/proxy/history', {
+        const saveProxyToHistory = async (proxy: any) => {
+    if (isDemo) {
+      // Demo: solo memoria local, no tocar DB
+      setProxyHistory(prev => {
+        const exists = prev.some((p: any) => p.city === proxy.city && p.fakeIp === proxy.fakeIp)
+        if (exists) return prev
+        return [{
+          city: proxy.city,
+          country: proxy.country,
+          code: proxy.code,
+          fakeIp: proxy.fakeIp,
+          latency: proxy.latency,
+          usedAt: new Date().toISOString(),
+          timesUsed: 1,
+        }, ...prev].slice(0, 10)
+      })
+      return
+    }
+    try {
+      const t = localStorage.getItem('mb_token') || ''
+      await fetch('/api/proxy/history', {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json', 
@@ -1611,8 +1729,17 @@ useEffect(() => {
   }
 }
 
-   const loadProxyHistory = async () => {
+      const loadProxyHistory = async () => {
     setIsLoadingHistory(true)
+    if (isDemo) {
+      // Demo: datos mock en memoria
+      setProxyHistory([
+        { city: 'São Paulo', country: 'Brasil', code: 'BR', fakeIp: '189.84.123.45', latency: 45, usedAt: new Date().toISOString(), timesUsed: 3 },
+        { city: 'Frankfurt', country: 'Alemania', code: 'DE', fakeIp: '85.214.56.112', latency: 35, usedAt: new Date(Date.now() - 86400000).toISOString(), timesUsed: 1 },
+      ])
+      setIsLoadingHistory(false)
+      return
+    }
     try {
       const t = localStorage.getItem('mb_token') || ''
       const res = await fetch('/api/proxy/history', {
@@ -1645,38 +1772,61 @@ useEffect(() => {
   useEffect(() => {
     if (isDemo && activeTab === "logs") {
       setLogs([
-        "🚀 Campaña iniciada: 500 números · 5 líneas · Modo: Round-robin · Delay: 5-15s",
-        "✅ 1/500 → 5491130000001 [Línea Principal] · 2.3s",
-        "✅ 2/500 → 5491130000002 [Línea Ventas] · 4.1s",
-        "✅ 3/500 → 5491130000003 [Línea Soporte] · 3.8s",
-        "✅ 4/500 → 5491130000004 [Línea Marketing] · 2.9s",
-        "✅ 5/500 → 5491130000005 [Línea Backup] · 5.2s",
-        "🏁 Modo humano activado: simulando escritura letra por letra...",
-        "✅ 6/500 → 5491130000006 [Línea Principal] · 12.4s (modo humano)",
-        "✅ 7/500 → 5491130000007 [Línea Ventas] · 8.7s",
-        "✅ 8/500 → 5491130000008 [Línea Soporte] · 6.3s",
-        "❌ 9/500 → 5491130000009 [Línea Marketing] · Número inválido",
-        "✅ 10/500 → 5491130000010 [Línea Backup] · 4.5s",
-        "✅ 11/500 → 5491130000011 [Línea Principal] · 3.2s",
-        "✅ 12/500 → 5491130000012 [Línea Ventas] · 7.1s (modo humano)",
-        "✅ 13/500 → 5491130000013 [Línea Soporte] · 5.8s",
-        "✅ 14/500 → 5491130000014 [Línea Marketing] · 4.2s",
-        "✅ 15/500 → 5491130000015 [Línea Backup] · 6.9s",
-        "🏁 Campaña #1 finalizada · 499 enviados · 1 fallido · Tasa: 99.8%",
-        "🚀 Campaña iniciada: 1250 números · 3 líneas · Modo: Single",
-        "✅ 1/1250 → 5491130005678 [Línea Principal] · 3.1s",
-        "✅ 2/1250 → 5491130005679 [Línea Principal] · 2.8s",
-        "✅ 3/1250 → 5491130005680 [Línea Ventas] · 4.5s",
-        "🏁 Campaña #2 finalizada · 1248 enviados · 2 fallidos · Tasa: 99.8%",
-        "🚀 Campaña iniciada: 890 números · 2 líneas · Modo: Round-robin",
-        "✅ 1/890 → 5491130009001 [Línea Soporte] · 3.4s",
-        "✅ 2/890 → 5491130009002 [Línea Marketing] · 5.1s",
-        "🏁 Campaña #3 en ejecución · 456 enviados · 0 fallidos",
-        "📅 Campaña programada: Reactivación Clientes · 2100 números · 30/05 09:00",
-        "✅ Clonación 1-click: Campaña 'Promo Verano' duplicada",
-        "🔄 Reconexión keep-alive: Línea Principal reconectada automáticamente",
-        "📊 Export CSV: 3847 contactos descargados",
-        "🛡️ Blacklist: 23 números bloqueados",
+        // ─── FASE 0: SIMULACRO (calentar líneas) ───
+        "[SIM] Simulacro iniciado: 500 pings · calentando 5 líneas",
+        "[SIM] Línea Principal: ping 45ms · status CONECTADA",
+        "[SIM] Línea Ventas: ping 52ms · status CONECTADA",
+        "[SIM] Línea Soporte: ping 38ms · status CONECTADA",
+        "[SIM] Línea Marketing: ping 61ms · status CONECTADA",
+        "[SIM] Línea Backup: ping 41ms · status CONECTADA",
+        "[DONE] Simulacro completado: 5/5 líneas saludables",
+        "",
+        // ─── FASE 1: PROXY ROTATE ───
+        "[PROXY] Estableciendo conexión con nodo Inglaterra...",
+        "[PROXY] Escaneando nodos globales: US, DE, BR, SG, JP, AR, NL",
+        "[PROXY] Nodos activos encontrados: 8/8",
+        "[PROXY] Ruta óptima seleccionada: Londres, UK",
+        "[PROXY] IP asignada: 51.104.92.11 · Latencia: 36ms",
+        "[PROXY] Modo anti-ban agresivo activado",
+        "[DONE] Proxy Rotate configurado: Londres (36ms)",
+        "",
+        // ─── FASE 2: CAMPAÑA EN VIVO ───
+        "[OK] Campaña iniciada: 500 números · 5 líneas · Round-robin · Delay: 5-15s",
+        "[OK] 1/500 → 5491130000001 [Línea Principal] · 2.3s",
+        "[OK] 2/500 → 5491130000002 [Línea Ventas] · 4.1s",
+        "[OK] 3/500 → 5491130000003 [Línea Soporte] · 3.8s",
+        "[OK] 4/500 → 5491130000004 [Línea Marketing] · 2.9s",
+        "[OK] 5/500 → 5491130000005 [Línea Backup] · 5.2s",
+        "[INFO] Modo humano activado: simulando escritura letra por letra...",
+        "[OK] 6/500 → 5491130000006 [Línea Principal] · 12.4s (modo humano)",
+        "[OK] 7/500 → 5491130000007 [Línea Ventas] · 8.7s",
+        "[OK] 8/500 → 5491130000008 [Línea Soporte] · 6.3s",
+        "[ERR] 9/500 → 5491130000009 [Línea Marketing] · Número inválido",
+        "[OK] 10/500 → 5491130000010 [Línea Backup] · 4.5s",
+        "[OK] 11/500 → 5491130000011 [Línea Principal] · 3.2s",
+        "[OK] 12/500 → 5491130000012 [Línea Ventas] · 7.1s (modo humano)",
+        "[OK] 13/500 → 5491130000013 [Línea Soporte] · 5.8s",
+        "[OK] 14/500 → 5491130000014 [Línea Marketing] · 4.2s",
+        "[OK] 15/500 → 5491130000015 [Línea Backup] · 6.9s",
+        "[INFO] Campaña #1 finalizada · 499 enviados · 1 fallido · Tasa: 99.8%",
+        "",
+        // ─── FASE 3: MÚLTIPLES CAMPAÑAS ───
+        "[OK] Campaña iniciada: 1250 números · 3 líneas · Modo: Single",
+        "[OK] 1/1250 → 5491130005678 [Línea Principal] · 3.1s",
+        "[OK] 2/1250 → 5491130005679 [Línea Principal] · 2.8s",
+        "[OK] 3/1250 → 5491130005680 [Línea Ventas] · 4.5s",
+        "[INFO] Campaña #2 finalizada · 1248 enviados · 2 fallidos · Tasa: 99.8%",
+        "[OK] Campaña iniciada: 890 números · 2 líneas · Modo: Round-robin",
+        "[OK] 1/890 → 5491130009001 [Línea Soporte] · 3.4s",
+        "[OK] 2/890 → 5491130009002 [Línea Marketing] · 5.1s",
+        "[INFO] Campaña #3 en ejecución · 456 enviados · 0 fallidos",
+        "",
+        // ─── FASE 4: UTILIDADES ───
+        "[CAL] Programada: Reactivación Clientes · 2100 números · 30/05 09:00",
+        "[CLONE] Clonación 1-click: Campaña 'Promo Verano' duplicada",
+        "[WARN] Reconexión keep-alive: Línea Principal reconectada automáticamente",
+        "[CSV] Export: 3847 contactos descargados",
+        "[BL] Blacklist: 23 números bloqueados",
       ])
     }
   }, [isDemo, activeTab])
@@ -1826,16 +1976,15 @@ function getSaludoPorHora(): string {
   <div className="space-y-6 max-w-5xl">
     {/* HEADER: Saludo + Fecha/Hora */}
     <div className="relative overflow-hidden rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)]/60 p-6">
-    {user?.avatar && (
+                  {(user?.avatar || isDemo) && (
       <div style={{top:"-15px"}} className="absolute right-0 pointer-events-none">
-        
         <img 
-                    src={`https://api.dicebear.com/9.x/notionists/svg?seed=${user.avatar}&backgroundColor=transparent`} 
-                    alt="avatar" 
-                    className="h-48"
-                  />
+          src={`https://api.dicebear.com/9.x/notionists/svg?seed=${user?.avatar || 'demo-user'}&backgroundColor=transparent`} 
+          alt="avatar" 
+          className="h-48"
+        />
       </div>
-        )}
+    )}
       
       <div className="relative z-10">
         <div className="flex items-start justify-between">
@@ -1851,10 +2000,10 @@ function getSaludoPorHora(): string {
               </span>
             </p>
                         <div className="flex items-center gap-3 mb-2">
-              {user?.avatar && (
+                            {(user?.avatar || isDemo) && (
                 <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center overflow-hidden">
                   <img 
-                    src={`https://api.dicebear.com/9.x/notionists/svg?seed=${user.avatar}&backgroundColor=transparent`} 
+                    src={`https://api.dicebear.com/9.x/notionists/svg?seed=${user?.avatar || 'demo-user'}&backgroundColor=transparent`} 
                     alt="avatar" 
                     className="w-8 h-8"
                   />
@@ -1906,8 +2055,11 @@ function getSaludoPorHora(): string {
               <div>
                 <p className="text-xs text-[var(--text-muted)]">Líneas WhatsApp</p>
                 <p className="text-lg font-bold text-[var(--text-primary)]">
-                  {isDemo ? 5 : lines.length} <span className="text-[var(--text-muted)] text-sm font-normal">/ {tierConfig.maxLines === Infinity ? '∞' : tierConfig.maxLines}</span>
-                </p>
+  {Math.min(isDemo ? 5 : lines.length, tierConfig.maxLines === Infinity ? 99 : tierConfig.maxLines)} 
+  <span className="text-[var(--text-muted)] text-sm font-normal">
+    / {tierConfig.maxLines === Infinity ? '∞' : tierConfig.maxLines}
+  </span>
+</p>
               </div>
             </div>
             <div className="w-full bg-[var(--bg-input)] rounded-full h-1.5">
@@ -2106,9 +2258,24 @@ function getSaludoPorHora(): string {
                 <div className="space-y-6 max-w-5xl">
                   <div className="flex items-center justify-between">
                     <h2 className="text-xl font-bold text-[var(--text-primary)]">Líneas WhatsApp</h2>
-                    <button onClick={() => setShowAddModal(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all">
-                      <Plus size={16} /> Agregar línea
-                    </button>
+                    <button 
+  onClick={() => {
+    if (lines.length >= tierConfig.maxLines) {
+      setShowUpgrade(true)
+      return
+    }
+    setShowAddModal(true)
+  }}
+  disabled={lines.length >= tierConfig.maxLines}
+  className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-xl shadow-lg transition-all ${
+    lines.length >= tierConfig.maxLines
+      ? 'bg-gray-700 cursor-not-allowed opacity-60 text-gray-400'
+      : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/25'
+  }`}
+>
+  <Plus size={16} /> 
+  {lines.length >= tierConfig.maxLines ? 'Límite alcanzado' : 'Agregar línea'}
+</button>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {lines.map((line) => (
@@ -2140,15 +2307,31 @@ function getSaludoPorHora(): string {
                           <span className={`px-2 py-0.5 text-[10px] rounded-full border ${statusColor(line.status)}`}>{line.status}</span>
                         </div>
                         <div className="flex gap-2 mt-4">
-                          {line.status !== "CONECTADA" && (
-                            <button onClick={(e) => { e.stopPropagation(); openQrForLine(line) }} className="flex-1 flex items-center justify-center gap-1.5 text-xs py-2 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors">
-                              <QrCode size={14} /> Conectar
-                            </button>
-                          )}
-                          <button onClick={(e) => { e.stopPropagation(); logoutLine(line.id) }} className="flex items-center justify-center gap-1.5 text-xs px-3 py-2 bg-red-500/10 text-red-400 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition-colors">
-                            <Power size={14} />
-                          </button>
-                        </div>
+  {line.status !== "CONECTADA" && (
+    <button onClick={(e) => { e.stopPropagation(); openQrForLine(line) }} className="flex-1 flex items-center justify-center gap-1.5 text-xs py-2 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors">
+      <QrCode size={14} /> Conectar
+    </button>
+  )}
+  <button 
+    onClick={(e) => { e.stopPropagation(); logoutLine(line.id) }}
+    disabled={line.status === "DESCONECTADA"}
+    className={`flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-lg border transition-colors ${
+      line.status === "DESCONECTADA"
+        ? 'bg-gray-700/30 text-gray-500 border-gray-700/30 cursor-not-allowed'
+        : 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20'
+    }`}
+    title={line.status === "DESCONECTADA" ? "Ya desconectada" : "Desconectar"}
+  >
+    <Power size={14} />
+  </button>
+  <button 
+    onClick={(e) => { e.stopPropagation(); deleteLine(line.id) }}
+    className="flex items-center justify-center gap-1.5 text-xs px-3 py-2 bg-orange-500/10 text-orange-400 rounded-lg border border-orange-500/20 hover:bg-orange-500/20 transition-colors"
+    title="Eliminar línea"
+  >
+    <Trash2 size={14} />
+  </button>
+</div>
                       </motion.div>
                     ))}
                     {lines.length === 0 && (
@@ -2252,15 +2435,21 @@ function getSaludoPorHora(): string {
                               <Upload size={12} /> Importar números
                             </button>
                           </div>
-                          {blacklistInList.length > 0 && (
+                                                    {(blacklistInList.length > 0 || isDemo) && (
                             <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-xl space-y-2">
                               <div className="flex items-center justify-between">
                                 <p className="text-xs text-purple-400 font-medium flex items-center gap-1.5">
-                                  <Ban size={12} /> {blacklistInList.length} número{blacklistInList.length > 1 ? 's' : ''} en blacklist
+                                  <Ban size={12} /> {(isDemo ? 2 : blacklistInList.length)} número{(isDemo || blacklistInList.length > 1) ? 's' : ''} en blacklist
                                 </p>
                                 <div className="flex items-center gap-2">
                                   <button 
-                                    onClick={() => setSkipBlacklist(true)}
+                                    onClick={() => {
+                                      if (isDemo) {
+                                        toast.info("🎮 Blacklist demo: solo visual")
+                                        return
+                                      }
+                                      setSkipBlacklist(true)
+                                    }}
                                     className="text-[10px] px-2 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-bold transition-colors"
                                   >
                                     Activar salto
@@ -2274,7 +2463,7 @@ function getSaludoPorHora(): string {
                                 </div>
                               </div>
                               <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                                {blacklistInList.map((num, i) => (
+                                {(isDemo ? ["549115457458", "5492604500364"] : blacklistInList).map((num, i) => (
                                   <span key={i} className="text-[10px] px-2 py-1 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30 font-mono">
                                     {num}
                                   </span>
@@ -2505,13 +2694,22 @@ function getSaludoPorHora(): string {
                           />
                           {message && (
   <button
-  onClick={async () => {
+    onClick={async () => {
     if (!hasAiKey && !isDemo) {
       toast.error("Configurá tu API key de IA primero")
       return
     }
     if (!aiFeatures.ai_title_enabled && !isDemo) {
       toast.error("Activá el Generador de Títulos desde IA → Implementaciones")
+      return
+    }
+    if (isDemo) {
+      setGeneratingTitle(true)
+      setTimeout(() => {
+        setCampaignName("🔥 Black Friday 2026 · 70% OFF solo 24hs")
+        setGeneratingTitle(false)
+        toast.success("🎮 Título demo generado")
+      }, 800)
       return
     }
     setGeneratingTitle(true)
@@ -2539,7 +2737,7 @@ function getSaludoPorHora(): string {
 )}
                         </div>
                         <div>
-                          <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5 block">Ejecución</label>
+                          <label className="text-xs font-bold text-[var(--text-secondary)] uppercase  tracking-wider mb-1.5 block">Ejecución</label>
                                                                           {/* EJECUCIÓN: 4 botones con iconos */}
                       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
                         <button
@@ -2576,6 +2774,7 @@ function getSaludoPorHora(): string {
                                 : 'bg-[var(--bg-input)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-slate-600'
                             }`}
                           >
+                            
                             <Calendar size={14} /> Programar
                           </button>
                         ) : (
@@ -2681,6 +2880,9 @@ function getSaludoPorHora(): string {
                               })}
                             </p>
                           )}
+                          <p className="text-[10px] text-[var(--text-muted)]">
+  Zona horaria: {user?.timezone || 'America/Argentina/Buenos_Aires'}
+</p>
                               <p className="text-[10px] text-[var(--text-muted)] mt-1">
                                 La campaña se ejecutará automáticamente. El servidor debe estar activo.
                               </p>
@@ -2757,13 +2959,32 @@ function getSaludoPorHora(): string {
 {message && (
   <div className="mt-3">
     <button
-  onClick={async () => {
+    onClick={async () => {
     if (!hasAiKey && !isDemo) {
       toast.error("Configurá tu API key de IA primero")
       return
     }
     if (!aiFeatures.ai_audit_enabled && !isDemo) {
       toast.error("Activá el Auditor Anti-Ban desde IA → Implementaciones")
+      return
+    }
+    if (isDemo) {
+      setAuditing(true)
+      setTimeout(() => {
+        setAuditResult({
+          score: 87,
+          checks: [
+            { ok: true, label: "Sin enlaces sospechosos" },
+            { ok: true, label: "Longitud óptima para WhatsApp" },
+            { ok: true, label: "Sin palabras spam detectadas" },
+            { ok: false, label: "Falta personalización con nombre" },
+            { ok: true, label: "No excede límite de emojis" },
+          ],
+          suggestion: "💡 Agregá el nombre del contacto para mejorar la tasa de apertura en un 23%."
+        })
+        setAuditing(false)
+        toast.success("🎮 Auditoría demo completada")
+      }, 1200)
       return
     }
     setAuditing(true)
@@ -2909,15 +3130,20 @@ function getSaludoPorHora(): string {
   </div>
 )}
 
-
 {/* ─── BLACKLIST ─── */}
-{isPro ? (
+{(tierConfig?.hasBlacklist || isDemo) ? (
   <div className={`flex items-start gap-3 p-4 rounded-xl border transition-all ${skipBlacklist ? 'bg-purple-500/10 border-purple-500/30' : 'bg-[var(--bg-card)] border-[var(--border-color)]/60'}`}>
     <input 
       type="checkbox" 
       id="skipBlacklist"
       checked={skipBlacklist}
-      onChange={(e) => setSkipBlacklist(e.target.checked)}
+      onChange={(e) => {
+        if (isDemo) {
+          toast.info("🎮 Blacklist demo: solo visual")
+          return
+        }
+        setSkipBlacklist(e.target.checked)
+      }}
       className="mt-0.5 h-4 w-4 rounded border-slate-500 bg-[var(--bg-input)] text-purple-500 focus:ring-purple-500/50"
     />
     <div className="flex-1">
@@ -2949,8 +3175,8 @@ function getSaludoPorHora(): string {
 )}
 
                       {/* ─── PROXY ROTATE (Business only) ─── */}
-                      {isBusiness ? (
-                        <div className={`flex items-start gap-3 p-4 rounded-xl border transition-all ${proxyRotateEnabled ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-[var(--bg-card)] border-[var(--border-color)]/60'}`}>
+                                            {(isBusiness || isDemo) ? (
+                        <div className={`flex items-start gap-3 p-4 rounded-xl border transition-all ${(proxyRotateEnabled || isDemo) ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-[var(--bg-card)] border-[var(--border-color)]/60'}`}>
                           <input 
                             type="checkbox" 
                             id="proxyRotate"
@@ -2982,10 +3208,14 @@ function getSaludoPorHora(): string {
                                 </button>
                               )}
                             </div>
-                            <p className="text-xs text-[var(--text-muted)] mt-1 leading-relaxed">
-                              {proxyLocation 
-                                ? <><span className="text-emerald-400 font-bold">{proxyLocation.city}, {proxyLocation.country}</span> · Latencia: {proxyLocation.latency}ms</>
-                                : "Rutea la campaña a través de nodos globales para evitar baneos por IP."}
+                                                        <p className="text-xs text-[var(--text-muted)] mt-1 leading-relaxed">
+                              {isDemo ? (
+                                <><span className="text-emerald-400 font-bold">Frankfurt, Alemania</span> · Latencia: 34ms · IP: 185.220.101.42</>
+                              ) : proxyLocation ? (
+                                <><span className="text-emerald-400 font-bold">{proxyLocation.city}, {proxyLocation.country}</span> · Latencia: {proxyLocation.latency}ms</>
+                              ) : (
+                                "Rutea la campaña a través de nodos globales para evitar baneos por IP."
+                              )}
                             </p>
                             {proxyRotateEnabled && (
                               <div className="mt-2 p-2 bg-amber-500/5 border border-amber-500/10 rounded-lg">
@@ -3039,7 +3269,11 @@ function getSaludoPorHora(): string {
                       <motion.button
                         whileHover={{ scale: 1.01 }}
                         whileTap={{ scale: 0.99 }}
-                                                onClick={() => {
+                                                                        onClick={() => {
+                          if (isDemo) {
+                            toast.info("🎮 No podés enviar campañas en modo demo")
+                            return
+                          }
                           if (!verifyCampaign()) return
                           if (isSimulationActive) {
                             sendSimulation()
@@ -3134,23 +3368,28 @@ function getSaludoPorHora(): string {
                             <span>Esperando acciones...</span>
                           </div>
                         ) : (
-                          logs.map((log, i) => (
+                                                 logs.map((log, i) => {
+                          const { icon: LogIcon, color } = getLogMeta(log)
+                          const text = log.replace(/^\[\w+\]\s*/, '')
+                          const isSeparator = log === ''
+                          
+                          return (
                             <motion.div 
                               key={i} 
                               initial={{ opacity: 0, x: -10 }} 
                               animate={{ opacity: 1, x: 0 }} 
-                              className={`${
-                                log.includes("✅") || log.includes("EXITOSO") ? "text-emerald-400" : 
-                                log.includes("❌") || log.includes("Error") ? "text-red-400" : 
-                                log.includes("🚀") || log.includes("Iniciando") ? "text-blue-400" : 
-                                log.includes("🔥") || log.includes("simulacro") ? "text-amber-400" :
-                                "text-[var(--text-secondary)]"
-                              }`}
+                              className={`flex items-center gap-2 ${isSeparator ? 'h-2' : color}`}
                             >
-                              <span className="text-[var(--text-muted)] mr-2">{new Date().toLocaleTimeString()}</span>
-                              {log}
+                              {!isSeparator && (
+                                <>
+                                  {LogIcon && <LogIcon size={12} className="shrink-0 opacity-80" />}
+                                  <span className="text-[var(--text-muted)] mr-1">{new Date().toLocaleTimeString()}</span>
+                                  <span>{text}</span>
+                                </>
+                              )}
                             </motion.div>
-                          ))
+                          )
+                        })
                         )}
                       </AnimatePresence>
                       <div ref={logsEndRef} /> 
@@ -3164,58 +3403,59 @@ function getSaludoPorHora(): string {
       </div>
 
             {/* ─── MODAL BLACKLIST ─── */}
-      {showBlacklistModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowBlacklistModal(false)}>
-          <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl w-full max-w-md mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-[var(--border-color)]">
-              <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
-                <Ban size={16} className="text-purple-400" /> Blacklist
-              </h3>
-              <button onClick={() => setShowBlacklistModal(false)} className="p-1.5 hover:bg-white/5 rounded-lg transition-colors">
-                <X size={16} className="text-[var(--text-muted)]" />
-              </button>
-            </div>
-            
-            <div className="p-4">
-              {isLoadingBlacklist ? (
-                <div className="flex items-center justify-center py-8 gap-2 text-xs text-[var(--text-muted)]">
-                  <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="h-4 w-4 border border-purple-400 border-t-transparent rounded-full" />
-                  Cargando...
-                </div>
-              ) : blacklistNumbers.length === 0 ? (
-                <div className="text-center py-8">
-                  <Shield size={32} className="text-purple-500/20 mx-auto mb-2" />
-                  <p className="text-xs text-[var(--text-muted)]">No hay números en blacklist</p>
-                  <p className="text-[10px] text-[var(--text-muted)]/60 mt-1">Se agregan automáticamente cuando un contacto responde con palabras clave de baja.</p>
-                </div>
-              ) : (
-                <>
-                  <p className="text-xs text-[var(--text-muted)] mb-3">
-                    <span className="text-purple-400 font-bold">{blacklistNumbers.length}</span> contactos bloqueados
-                  </p>
-                  <div className="bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)] max-h-80 overflow-y-auto">
-                    {blacklistNumbers.map((phone, i) => (
-                      <div key={i} className="flex items-center justify-between p-3 border-b border-[var(--border-color)]/50 last:border-0">
-                        <span className="text-sm text-[var(--text-primary)] font-mono">{phone}</span>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">Bloqueado</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-            
-            <div className="p-4 border-t border-[var(--border-color)] flex justify-end">
-              <button 
-                onClick={() => setShowBlacklistModal(false)}
-                className="px-4 py-2 bg-[var(--bg-input)] hover:bg-white/5 text-[var(--text-secondary)] text-xs font-bold rounded-lg transition-colors border border-[var(--border-color)]"
-              >
-                Cerrar
-              </button>
-            </div>
+      {/* ─── MODAL BLACKLIST ─── */}
+{showBlacklistModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowBlacklistModal(false)}>
+    <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl w-full max-w-md mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+      <div className="flex items-center justify-between p-4 border-b border-[var(--border-color)]">
+        <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+          <Ban size={16} className="text-purple-400" /> Blacklist
+        </h3>
+        <button onClick={() => setShowBlacklistModal(false)} className="p-1.5 hover:bg-white/5 rounded-lg transition-colors">
+          <X size={16} className="text-[var(--text-muted)]" />
+        </button>
+      </div>
+      
+      <div className="p-4">
+        {isLoadingBlacklist && !isDemo ? (
+          <div className="flex items-center justify-center py-8 gap-2 text-xs text-[var(--text-muted)]">
+            <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="h-4 w-4 border border-purple-400 border-t-transparent rounded-full" />
+            Cargando...
           </div>
-        </div>
-      )}
+        ) : blacklistNumbers.length === 0 && !isDemo ? (
+          <div className="text-center py-8">
+            <Shield size={32} className="text-purple-500/20 mx-auto mb-2" />
+            <p className="text-xs text-[var(--text-muted)]">No hay números en blacklist</p>
+            <p className="text-[10px] text-[var(--text-muted)]/60 mt-1">Se agregan automáticamente cuando un contacto responde con palabras clave de baja.</p>
+          </div>
+        ) : (
+          <>
+            <p className="text-xs text-[var(--text-muted)] mb-3">
+              <span className="text-purple-400 font-bold">{blacklistNumbers.length || (isDemo ? 2 : 0)}</span> contactos bloqueados
+            </p>
+            <div className="bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)] max-h-80 overflow-y-auto">
+              {(blacklistNumbers.length > 0 ? blacklistNumbers : (isDemo ? ["54911125475", "54922144541"] : [])).map((phone, i) => (
+                <div key={i} className="flex items-center justify-between p-3 border-b border-[var(--border-color)]/50 last:border-0">
+                  <span className="text-sm text-[var(--text-primary)] font-mono">{phone}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">Bloqueado</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+      
+      <div className="p-4 border-t border-[var(--border-color)] flex justify-end">
+        <button 
+          onClick={() => setShowBlacklistModal(false)}
+          className="px-4 py-2 bg-[var(--bg-input)] hover:bg-white/5 text-[var(--text-secondary)] text-xs font-bold rounded-lg transition-colors border border-[var(--border-color)]"
+        >
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
 
       {showSummaryModal && campaignSummary && (

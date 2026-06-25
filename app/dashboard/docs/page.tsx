@@ -529,121 +529,90 @@ function ArticleContent({ slug, onSelectArticle }: { slug: string; onSelectArtic
     <>
       <DocHero article={ALL_ARTICLES.find(a => a.slug === "install")!} sectionTitle="Comenzar" />
 
-      <DocStep number={1} title="Crear tu cuenta en GitHub">
-        Si no tenés una, andá a <a href="https://github.com" className="text-cyan-400 underline" target="_blank" rel="noreferrer">github.com</a> y registrate con tu email. Es gratis y dura 2 minutos.
+      <DocStep number={1} title="Nosotros instalamos todo por vos">
+        WabiSend es un sistema self-hosted. Eso significa que corre en tu propia infraestructura (no en nuestros servidores), pero <strong>nosotros nos encargamos de la instalación completa</strong>. Vos no tocás código, ni variables, ni deploys.
       </DocStep>
       <DocCallout type="tip">
-        Usá el mismo email con el que compraste WabiSend. Así podemos darte acceso al repositorio privado automáticamente.
+        La instalación está incluida sin costo con tu licencia. Una vez activada, te pedimos unos datos y en 24-48 horas tenés tu panel funcionando.
       </DocCallout>
 
-      <DocStep number={2} title="Hacer FORK del repositorio">
-        Una vez que te damos acceso al repo privado, entrá a la página del proyecto y hacé clic en el botón <code className="text-cyan-400 bg-slate-800 px-1 rounded">Fork</code> (arriba a la derecha). Esto copia el código a tu cuenta de GitHub.
+      <DocStep number={2} title="Lo que necesitamos de vos">
+        Para instalar el sistema en tu cuenta, necesitamos que nos pases lo siguiente por WhatsApp o email:
       </DocStep>
-      <DocCode code="# URL del repo (te la enviamos por email tras la compra)\nhttps://github.com/wabisend/wabisend" lang="bash" />
+
+      <div className="space-y-3 mt-2">
+        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+          <h4 className="text-cyan-400 font-bold text-sm mb-1">1. Cuenta de GitHub</h4>
+          <p className="text-sm text-slate-300">
+            Registrate gratis en <a href="https://github.com" className="text-cyan-400 underline" target="_blank" rel="noreferrer">github.com</a> y pasanos tu <strong>usuario de GitHub</strong> (ej: @juancarlos). Nosotros te damos acceso al repositorio privado y creamos el proyecto en Railway conectado a tu cuenta.
+          </p>
+        </div>
+
+        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+          <h4 className="text-cyan-400 font-bold text-sm mb-1">2. Cuenta de Vercel</h4>
+          <p className="text-sm text-slate-300">
+            Registrate en <a href="https://vercel.com" className="text-cyan-400 underline" target="_blank" rel="noreferrer">vercel.com</a> usando el mismo login de GitHub. Pasanos el email de la cuenta. Nosotros deployamos el frontend y conectamos la base de datos automáticamente.
+          </p>
+        </div>
+
+        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+          <h4 className="text-cyan-400 font-bold text-sm mb-1">3. Medio de pago para servidores</h4>
+          <p className="text-sm text-slate-300">
+            Los servicios que usamos tienen costos mínimos que van directo a tu tarjeta (nosotros no cobramos mensualidad de hosting):
+          </p>
+          <ul className="list-disc list-inside mt-2 text-sm text-slate-400 space-y-1">
+            <li><strong>Railway</strong> (backend + servidor WhatsApp): ~$5-20 USD/mes según volumen de mensajes. Pide tarjeta de crédito/débito para verificación.</li>
+            <li><strong>Neon</strong> (base de datos PostgreSQL): Free tier incluido. Si superás los límites, ~$5-10 USD/mes.</li>
+            <li><strong>Vercel</strong> (frontend/dashboard): Plan Hobby gratis para uso personal/comercial.</li>
+          </ul>
+          <p className="text-sm text-slate-300 mt-2">
+            Nosotros te pasamos el paso a paso para cargar la tarjeta en Railway desde tu cuenta. Es un proceso de 2 minutos.
+          </p>
+        </div>
+
+        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+          <h4 className="text-cyan-400 font-bold text-sm mb-1">4. Dominio propio (opcional)</h4>
+          <p className="text-sm text-slate-300">
+            Si querés tu propia URL tipo <code>envios.tuempresa.com</code>, comprá el dominio en <a href="https://nic.ar" className="text-cyan-400 underline" target="_blank" rel="noreferrer">NIC.ar</a>, <a href="https://namecheap.com" className="text-cyan-400 underline" target="_blank" rel="noreferrer">Namecheap</a> o donde prefieras y pasanos los DNS. Si no, usamos la URL gratuita de Vercel (ej: <code>wabisend-xxx.vercel.app</code>).
+          </p>
+        </div>
+      </div>
+
+      <DocStep number={3} title="¿Qué hacemos nosotros?">
+        Una vez que nos pasás los datos, este es nuestro trabajo:
+      </DocStep>
+      <DocCode code={`1. Creamos tu proyecto en Railway conectado a tu GitHub
+2. Deployamos el backend (Node.js + Baileys + Prisma)
+3. Creamos tu base de datos en Neon y la enlazamos
+4. Deployamos el frontend en Vercel con tu dominio
+5. Configuramos todas las variables de entorno (secretos, tokens, etc.)
+6. Activamos tu licencia en la instancia
+7. Te entregamos la URL de acceso y tu usuario admin`} lang="bash" />
+
       <DocCallout type="warning">
-        Si no ves el botón "Fork", es porque aún no te dimos acceso. Escribinos por WhatsApp con tu usuario de GitHub.
+        <strong>Vos no tocás nada del código.</strong> El repositorio privado es nuestro. Vos solo usás el panel final. Si en el futuro querés una actualización, nos escribís y la instalamos nosotros.
       </DocCallout>
 
-      <DocStep number={3} title="Crear cuenta en Railway (backend)">
-        Railway es donde corre el "cerebro" de WabiSend: el servidor de WhatsApp, la base de datos y la lógica de campañas.
+      <DocStep number={4} title="Actualizaciones y soporte">
+        WabiSend se actualiza constantemente. Cuando haya una nueva versión:
       </DocStep>
-      <DocCode code='# Andá a railway.app\n# Hacé clic en "Login with GitHub"\n# Seleccioná tu cuenta\n# Listo, ya estás dentro.' lang="bash" />
+      <ul className="list-disc list-inside mt-2 text-sm text-slate-300 space-y-1">
+        <li>Te avisamos por <strong>WhatsApp</strong> o <strong>email</strong>.</li>
+        <li>Te indicamos como actualizar la app (opcional) </li>
+        <li>En 5 minutos tenés la nueva versión sin perder datos ni configuraciones.</li>
+      </ul>
       <DocCallout type="tip">
-        Railway te da $5 de crédito gratis mensual. Con eso cubrís el servidor sin pagar nada extra.
+        Si necesitás soporte técnico, escribinos por WhatsApp con el dominio de tu instancia. Tenemos acceso como colaboradores para resolverlo en el momento.
       </DocCallout>
-
-      <DocStep number={4} title="Deployar el backend en Railway">
-        Dentro de Railway:
-        <ol className="list-decimal list-inside space-y-1 mt-2 text-sm text-slate-300">
-          <li>Hacé clic en <strong>New Project</strong></li>
-          <li>Elegí <strong>Deploy from GitHub repo</strong></li>
-          <li>Seleccioná <code>wabisend</code> (el que hiciste fork)</li>
-          <li>Hacé clic en <strong>Deploy</strong></li>
-        </ol>
-      </DocStep>
-      <DocCode code="# Railway va a detectar automáticamente que es un proyecto Node.js\n# Esperá 2-3 minutos a que termine el build\n# Vas a ver una URL tipo:\nhttps://wabisend-production.up.railway.app\n\n# Guardá esa URL. La necesitás en el paso 7." lang="bash" />
-
-      <DocStep number={5} title="Crear la base de datos en Neon">
-        Neon es la base de datos PostgreSQL donde se guardan tus campañas, contactos y logs.
-      </DocStep>
-      <DocCode code='# Andá a neon.tech\n# Registrate con GitHub (el mismo email)\n# Creá un nuevo proyecto (el plan Free es suficiente)\n# Elegí la región más cercana (us-east-1 si estás en Latinoamérica)\n# Copiá el "Connection String" que te da Neon. Se ve así:' lang="bash" />
-      <DocCode code="postgresql://user:password@ep-xxx.us-east-1.aws.neon.tech/wabisend?sslmode=require" lang="bash" />
-      <DocCallout type="warning">
-        Guardá ese string en un bloc de notas. Es la <code className="text-cyan-400">DATABASE_URL</code> que vas a usar en Railway.
-      </DocCallout>
-
-      <DocStep number={6} title="Crear cuenta en Vercel (frontend)">
-        Vercel es donde vive la página web que ves en el navegador: el dashboard, los reportes y el editor de campañas.
-      </DocStep>
-      <DocCode code='# Andá a vercel.com\n# Hacé clic en "Sign Up" → "Continue with GitHub"\n# Usá la misma cuenta de GitHub\n# Elegí el plan Hobby (gratis para proyectos personales)' lang="bash" />
-
-      <DocStep number={7} title="Deployar el frontend en Vercel">
-        Dentro de Vercel:
-        <ol className="list-decimal list-inside space-y-1 mt-2 text-sm text-slate-300">
-          <li>Hacé clic en <strong>Add New Project</strong></li>
-          <li>Importá el repo <code>wabisend</code> desde GitHub</li>
-          <li>En <strong>Framework Preset</strong>, dejá <code>Next.js</code> (lo detecta solo)</li>
-          <li>Hacé clic en <strong>Deploy</strong></li>
-        </ol>
-      </DocStep>
-      <DocCode code="# Esperá 1-2 minutos\n# Vercel te va a dar una URL tipo:\nhttps://wabisend-xxx.vercel.app\n\n# Esa es tu panel de control. Guardala." lang="bash" />
-
-      <DocStep number={8} title="Conectar Neon a Vercel (Storage)">
-        Esto enlaza automáticamente tu base de datos con el frontend.
-      </DocStep>
-      <DocCode 
-  code='# En Vercel, andá a la pestaña Storage\n# Hacé clic en "Connect Store" → "Neon"\n# Seleccioná tu proyecto Neon creado en el paso 5\n# Vercel va a crear automáticamente una variable DATABASE_URL\n# No hace falta copiarla manualmente.' 
-  lang="bash" 
-/>
-      <DocCallout type="tip">
-        Si no ves la pestaña Storage, andá a <strong>Settings → Integrations</strong> y buscá Neon.
-      </DocCallout>
-
-      <DocStep number={9} title="Configurar variables de entorno">
-        Estas son las "contraseñas" que conectan todos los servicios. Las agregás en dos lugares: Railway y Vercel.
-      </DocStep>
-
-      <p className="text-sm font-bold text-slate-200 mt-4 mb-2">En Railway (Settings → Variables):</p>
-      <DocCode code={'DATABASE_URL=postgresql://user:pass@ep-xxx.neon.tech/wabisend?sslmode=require\nWHATSAPP_SECRET=WABI_SECRET_2026_NUNCA_LO_COMPARTAS'} lang="bash" />
-      <DocCallout type="warning">
-        El <code className="text-cyan-400">WHATSAPP_SECRET</code> lo inventás vos. Tiene que ser largo, random, y <strong>exactamente igual</strong> en Railway y en Vercel.
-      </DocCallout>
-
-      <p className="text-sm font-bold text-slate-200 mt-4 mb-2">En Vercel (Settings → Environment Variables):</p>
-      <DocCode code={'BACKEND_URL=https://wabisend-production.up.railway.app\nWHATSAPP_SECRET=WABI_SECRET_2026_NUNCA_LO_COMPARTAS\nJWT_SECRET=otra-clave-larga-y-random-que-inventas-vos\nNEXT_PUBLIC_WHATSAPP_SERVER_URL=https://wabisend-production.up.railway.app'} lang="bash" />
-      <DocCallout type="tip">
-        <code className="text-cyan-400">JWT_SECRET</code> la inventás vos también. Usá una frase larga y random. No la compartas con nadie.
-      </DocCallout>
-
-            <DocStep number={10} title="Campañas programadas (ya incluido)">
-        El sistema de campañas programadas corre automáticamente en tu servidor de Railway. No necesitás configurar nada extra.
-      </DocStep>
-      <DocCode code={'# El cron revisa cada 5 minutos si hay campañas que deben ejecutarse\n# Ya viene activado en el backend. Cero configuración.'} lang="bash" />
-      <DocCallout type="tip">
-        Las campañas programadas usan la zona horaria de tu cuenta (configurable en Settings). El servidor sincroniza automáticamente en UTC.
-      </DocCallout>
-
-      <DocStep number={11} title="Reiniciar y probar">
-        Una vez que cargaste todas las variables:
-        <ol className="list-decimal list-inside space-y-1 mt-2 text-sm text-slate-300">
-          <li>En Railway, hacé clic en <strong>Restart</strong></li>
-          <li>En Vercel, hacé clic en <strong>Redeploy</strong></li>
-          <li>Esperá 2 minutos</li>
-          <li>Entrá a tu URL de Vercel</li>
-        </ol>
-      </DocStep>
 
       <DocChecklist items={[
-        { label: "Cuenta de GitHub creada", checked: false },
-        { label: "Fork del repo hecho", checked: false },
-        { label: "Railway conectado a GitHub", checked: false },
-        { label: "Backend deployado en Railway", checked: false },
-        { label: "Base de datos Neon creada", checked: false },
-        { label: "Vercel conectado a GitHub", checked: false },
-        { label: "Frontend deployado en Vercel", checked: false },
-        { label: "Variables de entorno cargadas", checked: false },
-        { label: "Worker de Cloudflare (opcional)", checked: false },
-        { label: "WabiSend funcionando en producción", checked: false },
+        { label: "Cuenta de GitHub creada y usuario enviado", checked: false },
+        { label: "Cuenta de Vercel creada y email enviado", checked: false },
+        { label: "Tarjeta de crédito/débito disponible para Railway", checked: false },
+        { label: "Dominio propio comprado (opcional)", checked: false },
+        { label: "Licencia adquirida y activada", checked: false },
+        { label: "Instalación completada por el equipo WabiSend", checked: false },
+        { label: "URL de acceso recibida y funcionando", checked: false },
       ]} />
 
       <DocNextUp onSelect={onSelectArticle} title="Setup Wizard" slug="setup-wizard" section="Comenzar" />

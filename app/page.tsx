@@ -64,6 +64,7 @@ import Link from "next/link"
 import { gsap } from "gsap"
 import { ScrollTrigger } from "gsap/ScrollTrigger"
 import { useGSAP } from "@gsap/react"
+import { ScrollToPlugin } from "gsap/ScrollToPlugin"
 /* ============================================================
    WabiSend — Landing Page v1.0
    Light mode profesional. Sin emojis. Solo Lucide.
@@ -146,6 +147,27 @@ function Navbar() {
     { label: "FAQ", href: "#faq" },
   ]
 
+  const handleConocerClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+  e.preventDefault();
+  const trigger = ScrollTrigger.getById("hero-pin");
+  if (trigger) {
+    gsap.to(window, {
+      scrollTo: {
+        y: trigger.start + (trigger.end - trigger.start) * 0.8,
+        autoKill: false,
+      },
+      duration: 1.2,
+      ease: "power2.inOut",
+    });
+  } else {
+    // Fallback: scroll hasta el elemento con id mockupImg
+    const el = document.getElementById("mockupImg");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth" });
+    }
+  }
+};
+
   return (
     <motion.nav
       initial={{ y: -100 }}
@@ -185,16 +207,18 @@ function Navbar() {
           <div className="hidden md:flex items-center gap-3">
             <Link
               href="/demo"
-              className="text-sm font-semibold text-slate-700 hover:text-cyan-600 transition-colors"
+              className="gap-2 inline-flex items-center text-sm font-semibold text-slate-700 hover:text-cyan-600 transition-colors"
             >
-              Ingresar a DEMO
+              
+              <Play className="w-4 h-4 text-cyan-600" /> Ingresar a DEMO 
             </Link>
-            <Link
-              href="#pricing"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/20"
-            >
-              Conocer WabiSend <ArrowRight className="w-4 h-4" />
-            </Link>
+              <a
+  href="#mockupImg"
+  onClick={handleConocerClick}
+  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/20"
+>
+  Conocer WabiSend <ArrowRight className="w-4 h-4" />
+</a>
           </div>
 
           {/* Mobile toggle */}
@@ -232,6 +256,7 @@ function Navbar() {
                   href="/demo"
                   className="w-full text-center py-3 rounded-xl border border-slate-200 text-slate-700 font-semibold"
                 >
+                  
                   Ingresar a DEMO
                 </Link>
                 <Link
@@ -257,7 +282,8 @@ function MenuIcon() {
   )
 }
 
-gsap.registerPlugin(ScrollTrigger)
+gsap.registerPlugin(ScrollTrigger, ScrollToPlugin); // ← registrá ambos
+
 
 function Hero() {
   const containerRef = useRef<HTMLElement>(null)
@@ -269,6 +295,27 @@ function Hero() {
   const scrubAmount = isMobile ? 0.6 : 1.0
   const endDistance = isMobile ? "+=120%" : "+=150%"
   const particleCount = isMobile ? 6 : 14
+
+const handleConocerClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+  e.preventDefault();
+  const trigger = ScrollTrigger.getById("hero-pin");
+  if (trigger) {
+    gsap.to(window, {
+      scrollTo: {
+        y: trigger.start + (trigger.end - trigger.start) * 0.8,
+        autoKill: false,
+      },
+      duration: 1.2,
+      ease: "power2.inOut",
+    });
+  } else {
+    // Fallback: scroll hasta el elemento con id mockupImg
+    const el = document.getElementById("mockupImg");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth" });
+    }
+  }
+};
 
   const particleConfigs = [
     { x: "5%", y: "15%", size: 10, color: "bg-cyan-400" },
@@ -332,6 +379,7 @@ function Hero() {
       const scrollTl = gsap.timeline({
         scrollTrigger: {
           trigger: containerRef.current,
+          id: "hero-pin",
           start: "top top",
           end: endDistance,
           pin: true,
@@ -440,13 +488,13 @@ function Hero() {
           </p>
 
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link
-              href="#pricing"
-              className="group inline-flex items-center gap-2 px-8 py-4 rounded-full bg-slate-900 text-white font-semibold text-base hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20 hover:shadow-slate-900/30 hover:-translate-y-0.5"
-            >
-              Conocer WabiSend
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
+            <a
+  href="#mockupImg"  // fallback por si no funciona GSAP
+  onClick={handleConocerClick}
+  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/20"
+>
+  Conocer WabiSend <ArrowRight className="w-4 h-4" />
+</a>
 
             <div className="relative inline-flex rounded-full p-[2.5px] overflow-hidden group cursor-pointer">
               <div
@@ -473,6 +521,7 @@ function Hero() {
         {/* Mockup */}
         <div
           ref={mockupRef}
+            id="mockupImg"
           className="absolute inset-0 flex items-center justify-center max-w-5xl mx-auto px-4 will-change-transform"
           style={{ opacity: 0, visibility: "hidden" }}
         >
@@ -494,6 +543,7 @@ function Hero() {
                 <img
                   src="/images/mockup_1.png"
                   alt="Dashboard WabiSend"
+                  id="mockupImg"
                   className="absolute inset-0 w-full h-full object-cover"
                 />
               </div>
@@ -1259,20 +1309,29 @@ function FAQ() {
       q: "¿Puedo usar WabiSend en varios equipos?",
       a: "Sí. Al ser web-based, accedés desde cualquier navegador. La licencia está vinculada a tu dominio, no a un dispositivo. Tu equipo completo puede trabajar simultáneamente.",
     },
+
+    {
+      q: "¿Puedo compartir wabiSend o comprar a medias?",
+      a: "Sí. Pero te aclaramos lo siguiente, que diferentes inicios de sesion en diferentes lugares, diferentes conexiones IP y diferentes ejecuciones de campañas, pueden llevar a baneos de tanto lineas personales como compartidas por politicas de seguridad de WhatsApp, WabiSend esta preparado perfectamente para disparar campañas masivas desde un dominio, un servidor, una ip, y esta ultima modificarla mediante nuestra funcion de proxy Rotate.",
+    },
     {
       q: "¿Qué costos de mantenimiento tengo?",
-      a: "Solo los de tu servidor y base de datos. Con Railway + Neon, estamos hablando de menos de $10 mensuales para operar a gran escala. Comparado con las suscripciones de la competencia, es ridículo.",
+      a: "Con el stack que te recomendamos y configuramos tu servidor y base de datos en Railway + Neon, estamos hablando de menos de $10usd mensuales para operar a gran escala. Comparado con las suscripciones de la competencia, es ridículo. El dominio no es incluido y ese costo aparte lo manejas tu.",
     },
     {
       q: "¿Incluye actualizaciones?",
       a: "El plan Pro incluye actualizaciones de por vida. El plan Starter incluye 6 meses. Después podés renovar el plan de actualizaciones o quedarte con la versión que tenés.",
+    },
+    {
+      q: "¿Como actualizo WabiSend?",
+      a: "Cada vez que nosotros actualizamos el repositorio oficial de la aplicacion vamos avisar por los canales que tengamos a mano de cada cliente como whatsapp o mail con las indicaciones para actualizar su interfaz, funciones nuevas, mejoras de seguridad, etc.",
     },
   ]
 
   const [open, setOpen] = useState<number | null>(0)
 
   return (
-    <section id="faq" className="py-24 lg:py-32 bg-slate-50/50">
+    <section id="faq" className="py-10 lg:py-32 bg-slate-50/50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -1340,40 +1399,134 @@ function FAQ() {
 
 // Sección "Deploy en 4 pasos" para la landing
 
-function Deploy(){
+function Deploy() {
+  const steps = [
+    {
+      step: "1",
+      title: "Base de datos",
+      desc: "Crear cuenta en Neon",
+      icon: Database,
+      color: "from-emerald-400 to-green-500",
+      bgLight: "bg-emerald-50",
+      textAccent: "text-emerald-600",
+    },
+    {
+      step: "2",
+      title: "Backend",
+      desc: "Deploy en Railway",
+      icon: Server,
+      color: "from-blue-400 to-indigo-500",
+      bgLight: "bg-blue-50",
+      textAccent: "text-blue-600",
+    },
+    {
+      step: "3",
+      title: "Frontend",
+      desc: "Deploy en Vercel",
+      icon: Globe,
+      color: "from-violet-400 to-purple-500",
+      bgLight: "bg-violet-50",
+      textAccent: "text-violet-600",
+    },
+    {
+      step: "4",
+      title: "Activar",
+      desc: "Pegar tu licencia",
+      icon: KeyRound,
+      color: "from-amber-400 to-orange-500",
+      bgLight: "bg-amber-50",
+      textAccent: "text-amber-600",
+    },
+  ];
 
-return (
-    <section className="py-20 px-4">
-  <div className="max-w-4xl mx-auto text-center">
-    <h2 className="text-3xl font-bold text-white mb-4">Deploy en 4 pasos</h2>
-    <p className="text-slate-400 mb-12">Sin conocimientos avanzados. Solo seguís el wizard.</p>
-    
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-      {[
-        { step: "1", title: "Base de datos", desc: "Crear PostgreSQL en Neon", icon: Database },
-        { step: "2", title: "Backend", desc: "Deploy en Railway", icon: Server },
-        { step: "3", title: "Frontend", desc: "Deploy en Vercel", icon: Globe },
-        { step: "4", title: "Activar", desc: "Pegar tu licencia", icon: KeyRound },
-      ].map((item) => (
-        <div key={item.step} className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 text-left">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center mb-4">
-            <item.icon size={20} className="text-white" />
-          </div>
-          <div className="text-emerald-400 text-xs font-bold uppercase tracking-wider mb-1">Paso {item.step}</div>
-          <h3 className="text-white font-bold text-lg mb-1">{item.title}</h3>
-          <p className="text-slate-500 text-sm">{item.desc}</p>
-        </div>
-      ))}
-    </div>
-    
-    <div className="mt-10">
-      <a href="https://www.loom.com/share/..." target="_blank" className="inline-flex items-center gap-2 text-emerald-400 hover:text-emerald-300 font-medium">
-        <Play size={18} /> Ver tutorial de instalación
-      </a>
-    </div>
-  </div>
-</section>
-)
+  return (
+    <section className="py-24 lg:py-32 bg-white">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Encabezado */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.1 }}
+          className="text-center mb-16"
+        >
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-50 text-cyan-700 text-xs font-bold uppercase tracking-wide">
+            <Zap className="w-3.5 h-3.5" />
+            Instalación
+          </span>
+          <h2 className="mt-4 text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900">
+            Deploy en 4 pasos
+          </h2>
+          <p className="mt-4 text-lg text-slate-600 max-w-xl mx-auto">
+            Sin conocimientos avanzados. Solo seguí el wizard y en minutos tendrás tu propio WabiSend corriendo.
+          </p>
+        </motion.div>
+
+        {/* Grid de pasos */}
+        <motion.div
+          variants={staggerContainer}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.1 }}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8"
+        >
+          {steps.map((item, i) => (
+            <motion.div
+              key={item.step}
+              variants={staggerContainer}
+              custom={i}
+              className="group relative bg-white border border-slate-200 rounded-2xl p-6 lg:p-8 hover:border-cyan-200 hover:shadow-xl hover:shadow-cyan-500/5 transition-all duration-300"
+            >
+              {/* Número de paso (badge) */}
+              <div className="absolute -top-3 -left-3 w-8 h-8 rounded-full bg-slate-900 text-white text-xs font-bold flex items-center justify-center shadow-lg">
+                {item.step}
+              </div>
+
+              {/* Icono con gradiente */}
+              <div
+                className={`w-12 h-12 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center mb-5 shadow-lg shadow-${item.color.split(" ")[0].replace("from-", "")}/20 group-hover:scale-110 transition-transform`}
+              >
+                <item.icon className="w-5 h-5 text-white" />
+              </div>
+
+              <h3 className="text-lg font-bold text-slate-900 mb-2">
+                {item.title}
+              </h3>
+              <p className="text-slate-600 text-sm leading-relaxed">
+                {item.desc}
+              </p>
+
+              {/* Pequeño indicador de progreso */}
+              <div className={`mt-4 h-1 w-full rounded-full ${item.bgLight}`}>
+                <div
+                  className={`h-full rounded-full bg-gradient-to-r ${item.color}`}
+                  style={{ width: `${((i + 1) / steps.length) * 100}%` }}
+                />
+              </div>
+            </motion.div>
+          ))}
+        </motion.div>
+
+        {/* CTA del video */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.1 }}
+          transition={{ delay: 0.2 }}
+          className="mt-12 text-center"
+        >
+          <a
+            href="https://www.loom.com/share/..."
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white border border-slate-200 shadow-sm text-slate-700 font-medium hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-700 transition-all"
+          >
+            <Play className="w-4 h-4 text-cyan-500 group-hover:scale-110 transition-transform" />
+            Ver tutorial de instalación
+          </a>
+        </motion.div>
+      </div>
+    </section>
+  );
 }
 
 function CTAFinal() {

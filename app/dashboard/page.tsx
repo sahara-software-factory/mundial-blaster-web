@@ -632,7 +632,7 @@ aiFeaturesRef.current = aiFeatures
 
      const verifyCampaign = useCallback(() => {
     if (isDemo) {
-      toast.info("🎮 No podés enviar campañas en modo demo")
+      toast.info(" No podés enviar campañas en modo demo")
       return false
     }
     if (isSimulationActive) {
@@ -2445,7 +2445,7 @@ function getSaludoPorHora(): string {
                                   <button 
                                     onClick={() => {
                                       if (isDemo) {
-                                        toast.info("🎮 Blacklist demo: solo visual")
+                                        toast.info(" Blacklist demo: solo visual")
                                         return
                                       }
                                       setSkipBlacklist(true)
@@ -2708,7 +2708,7 @@ function getSaludoPorHora(): string {
       setTimeout(() => {
         setCampaignName("🔥 Black Friday 2026 · 70% OFF solo 24hs")
         setGeneratingTitle(false)
-        toast.success("🎮 Título demo generado")
+        toast.success(" Título demo generado")
       }, 800)
       return
     }
@@ -2983,7 +2983,7 @@ function getSaludoPorHora(): string {
           suggestion: "💡 Agregá el nombre del contacto para mejorar la tasa de apertura en un 23%."
         })
         setAuditing(false)
-        toast.success("🎮 Auditoría demo completada")
+        toast.success(" Auditoría demo completada")
       }, 1200)
       return
     }
@@ -3139,7 +3139,7 @@ function getSaludoPorHora(): string {
       checked={skipBlacklist}
       onChange={(e) => {
         if (isDemo) {
-          toast.info("🎮 Blacklist demo: solo visual")
+          toast.info(" Blacklist demo: solo visual")
           return
         }
         setSkipBlacklist(e.target.checked)
@@ -3271,7 +3271,7 @@ function getSaludoPorHora(): string {
                         whileTap={{ scale: 0.99 }}
                                                                         onClick={() => {
                           if (isDemo) {
-                            toast.info("🎮 No podés enviar campañas en modo demo")
+                            toast.info(" No podés enviar campañas en modo demo")
                             return
                           }
                           if (!verifyCampaign()) return

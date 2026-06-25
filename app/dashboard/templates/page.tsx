@@ -253,7 +253,7 @@ if (selectedCategory === "favorites") {
   }, [fetchTemplates])
 
 const handleCreate = async (form: any) => {
-    if (isDemo) { toast.info("🎮 Crear templates disponible en modo real"); return }
+    if (isDemo) { toast.info(" Crear templates disponible en modo real"); return }
 
   // 🔒 Starter: máximo 5 templates
   if (!isPro && templates.length >= 5) {
@@ -286,7 +286,7 @@ const handleCreate = async (form: any) => {
 }
 
   const handleEdit = async (form: any) => {
-        if (isDemo) { toast.info("🎮 Editar templates disponible en modo real"); return }
+        if (isDemo) { toast.info(" Editar templates disponible en modo real"); return }
 
     if (!showEdit) return
     try {
@@ -309,7 +309,7 @@ const handleCreate = async (form: any) => {
   }
 
   const handleDelete = async (id: string) => {
-        if (isDemo) { toast.info("🎮 Eliminar templates disponible en modo real"); return }
+        if (isDemo) { toast.info(" Eliminar templates disponible en modo real"); return }
 
     if (!confirm("¿Eliminar template?")) return
     try {
@@ -327,7 +327,7 @@ const handleCreate = async (form: any) => {
   }
 
   const handleClone = async (id: string) => {
-        if (isDemo) { toast.info("🎮 Duplicar templates disponible en modo real"); return }
+        if (isDemo) { toast.info(" Duplicar templates disponible en modo real"); return }
 
     try {
       const res = await fetch(`/api/templates/${id}/clone`, {
@@ -346,7 +346,7 @@ const handleCreate = async (form: any) => {
 
   const handleUse = async (template: Template, variables: Record<string, string>) => {
   if (isDemo) { 
-    toast.success(`🎮 Template "${template.name}" cargado en demo`)
+    toast.success(` Template "${template.name}" cargado en demo`)
     setShowUse(null)
     return 
   }
@@ -516,7 +516,7 @@ const handleCreate = async (form: any) => {
       {isPro && (
   <button 
     onClick={async () => {
-      if (isDemo) { toast.info("🎮 Favoritos en modo real"); return }
+      if (isDemo) { toast.info(" Favoritos en modo real"); return }
       try {
         const res = await fetch(`/api/templates/${template.id}/favorite`, {
           method: 'PATCH',

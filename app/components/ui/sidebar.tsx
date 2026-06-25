@@ -289,7 +289,7 @@ export function Sidebar({ onSettings, onUpgrade }: SidebarProps) {
         )}
         {isDemo && (
   <div className="text-xs text-amber-400 px-3 py-2">
-    🎮 Modo demo
+     Modo demo
   </div>
 )}
       </div>

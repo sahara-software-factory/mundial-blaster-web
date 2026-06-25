@@ -272,7 +272,7 @@ useEffect(() => {
 }, [isDemo])
 
 const toggleFeature = async (feature: string, current: boolean) => {
-  if (isDemo) { toast.info("🎮 Features en modo real"); return }
+  if (isDemo) { toast.info(" Features en modo real"); return }
   try {
     const t = localStorage.getItem('mb_token') || ''
     const res = await fetch('/api/me/ai-features', {
@@ -850,7 +850,7 @@ REGLAS:
                                                         <button
                               onClick={() => {
                                 if (isDemo) {
-                                  toast.info("🎮 Generación de IA no disponible en modo demo")
+                                  toast.info(" Generación de IA no disponible en modo demo")
                                   return
                                 }
                                 generateMessages()
@@ -873,7 +873,7 @@ REGLAS:
                                                                                     <button
                               onClick={() => {
                                 if (isDemo) {
-                                  toast.info("🎮 Guardar prompts no disponible en modo demo")
+                                  toast.info(" Guardar prompts no disponible en modo demo")
                                   return
                                 }
                                 savePrompt()

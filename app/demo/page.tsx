@@ -17,7 +17,7 @@ export default function DemoEntryPage() {
         if (!res.ok) throw new Error(data.error || "Error generando demo")
 
         localStorage.setItem("mb_token", data.token)
-        toast.success("🎉 Demo activada")
+        toast.success("Demo activada")
         
         // Redirigir al dashboard
        window.location.href = "/dashboard/"

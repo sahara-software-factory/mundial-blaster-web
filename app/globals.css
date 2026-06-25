@@ -50,6 +50,10 @@
   background: var(--text-muted);
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 /* Base */
 body {
   background-color: var(--bg-primary);

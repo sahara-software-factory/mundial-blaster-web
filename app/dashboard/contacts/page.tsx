@@ -196,7 +196,7 @@ setContacts(contacts)
   }, [fetchContacts, fetchTags])
 
   const toggleSelect = (id: string) => {
-      if (isDemo) { toast.info("🎮 Eliminar contactos disponible en modo real"); return }
+      if (isDemo) { toast.info(" Eliminar contactos disponible en modo real"); return }
     const next = new Set(selectedIds)
     if (next.has(id)) next.delete(id)
     else next.add(id)
@@ -204,7 +204,7 @@ setContacts(contacts)
   }
 
   const selectAll = () => {
-  if (isDemo) { toast.info("🎮 Acción disponible en modo real"); return }
+  if (isDemo) { toast.info(" Acción disponible en modo real"); return }
   if (selectedIds.size === displayedContacts.length && displayedContacts.length > 0) {
     setSelectedIds(new Set())
   } else {
@@ -213,7 +213,7 @@ setContacts(contacts)
 }
 
   const deleteSelected = async () => {
-      if (isDemo) { toast.info("🎮 Eliminar contactos disponible en modo real"); return }
+      if (isDemo) { toast.info(" Eliminar contactos disponible en modo real"); return }
   const ok = await confirm({
     title: "Eliminar contactos",
     description: `¿Eliminar ${selectedIds.size} contactos seleccionados? Esta acción no se puede deshacer.`,
@@ -238,7 +238,7 @@ setContacts(contacts)
   }
 
   const handleCreate = async (form: any) => {
-      if (isDemo) { toast.info("🎮 Eliminar contactos disponible en modo real"); return }
+      if (isDemo) { toast.info(" Eliminar contactos disponible en modo real"); return }
     try {
       const res = await fetch("/api/contacts", {
         method: "POST",
@@ -259,7 +259,7 @@ setContacts(contacts)
   }
 
   const handleEdit = async (form: any) => {
-      if (isDemo) { toast.info("🎮 Eliminar contactos disponible en modo real"); return }
+      if (isDemo) { toast.info(" Eliminar contactos disponible en modo real"); return }
     if (!showEdit) return
     try {
       const res = await fetch(`/api/contacts/${showEdit.id}`, {
@@ -281,7 +281,7 @@ setContacts(contacts)
   }
 
   const handleAddBlacklist = async (phone: string) => {
-  if (isDemo) { toast.info("🎮 Blacklist disponible en modo real"); return }
+  if (isDemo) { toast.info("Blacklist disponible en modo real"); return }
   try {
     const res = await fetch('/api/blacklist', {
       method: 'POST',
@@ -304,7 +304,7 @@ setContacts(contacts)
 }
 
 const handleRemoveBlacklist = async (phone: string) => {
-  if (isDemo) { toast.info("🎮 Blacklist disponible en modo real"); return }
+  if (isDemo) { toast.info("Blacklist disponible en modo real"); return }
   try {
     const res = await fetch(`/api/blacklist/${phone.replace(/\D/g, '')}`, {
       method: 'DELETE',
@@ -323,7 +323,7 @@ const handleRemoveBlacklist = async (phone: string) => {
 }
 
 const handleBulkTag = async (tagName: string) => {
-  if (isDemo) { toast.info("🎮 Etiquetado masivo disponible en modo real"); return }
+  if (isDemo) { toast.info(" Etiquetado masivo disponible en modo real"); return }
   if (selectedIds.size === 0) return
   try {
     const ids = Array.from(selectedIds)
@@ -351,7 +351,7 @@ const handleBulkTag = async (tagName: string) => {
 
   const exportSelectedContacts = () => {
     if (isDemo) {
-      toast.info("🎮 Exportar contactos disponible en modo real")
+      toast.info(" Exportar contactos disponible en modo real")
       return
     }
     if (selectedIds.size === 0) {
@@ -403,7 +403,7 @@ const handleBulkTag = async (tagName: string) => {
   }
 
   const handleCSVImport = async (csvText: string) => {
-      if (isDemo) { toast.info("🎮 Eliminar contactos disponible en modo real"); return }
+      if (isDemo) { toast.info(" Eliminar contactos disponible en modo real"); return }
     setIsImporting(true)
     setImportProgress(0)
     
@@ -578,7 +578,7 @@ const handleContactFile = (file: File) => {
 }
 
 const confirmImportContacts = async () => {
-  if (isDemo) { toast.info("🎮 Importar contactos disponible en modo real"); return }
+  if (isDemo) { toast.info(" Importar contactos disponible en modo real"); return }
   if (pendingImportData.length === 0) return
   
   setImportFileLoading(true)

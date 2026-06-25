@@ -25,6 +25,11 @@ export const metadata: Metadata = {
     description: "Pagá una vez. Usá para siempre. Control total de tus datos.",
     type: "website",
   },
+  icons: {
+    icon: "/images/isotipo.png",   // o "/icon.png" si lo ponés en public/
+    shortcut: "/favicon.ico",
+    apple: "/apple-icon.png",  // opcional
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

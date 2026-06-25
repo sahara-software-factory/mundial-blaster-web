@@ -146,7 +146,7 @@ const { isDemo } = useDemoMode()
   }
 
   const createTag = async () => {
-       if (isDemo) { toast.info("🎮 Crear tags disponible en modo real"); return }
+       if (isDemo) { toast.info(" Crear tags disponible en modo real"); return }
     if (!newTagName.trim()) return toast.error("Nombre requerido")
     try {
       const res = await fetch("/api/tags", {
@@ -169,7 +169,7 @@ const { isDemo } = useDemoMode()
   }
 
 const deleteTag = async (id: string) => {
-    if (isDemo) { toast.info("🎮 Eliminar tags disponible en modo real"); return }
+    if (isDemo) { toast.info(" Eliminar tags disponible en modo real"); return }
 
   const ok = await askConfirm({
     title: "Eliminar etiqueta",

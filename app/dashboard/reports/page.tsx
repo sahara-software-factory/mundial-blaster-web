@@ -479,7 +479,7 @@ const [campaignLogsMap, setCampaignLogsMap] = useState<Record<string, any[]>>(()
 
      const startCampaign = async (id: string) => {
     if (isDemo) {
-      toast.info("🎮 Acción disponible en modo real")
+      toast.info(" Acción disponible en modo real")
       return
     }
     // Limpiar logs previos de esta campaña antes de iniciar nueva ejecución
@@ -521,7 +521,7 @@ const [campaignLogsMap, setCampaignLogsMap] = useState<Record<string, any[]>>(()
 
   const cloneCampaign = async (id: string) => {
     if (isDemo) {
-  toast.info("🎮 Acción disponible en modo real")
+  toast.info(" Acción disponible en modo real")
   return
 }
     if (!isPro) {
@@ -557,7 +557,7 @@ const [campaignLogsMap, setCampaignLogsMap] = useState<Record<string, any[]>>(()
 
   const deleteCampaign = async (id: string, status: string) => {
     if (isDemo) {
-  toast.info("🎮 Acción disponible en modo real")
+  toast.info(" Acción disponible en modo real")
   return
 }
     if (status === 'running') {
@@ -617,7 +617,7 @@ const [campaignLogsMap, setCampaignLogsMap] = useState<Record<string, any[]>>(()
 
   const cancelCampaign = async (id: string) => {
     if (isDemo) {
-  toast.info("🎮 Acción disponible en modo real")
+  toast.info(" Acción disponible en modo real")
   return
 }
     const ok = await askConfirm({
@@ -669,7 +669,7 @@ const [campaignLogsMap, setCampaignLogsMap] = useState<Record<string, any[]>>(()
 
 const handleExport = async (campaignId: string) => {
   if (isDemo) {
-  toast.info("🎮 Acción disponible en modo real")
+  toast.info(" Acción disponible en modo real")
   return
 }
   if (!isPro) {

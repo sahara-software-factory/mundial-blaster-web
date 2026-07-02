@@ -526,33 +526,39 @@ const handleConocerClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
           style={{ opacity: 0, visibility: "hidden" }}
         >
           <div className="relative w-full">
-            <div className="mockup-glow absolute -inset-4 bg-gradient-to-r from-cyan-500/20 via-sky-500/20 to-blue-500/20 rounded-[2.5rem] blur-2xl opacity-0" />
-            <div  className="relative bg-slate-900 rounded-t-2xl sm:rounded-t-3xl p-2 sm:p-3 shadow-lg sm:shadow-2xl mt-16 lg:mt-20">
-              <div className="flex items-center gap-2 px-2 pb-3">
-                <div className="w-3 h-3 rounded-full bg-red-400" />
-                <div className="w-3 h-3 rounded-full bg-amber-400" />
-                <div className="w-3 h-3 rounded-full bg-emerald-400" />
-                <div className="flex-1 text-center">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-slate-800 text-slate-400 text-xs">
-                    <Lock className="w-3 h-3" />
-                    app.tudominio.com
-                  </div>
-                </div>
-              </div>
-              <div className="bg-slate-950 rounded-lg sm:rounded-xl overflow-hidden aspect-[2.2/1] relative">
-                <img
-                  src="/images/mockup_1.png"
-                  alt="Dashboard WabiSend"
-                  id="mockupImg"
-                  className="absolute inset-0 w-full h-full object-cover"
-                />
-              </div>
-            </div>
-            <div className="relative mx-auto w-[95%] sm:w-[90%]">
-              <div className="h-3 sm:h-4 bg-gradient-to-b from-slate-700 to-slate-800 rounded-b-xl sm:rounded-b-2xl shadow-xl" />
-              <div className="h-1 sm:h-1.5 bg-slate-600 rounded-b-lg mx-auto w-1/3" />
-            </div>
-          </div>
+  <div className="mockup-glow absolute -inset-4 bg-gradient-to-r from-cyan-500/20 via-sky-500/20 to-blue-500/20 rounded-[2.5rem] blur-2xl opacity-0" />
+  <div className="relative bg-slate-900 rounded-t-2xl sm:rounded-t-3xl p-2 sm:p-3 shadow-lg sm:shadow-2xl mt-16 lg:mt-20">
+    <div className="flex items-center gap-2 px-2 pb-3">
+      <div className="w-3 h-3 rounded-full bg-red-400" />
+      <div className="w-3 h-3 rounded-full bg-amber-400" />
+      <div className="w-3 h-3 rounded-full bg-emerald-400" />
+      <div className="flex-1 text-center">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-slate-800 text-slate-400 text-xs">
+          <Lock className="w-3 h-3" />
+          app.tudominio.com
+        </div>
+      </div>
+    </div>
+    <div className="bg-slate-950 rounded-lg sm:rounded-xl overflow-hidden aspect-[2.2/1] relative">
+      <video
+        src="/images/wabisend.mp4"
+        poster="/images/mockup_1.png"
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="none"
+        // loading="lazy"
+        className="absolute inset-0 w-full h-full object-cover"
+        aria-label="Video demostrativo del dashboard de WabiSend"
+      />
+    </div>
+  </div>
+  <div className="relative mx-auto w-[95%] sm:w-[90%]">
+    <div className="h-3 sm:h-4 bg-gradient-to-b from-slate-700 to-slate-800 rounded-b-xl sm:rounded-b-2xl shadow-xl" />
+    <div className="h-1 sm:h-1.5 bg-slate-600 rounded-b-lg mx-auto w-1/3" />
+  </div>
+</div>
         </div>
       </div>
     </section>

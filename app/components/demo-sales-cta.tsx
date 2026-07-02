@@ -26,17 +26,17 @@ export function DemoSalesCTA() {
               </div>
               <div>
                 <p className="text-sm font-bold text-white">
-                  ¿Querés transformar este demo en realidad para tu empresa?
+                  ¿Querés ver esta demo en tiempo real?
                 </p>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Habla con ventas ahora y empezá a escalar tus campañas hoy mismo.
+                  Habla con ventas ahora y coordina un meet exclusivo para ver WabiSend en acción.
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-3 shrink-0">
               <a
-                href="https://wa.me/#?text=Hola,%20vi%20el%20demo%20de%20NEXA%20y%20quiero%20saber%20más%20sobre%20la%20licencia"
+                href="https://wa.me/54926042604098308?text=Hola,%20vi%20el%20demo%20de%20NEXA%20y%20quiero%20saber%20más%20sobre%20WabiSend."
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold text-sm transition-all shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40"

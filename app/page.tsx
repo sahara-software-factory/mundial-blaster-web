@@ -484,7 +484,7 @@ const handleConocerClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
           </h1>
 
           <p className="mt-6 text-lg sm:text-xl text-slate-600 max-w-xl mx-auto leading-relaxed">
-            Plataforma self-hosted. Sin mensualidades, sin techo de envíos, sin creditos IA, sin que nadie toque tus datos.
+            Plataforma de envío masivo WhatsApp. Sin mensualidades, sin techo de envíos, sin creditos IA, sin que nadie toque tus datos.
           </p>
 
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -544,7 +544,7 @@ const handleConocerClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
         src="/images/wabisend.mp4"
         poster="/images/mockup_1.png"
         autoPlay
-        muted
+        // muted
         loop
         playsInline
         preload="none"
@@ -1512,24 +1512,7 @@ function Deploy() {
           ))}
         </motion.div>
 
-        {/* CTA del video */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.1 }}
-          transition={{ delay: 0.2 }}
-          className="mt-12 text-center"
-        >
-          <a
-            href="https://www.loom.com/share/..."
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white border border-slate-200 shadow-sm text-slate-700 font-medium hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-700 transition-all"
-          >
-            <Play className="w-4 h-4 text-cyan-500 group-hover:scale-110 transition-transform" />
-            Ver tutorial de instalación
-          </a>
-        </motion.div>
+       
       </div>
     </section>
   );
@@ -1596,34 +1579,34 @@ function Footer() {
         { label: "Funciones", href: "#features" },
         { label: "Demo", href: "/demo" },
         { label: "Precios", href: "#pricing" },
-        { label: "Roadmap", href: "#" },
+        { label: "Roadmap", href: "/document" },
       ],
     },
     {
       title: "Recursos",
       links: [
-        { label: "Documentación", href: "/documentacion" },
-        { label: "Guía de inicio", href: "/documentacion" },
-        { label: "Blog", href: "#" },
-        { label: "Changelog", href: "#" },
+        { label: "Documentación", href: "/document" },
+        { label: "Guía de inicio", href: "/document" },
+        // { label: "Blog", href: "#" },
+        // { label: "Changelog", href: "#" },
       ],
     },
     {
       title: "Legal",
       links: [
-        { label: "Términos del servicio", href: "#" },
-        { label: "Política de privacidad", href: "#" },
-        { label: "Licencia de uso", href: "#" },
-        { label: "Venta no autorizada", href: "#" },
+        { label: "Términos del servicio", href: "/document" },
+        { label: "Política de privacidad", href: "/document" },
+        { label: "Licencia de uso", href: "/document" },
+        { label: "Venta no autorizada", href: "/document" },
       ],
     },
     {
       title: "Soporte",
       links: [
-        { label: "Centro de ayuda", href: "#" },
-        { label: "Contacto", href: "#" },
-        { label: "WhatsApp", href: "#" },
-        { label: "Status", href: "#" },
+        { label: "Centro de ayuda", href: "document" },
+        { label: "Contacto", href: "https://wa.me/5492604098308?text=Hola%2C%20quiero%20saber%20m%C3%A1s%20sobre%20WabiSend" },
+        { label: "WhatsApp", href: "https://wa.me/5492604098308?text=Hola%2C%20quiero%20saber%20m%C3%A1s%20sobre%20WabiSend" },
+        // { label: "Status", href: "#" },
       ],
     },
   ]
@@ -1649,10 +1632,10 @@ function Footer() {
               <a href="#" className="hover:text-white transition-colors">
                 <Globe className="w-5 h-5" />
               </a>
-              <a href="#" className="hover:text-white transition-colors">
+              <a href="https://wa.me/5492604098308?text=Hola%2C%20quiero%20saber%20m%C3%A1s%20sobre%20WabiSend" className="hover:text-white transition-colors">
                 <MessageCircle className="w-5 h-5" />
               </a>
-              <a href="#" className="hover:text-white transition-colors">
+              <a href="hola@wabisend.com" className="hover:text-white transition-colors">
                 <Mail className="w-5 h-5" />
               </a>
             </div>
@@ -1685,13 +1668,13 @@ function Footer() {
             &copy; {new Date().getFullYear()} WabiSend. Todos los derechos reservados.
           </p>
           <div className="flex items-center gap-6 text-xs">
-            <a href="#" className="hover:text-white transition-colors">
+            <a href="/document" className="hover:text-white transition-colors">
               Términos
             </a>
-            <a href="#" className="hover:text-white transition-colors">
+            <a href="/document" className="hover:text-white transition-colors">
               Privacidad
             </a>
-            <a href="#" className="hover:text-white transition-colors">
+            <a href="/document" className="hover:text-white transition-colors">
               Cookies
             </a>
           </div>
@@ -1705,7 +1688,7 @@ function WhatsAppFloat() {
 
     const getWhatsAppLink = () => {
   const ref = typeof window !== 'undefined' ? localStorage.getItem("wabisend_ref") : null
-  const base = "https://wa.me/5490000000000?text="
+  const base = "https://wa.me/5492604098308?text="
   if (ref) {
     return base + encodeURIComponent(`Hola, quiero WabiSend. Me enviaron con el código: ${ref}`)
   }

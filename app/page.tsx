@@ -542,12 +542,13 @@ const handleConocerClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     <div className="bg-slate-950 rounded-lg sm:rounded-xl overflow-hidden aspect-[2.2/1] relative">
       <video
         src="/images/wabisend.mp4"
-        poster="/images/mockup_1.png"
-        autoPlay
+        poster="/images/wabisend.svg"
+        // autoPlay
+        controls
         // muted
-        loop
+        // loop
         playsInline
-        preload="none"
+        preload="metadata"
         // loading="lazy"
         className="absolute inset-0 w-full h-full object-cover"
         aria-label="Video demostrativo del dashboard de WabiSend"

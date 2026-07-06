@@ -967,7 +967,7 @@ function Pricing() {
     const plans = [
     {
       name: "Starter",
-      price: "$500",
+      price: "$390",
       desc: "Perfecto para emprendedores y equipos pequeños que quieren empezar a escalar.",
       features: [
         "1 licencia de por vida",

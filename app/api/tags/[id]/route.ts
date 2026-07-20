@@ -1,6 +1,5 @@
 export const dynamic = 'force-dynamic'
 
-import { demoResponse, isDemoRequest } from "@/lib/demo-api"
 import { NextRequest, NextResponse } from "next/server"
 
 const BACKEND_URL = (process.env.NEXT_PUBLIC_WHATSAPP_SERVER_URL || "").replace(/\/$/, "")
@@ -13,33 +12,23 @@ function getBackendUrl(): string {
   return `https://${BACKEND_URL}`
 }
 
-export async function GET(req: NextRequest) {
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const token = req.headers.get("authorization") || ""
-    const res = await fetch(`${getBackendUrl()}/api/tags`, {
-      headers: { "x-api-secret": SECRET, "authorization": token },
-      cache: "no-store",
-    })
-    const data = await res.json()
-    return NextResponse.json(data, { status: res.status })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
-  }
-}
-
-export async function POST(req: NextRequest) {
-  if (isDemoRequest(req)) {
-    return demoResponse({ tags: [] }) // o datos mock si querés
-  }
-  try {
+    const { id } = params
     const body = await req.json()
     const token = req.headers.get("authorization") || ""
-    const res = await fetch(`${getBackendUrl()}/api/tags`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-secret": SECRET, "authorization": token },
+    
+    const res = await fetch(`${getBackendUrl()}/api/tags/${id}`, {
+      method: "PATCH",
+      headers: { 
+        "Content-Type": "application/json", 
+        "x-api-secret": SECRET, 
+        "authorization": token 
+      },
       body: JSON.stringify(body),
       cache: "no-store",
     })
+    
     const data = await res.json()
     return NextResponse.json(data, { status: res.status })
   } catch (e: any) {
@@ -47,4 +36,23 @@ export async function POST(req: NextRequest) {
   }
 }
 
-
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const { id } = params
+    const token = req.headers.get("authorization") || ""
+    
+    const res = await fetch(`${getBackendUrl()}/api/tags/${id}`, {
+      method: "DELETE",
+      headers: { 
+        "x-api-secret": SECRET, 
+        "authorization": token 
+      },
+      cache: "no-store",
+    })
+    
+    const data = await res.json().catch(() => ({}))
+    return NextResponse.json(data, { status: res.status })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
+}

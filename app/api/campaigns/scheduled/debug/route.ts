@@ -1,6 +1,5 @@
 export const dynamic = 'force-dynamic'
 
-import { demoResponse, isDemoRequest } from "@/lib/demo-api"
 import { NextRequest, NextResponse } from "next/server"
 
 const BACKEND_URL = (process.env.NEXT_PUBLIC_WHATSAPP_SERVER_URL || "").replace(/\/$/, "")
@@ -15,36 +14,17 @@ function getBackendUrl(): string {
 
 export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url)
     const token = req.headers.get("authorization") || ""
-    const res = await fetch(`${getBackendUrl()}/api/tags`, {
+    
+    const res = await fetch(`${getBackendUrl()}/api/campaigns/scheduled/debug`, {
       headers: { "x-api-secret": SECRET, "authorization": token },
       cache: "no-store",
     })
+    
     const data = await res.json()
     return NextResponse.json(data, { status: res.status })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }
-
-export async function POST(req: NextRequest) {
-  if (isDemoRequest(req)) {
-    return demoResponse({ tags: [] }) // o datos mock si querés
-  }
-  try {
-    const body = await req.json()
-    const token = req.headers.get("authorization") || ""
-    const res = await fetch(`${getBackendUrl()}/api/tags`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-secret": SECRET, "authorization": token },
-      body: JSON.stringify(body),
-      cache: "no-store",
-    })
-    const data = await res.json()
-    return NextResponse.json(data, { status: res.status })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
-  }
-}
-
-

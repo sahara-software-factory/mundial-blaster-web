@@ -403,25 +403,25 @@ export default function SetupWizard() {
     window.location.href = "/onboarding"
   }
 
-//  useEffect(() => {
-//     fetch("/api/auth/check", { cache: "no-store" })
-//       .then(r => r.json())
-//       .then(data => {
-//         if (data.hasUser) {
-//           router.replace("/login") // replace en vez de href para no guardar en history
-//         }
-//       })
-//       .catch(() => {})
-//       .finally(() => setChecking(false))
-//   }, [router])
+ useEffect(() => {
+    fetch("/api/auth/check", { cache: "no-store" })
+      .then(r => r.json())
+      .then(data => {
+        if (data.hasUser) {
+          router.replace("/login") // replace en vez de href para no guardar en history
+        }
+      })
+      .catch(() => {})
+      .finally(() => setChecking(false))
+  }, [router])
 
-//   if (checking) {
-//     return (
-//       <div className="min-h-screen bg-[#060A14] flex items-center justify-center">
-//         <div className="h-8 w-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-//       </div>
-//     )
-//   }
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-[#060A14] flex items-center justify-center">
+        <div className="h-8 w-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
   
 
   return (

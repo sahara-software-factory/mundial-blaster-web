@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { getSocket } from "@/lib/socket"
 import type { Socket } from "socket.io-client"
 
@@ -13,17 +13,16 @@ export function useSocket() {
 
     function onConnect() {
       setIsConnected(true)
-      console.log("🟢 Socket conectado")
     }
 
     function onDisconnect() {
       setIsConnected(false)
-      console.log("🔴 Socket desconectado")
     }
 
     socket.on("connect", onConnect)
     socket.on("disconnect", onDisconnect)
 
+    // Estado inicial
     setIsConnected(socket.connected)
 
     return () => {
@@ -32,5 +31,12 @@ export function useSocket() {
     }
   }, [socket])
 
-  return { socket, isConnected }
+  // Helper: suscribirse a un evento sin acumular listeners
+  const subscribe = useCallback((event: string, handler: (...args: any[]) => void) => {
+    if (!socket) return () => {}
+    socket.on(event, handler)
+    return () => { socket.off(event, handler) }
+  }, [socket])
+
+  return { socket, isConnected, subscribe }
 }

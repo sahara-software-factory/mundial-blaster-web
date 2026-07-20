@@ -1,10 +1,9 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { io } from "socket.io-client"
+import { useSocket } from "@/hooks/use-socket"
 import { 
   Smartphone, 
-  QrCode, 
   Loader2, 
   CheckCircle2, 
   AlertTriangle, 
@@ -33,10 +32,17 @@ const CONNECTING_STEPS = [
   "Solicitando código QR...",
 ]
 
+const SOCKET_URL = typeof window !== 'undefined'
+  ? (window.location.hostname === 'localhost'
+      ? (process.env.NEXT_PUBLIC_WHATSAPP_SERVER_URL || 'http://localhost:8080')
+      : (process.env.NEXT_PUBLIC_WHATSAPP_SERVER_URL || ''))
+  : ''
+
 export function QRModal({
   open,
   onOpenChange,
   line,
+
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
@@ -46,7 +52,8 @@ export function QRModal({
   const [qr, setQr] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [connectStep, setConnectStep] = useState(0)
-
+  const { socket, subscribe } = useSocket()
+  // Reset al abrir
   useEffect(() => {
     if (open) {
       setUiStatus("IDLE")
@@ -65,33 +72,49 @@ export function QRModal({
     return () => clearInterval(interval)
   }, [uiStatus])
 
+  // 🔄 POLLING HÍBRIDO: fallback si el socket falla
   useEffect(() => {
     if (!open || !line) return
+    if (uiStatus === "CONECTADA" || uiStatus === "FINISHING") return
 
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_WHATSAPP_SERVER_URL
-    if (!socketUrl) {
-      setError("Error de configuración del servidor")
-      return
-    }
+    const interval = setInterval(async () => {
+      try {
+        const token = localStorage.getItem('mb_token') || ''
+        const res = await fetch(`/api/lineas/${line.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store"
+        })
+        if (!res.ok) return
+        const data = await res.json()
+        
+        if (data.status === 'CONECTADA') {
+          setUiStatus("FINISHING")
+          setTimeout(() => {
+            setUiStatus("CONECTADA")
+            setTimeout(() => {
+              onOpenChange(false)
+              
+            }, 2500)
+          }, 2000)
+        }
+      } catch {}
+    }, 2500)
 
-    const token = typeof window !== 'undefined' 
-      ? (localStorage.getItem('mb_token') || '') 
-      : ''
-    
-    const socket = io(socketUrl, {
-      transports: ["websocket", "polling"],
-      auth: { token },
-    })
+    return () => clearInterval(interval)
+  }, [open, line, uiStatus, onOpenChange])
 
-    socket.on("qr", (payload) => {
+  useEffect(() => {
+    if (!open || !line || !socket) return
+
+    const handleQr = (payload: any) => {
       if (payload.lineId === line.id) {
         setQr(payload.qr)
         setUiStatus("PENDING")
         setError(null)
       }
-    })
+    }
 
-    socket.on("status", (payload) => {
+    const handleStatus = (payload: any) => {
       if (payload.lineId !== line.id) return
 
       if (payload.status === "CONECTADA") {
@@ -100,7 +123,7 @@ export function QRModal({
           setUiStatus("CONECTADA")
           setTimeout(() => {
             onOpenChange(false)
-            window.location.reload()
+          
           }, 2500)
         }, 2000)
       } else if (payload.status === "QR_EXPIRED") {
@@ -113,13 +136,20 @@ export function QRModal({
       } else if (payload.status === "PENDING") {
         setUiStatus("PENDING")
       }
-    })
+    }
 
-    return () => { socket.disconnect() }
-  }, [open, line, onOpenChange])
+    socket.on("qr", handleQr)
+    socket.on("status", handleStatus)
+
+    return () => {
+      socket.off("qr", handleQr)
+      socket.off("status", handleStatus)
+    }
+  }, [open, line, socket, onOpenChange])
 
   const startConnection = useCallback(async () => {
     if (!line) return
+    if (uiStatus === "CONNECTING" || uiStatus === "PENDING") return
     setUiStatus("CONNECTING")
     setError(null)
     setQr(null)
@@ -133,7 +163,7 @@ export function QRModal({
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`,
         },
-        body: JSON.stringify({ phone: line.phone }),
+        body: JSON.stringify({ phone: line.phone, force: true   }),
       })
 
       if (!res.ok) {

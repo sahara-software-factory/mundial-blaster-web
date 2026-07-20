@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { useLicense } from "@/hooks/useLicense"
 
 // Rutas públicas: NUNCA redirigidas, NUNCA bloqueadas
-const PUBLIC_ROUTES = ["/", "/landing", "/demo", "/login"]
+const PUBLIC_ROUTES = ["/", "/landing", "/demo", "/login", "/setup"]
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter()

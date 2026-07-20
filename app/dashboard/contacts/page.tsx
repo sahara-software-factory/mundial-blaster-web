@@ -737,7 +737,7 @@ const displayedContacts = useMemo(() => {
             <button onClick={() => setShowImport(true)} className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--border-color)] rounded-xl transition-all">
               <Upload size={16} /> Importar CSV
             </button>
-            <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] text-sm font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all">
+            <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 bg-sky-500/100 hover:bg-blue-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all">
               <Plus size={16} /> Nuevo Contacto
             </button>
           </div>
@@ -759,7 +759,7 @@ const displayedContacts = useMemo(() => {
                                    <div className="flex gap-2 overflow-x-auto pb-1">
   <button
     onClick={() => { setSelectedTags([]); setShowBlacklistOnly(false); }}
-    className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all whitespace-nowrap ${selectedTags.length === 0 && !showBlacklistOnly ? 'bg-blue-600 text-[var(--text-primary)] border-blue-500' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-slate-600'}`}
+    className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all whitespace-nowrap ${selectedTags.length === 0 && !showBlacklistOnly ? 'bg-sky-500/100 text-white border-blue-500' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-slate-600'}`}
   >
     Todos
   </button>
@@ -886,7 +886,7 @@ const displayedContacts = useMemo(() => {
                         </td>
                         <td className="p-4">
   <div className="flex items-center gap-3">
-    <div className="h-9 w-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-sm font-bold text-[var(--text-primary)]">
+    <div className="h-9 w-9 rounded-full bg-sky-500/100 flex items-center justify-center text-sm font-bold text-white">
       {contact.name?.charAt(0).toUpperCase() || '?'}
     </div>
     <div>
@@ -1060,9 +1060,9 @@ Maria Lopez,5491165432109,maria@test.com,Corp,lead`
           link.click()
           toast.success("Plantilla descargada")
         }}
-        className="text-xs px-3 py-1.5 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-600/30 transition-colors"
+        className="text-xs px-3 py-1.5 bg-sky-500/100 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-600/30 transition-colors"
       >
-        📥 Plantilla
+        Plantilla
       </button>
     </div>
 
@@ -1269,8 +1269,8 @@ function ContactFormModal({ open, onClose, onSubmit, tags, initial }: any) {
           <textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} rows={2} className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-[var(--text-primary)] text-sm focus:outline-none focus:border-blue-500 resize-none" />
         </div>
         <div className="flex gap-3">
-          <button type="button" onClick={onClose} className="flex-1 py-2.5 bg-[#1E293B] hover:bg-[#334155] text-[var(--text-primary)] rounded-xl transition-colors">Cancelar</button>
-          <button type="submit" className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] font-bold rounded-xl transition-colors">{initial ? "Guardar" : "Crear"}</button>
+          <button type="button" onClick={onClose} className="flex-1 py-2.5 bg-[#1E293B] hover:bg-[#334155] text-white rounded-xl transition-colors">Cancelar</button>
+          <button type="submit" className="flex-1 py-2.5 bg-sky-500/100 hover:bg-blue-500 text-white font-bold rounded-xl transition-colors">{initial ? "Guardar" : "Crear"}</button>
         </div>
       </form>
       

@@ -1630,7 +1630,7 @@ const globalReplies = useMemo<any[]>(() => {
                     </button>
                     <button
                       onClick={() => setShowDetail(false)}
-                      className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] font-bold rounded-xl transition-colors"
+                      className="flex-1 py-3 bg-sky-500/100 hover:bg-sky-500 text-white font-bold rounded-xl transition-colors"
                     >
                       Cerrar
                     </button>

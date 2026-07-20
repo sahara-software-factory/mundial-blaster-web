@@ -7,7 +7,9 @@ import { useAuth } from "@/hooks/useAuth"
 import { useRouter } from "next/navigation"
 import { 
   User, Building2, Phone, Globe, Clock, Briefcase, Users, 
-  Shield, Mail, Lock, CheckCircle2, ArrowLeft, Save
+  Shield, Mail, Lock, CheckCircle2, ArrowLeft, Save,
+  PenTool,
+  Settings
 } from "lucide-react"
 
 const TIMEZONES = [
@@ -157,7 +159,7 @@ export default function SettingsPage() {
             <ArrowLeft size={20} />
           </button>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold">⚙️ Configuración</h1>
+            <h1 className="text-2xl font-bold"><Settings size={14} className="inline mr-1.5 -mt-0.5" /> Configuración</h1>
             <p className="text-sm text-[#3D5060]">Gestioná tu perfil y seguridad</p>
           </div>
         </div>
@@ -176,7 +178,7 @@ export default function SettingsPage() {
           <button
             onClick={() => setTab("security")}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-              tab === "security" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-[#0A1020] text-[#3D5060] border border-white/5 hover:text-[#7A90A0]"
+              tab === "security" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border-color)] hover:text-[var(--text-secondary)]"
             }`}
           >
             <Shield size={14} className="inline mr-1.5 -mt-0.5" />
@@ -209,7 +211,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#EEF2FF]">{user.nombre}</p>
+                <p className="text-sm font-semibold text-sky">{user.nombre}</p>
                 <p className="text-xs text-[#3D5060]">{user.email}</p>
                 {user.expected_volume && (
                   <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-semibold">
@@ -301,7 +303,7 @@ export default function SettingsPage() {
             <button 
               type="submit" 
               disabled={saving}
-              className="w-full bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-[#021210] font-bold py-3 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full bg-sky-500/100 hover:from-emerald-400 hover:to-cyan-400 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <Save size={16} />
               {saving ? "Guardando..." : "Guardar cambios"}
@@ -311,7 +313,7 @@ export default function SettingsPage() {
 
         {/* Security Tab */}
         {tab === "security" && (
-          <form onSubmit={updatePassword} className="bg-[#0A1020] border border-white/5 rounded-2xl p-6 space-y-4">
+          <form onSubmit={updatePassword} className=" border border-white/5 rounded-2xl p-6 space-y-4">
             <div>
               <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Contraseña actual</label>
               <input name="current" type="password" required className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-sm text-[var(--text-primary)] focus:border-emerald-500/50 focus:outline-none transition-colors" />
@@ -324,7 +326,7 @@ export default function SettingsPage() {
               <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Confirmar nueva contraseña</label>
               <input name="confirm" type="password" required className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-sm text-[var(--text-primary)] focus:border-emerald-500/50 focus:outline-none transition-colors" />
             </div>
-            <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-colors">
+            <button type="submit" className="w-full bg-sky-500/100 hover:bg-sky-400 text-white font-bold py-3 rounded-xl transition-colors">
               Cambiar contraseña
             </button>
           </form>

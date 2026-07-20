@@ -61,7 +61,12 @@ import {
   ShieldCheck,
   Info,
   ShieldBan,
-  XCircle
+  XCircle,
+  LucideAlarmClockOff,
+  Flag,
+  Radio,
+  Hourglass,
+  Wand2
 } from "lucide-react"
 import { QRModal } from "../components/qr-modal"
 import { useUpgradeModal } from "../components/UpgradeModalProvider"
@@ -103,7 +108,7 @@ interface TagItem {
 // ========== FUERA DEL COMPONENTE (arriba de todo en el archivo) ==========
 const FEATURES = [
   { icon: CalendarClock, label: "Programación", desc: "Agendá envíos futuros", tier: 'pro' as TierName  },
-  { icon: UserCheck, label: "Modo humano", desc: "Pausas aleatorias anti-ban", tier: 'pro' as TierName  },
+  { icon: UserCheck, label: "Modo humano", desc: "Pausas aleatorias anti-ban x2", tier: 'pro' as TierName  },
 
   { icon: BarChart3, label: "Reportes avanzados", desc: "Gráficos de conversión", tier: 'pro' as TierName  },
   { icon: Download, label: "Export CSV", desc: "Descargá contactos y logs", tier: 'pro' as TierName  },
@@ -143,6 +148,7 @@ interface TierConfig {
   hasExport: boolean
   hasRoundRobin: boolean
   hasHumanMode: boolean
+  humanModeMaxLines: number
   hasClone: boolean
   hasAdvancedSpintax: boolean
   hasTemplateVars: boolean
@@ -161,7 +167,8 @@ const TIER_CONFIG: Record<TierName, TierConfig> = {
     hasCron: false,
     hasExport: false,
     hasRoundRobin: false,
-    hasHumanMode: false,
+    hasHumanMode: true,
+    humanModeMaxLines: 1,
     hasClone: false,
     hasAdvancedSpintax: true,
     hasTemplateVars: false,
@@ -179,6 +186,7 @@ const TIER_CONFIG: Record<TierName, TierConfig> = {
     hasExport: true,
     hasRoundRobin: true,
     hasHumanMode: true,
+     humanModeMaxLines: 2,
     hasTemplateFavorite: true,
     hasClone: true,
     hasAdvancedSpintax: true,
@@ -197,6 +205,7 @@ const TIER_CONFIG: Record<TierName, TierConfig> = {
     hasTemplateFavorite: true,
     hasRoundRobin: true,
     hasHumanMode: true,
+    humanModeMaxLines: Infinity,
     hasClone: true,
     hasAdvancedSpintax: true,
     hasTemplateVars: true,
@@ -290,6 +299,75 @@ function validateNumbers(text: string): { valid: boolean; errors: string[]; numb
   return { valid: errors.length === 0 && numbers.length > 0, errors, numbers }
 }
 
+function smartCleanNumbers(text: string): {
+  numbers: string[]
+  cleaned: number
+  noise: number
+  rejected: string[]
+  duplicates: string[]
+  duplicatesRemoved: number
+} {
+  const LETTER = /[A-Za-z\u00C0-\u024F]/
+  const lines = text.replace(/[;,\t]/g, '\n').split('\n').map(l => l.trim()).filter(Boolean)
+
+  const rawNumbers: string[] = []
+  const rejected: string[] = []
+  let cleaned = 0
+  let noise = 0
+
+  const pushIfValid = (digits: string, original: string) => {
+    if (digits.length < 7 || digits.length > 14) {
+      rejected.push(`"${original.slice(0, 20)}" → ${digits.length} dígitos (debe tener 7-14)`)
+      return
+    }
+    rawNumbers.push(digits)
+  }
+
+  for (const line of lines) {
+    if (LETTER.test(line)) {
+      // ─── Línea con letras: separar en límites letra↔dígito, quitar tokens con letras, quedarse con el número más largo ───
+      const spaced = line
+        .replace(/(\d)([A-Za-z\u00C0-\u024F])/g, '$1 $2')
+        .replace(/([A-Za-z\u00C0-\u024F])(\d)/g, '$1 $2')
+      const candidates = spaced.split(/\s+/)
+        .filter(t => !LETTER.test(t))
+        .map(t => t.replace(/\D/g, ''))
+        .filter(Boolean)
+      const best = candidates.sort((a, b) => b.length - a.length)[0] || ''
+      if (!best) { noise++; continue }          // línea solo nombre → se elimina en silencio
+      const antes = rawNumbers.length
+      pushIfValid(best, line)
+      if (rawNumbers.length > antes) cleaned++  // número rescatado de línea mixta
+    } else {
+      // ─── Línea solo numérica: puede ser un número con espacios (351 234 5678) o varios números ───
+      const groups = line.split(/\s+/).map(g => g.replace(/\D/g, '')).filter(Boolean)
+      if (groups.length === 0) { noise++; continue }
+      if (groups.every(g => g.length < 7)) {
+        pushIfValid(groups.join(''), line)      // grupos cortos = un solo número con espacios
+      } else {
+        groups.forEach(g => { if (g.length >= 7) pushIfValid(g, line) }) // varios números en una línea
+      }
+    }
+  }
+
+  // Dedupe preservando orden
+  const seen = new Set<string>()
+  const numbers: string[] = []
+  const duplicates: string[] = []
+  let duplicatesRemoved = 0
+  for (const n of rawNumbers) {
+    if (seen.has(n)) {
+      duplicatesRemoved++
+      if (!duplicates.includes(n)) duplicates.push(n)
+    } else {
+      seen.add(n)
+      numbers.push(n)
+    }
+  }
+
+  return { numbers, cleaned, noise, rejected, duplicates, duplicatesRemoved }
+}
+
 
 
 // Solo normaliza separadores. NO quita letras ni símbolos (el validador se encarga de rechazarlos visualmente)
@@ -339,32 +417,25 @@ function ensureClickableUrls(text: string): string {
 }
 
 
-const getLogMeta = (log: string) => {
-  if (log.startsWith('[OK]') || log.startsWith('[DONE]')) 
-    return { icon: CheckCircle2, color: 'text-emerald-400' }
-  if (log.startsWith('[ERR]')) 
-    return { icon: XCircle, color: 'text-red-400' }
-  if (log.startsWith('[SIM]')) 
-    return { icon: FlaskConical, color: 'text-amber-400' }
-  if (log.startsWith('[PROXY]')) 
-    return { icon: Globe, color: 'text-cyan-400' }
-  if (log.startsWith('[INFO]')) 
-    return { icon: Info, color: 'text-blue-400' }
-  if (log.startsWith('[WARN]')) 
-    return { icon: AlertTriangle, color: 'text-orange-400' }
-  if (log.startsWith('[CSV]')) 
-    return { icon: Download, color: 'text-purple-400' }
-  if (log.startsWith('[BL]')) 
-    return { icon: ShieldBan, color: 'text-purple-400' }
-  if (log.startsWith('[CAL]')) 
-    return { icon: CalendarClock, color: 'text-pink-400' }
-  if (log.startsWith('[CLONE]')) 
-    return { icon: Copy, color: 'text-teal-400' }
-  if (log.startsWith('[RECON]')) 
-    return { icon: RotateCcw, color: 'text-sky-400' }
-  if (log === '') 
-    return { icon: null, color: 'h-2' } // separador
-  return { icon: null, color: 'text-[var(--text-secondary)]' }
+const getLogMeta = (log: string): { icon: any, color: string } => {
+  if (log.startsWith('[OK]'))    return { icon: CheckCircle2,  color: 'text-emerald-400' }
+  if (log.startsWith('[DONE]'))  return { icon: Flag,          color: 'text-emerald-400' }
+  if (log.startsWith('[ERR]'))   return { icon: XCircle,       color: 'text-red-400' }
+  if (log.startsWith('[WARN]'))  return { icon: AlertTriangle, color: 'text-amber-400' }
+  if (log.startsWith('[START]')) return { icon: Rocket,        color: 'text-emerald-400' }
+  if (log.startsWith('[SIM]'))   return { icon: Flame,         color: 'text-purple-400' }
+  if (log.startsWith('[HUMAN]')) return { icon: UserCheck,     color: 'text-purple-400' }
+  if (log.startsWith('[AI]'))    return { icon: Sparkles,      color: 'text-purple-400' }
+  if (log.startsWith('[PROXY]')) return { icon: Globe,         color: 'text-cyan-400' }
+  if (log.startsWith('[NET]'))   return { icon: Radio,         color: 'text-cyan-400' }
+  if (log.startsWith('[BL]'))    return { icon: ShieldCheck,   color: 'text-emerald-400' }
+  if (log.startsWith('[CAL]'))   return { icon: CalendarClock, color: 'text-blue-400' }
+  if (log.startsWith('[CLONE]')) return { icon: Copy,          color: 'text-blue-400' }
+  if (log.startsWith('[TIMER]')) return { icon: Timer,         color: 'text-slate-400' }
+  if (log.startsWith('[IMG]'))   return { icon: ImageIcon,     color: 'text-slate-400' }
+  if (log.startsWith('[CSV]'))   return { icon: Download,      color: 'text-slate-400' }
+  if (log.startsWith('[WAIT]'))  return { icon: Hourglass,     color: 'text-amber-400' }
+  return { icon: Info, color: 'text-[var(--text-secondary)]' } // [INFO] y default
 }
 
 export default function Dashboard() {
@@ -503,7 +574,7 @@ const [duplicateNumbers, setDuplicateNumbers] = useState<string[]>(isDemo ? ["54
   const canSimulateFull = isBusiness && selectedLineIds.length > 1 && distributionMode === 'round_robin'
   const isSimulationActive = simulationMode !== 'off'
 
-  const [simulationSpeed, setSimulationSpeed] = useState<'slow' | 'normal' | 'fast'>('normal')
+  const [simulationSpeed, setSimulationSpeed] = useState< 'verySlow' |'slow' | 'normal' | 'fast'>('normal')
 
     const [proxyRotateEnabled, setProxyRotateEnabled] = useState(false)
   const [showProxyModal, setShowProxyModal] = useState(false)
@@ -728,15 +799,7 @@ aiFeaturesRef.current = aiFeatures
   const openQrForLine = (line: LineaWhatsApp) => {
     setQrTargetLine(line)
     setQrModalOpen(true)
-    const t = localStorage.getItem('mb_token') || ''
-    fetch("/api/lineas/connect", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${t}`
-      },
-      body: JSON.stringify({ phone: line.phone }),
-    }).catch(() => { })
+     if (line.status === 'CONECTADA') return
   }
 
   const logoutLine = async (lineId: string) => {
@@ -771,7 +834,7 @@ aiFeaturesRef.current = aiFeatures
     }
   }
 
- const sendCampaign = async () => {
+const sendCampaign = async () => {
   const lineasParaEnviar = lines.filter(l => selectedLineIds.includes(l.id))
   const lineasConectadas = lineasParaEnviar.filter(l => l.status === "CONECTADA")
 
@@ -783,27 +846,41 @@ aiFeaturesRef.current = aiFeatures
   const targets = rawNumbers.map(n => ({ phone: n.replace(/\D/g, ""), name: "" }))
   if (targets.length === 0) return toast.error("No hay números válidos")
 
+    // ─── HUMAN MODE: límite de líneas según tier ───
+  if (humanMode && lineasConectadas.length > (tierConfig.humanModeMaxLines || Infinity)) {
+    return toast.error(`Modo humano: máximo ${tierConfig.humanModeMaxLines} línea en tu plan. Deseleccioná líneas o actualizá a Business.`)
+  }
+
   const isRoundRobin = distributionMode === 'round_robin' && lineasConectadas.length > 1
 
-    // Limpiar logs previos al iniciar nueva campaña (auto-limpieza)
+  // Limpiar logs previos
   setLogs([])
-  
   setIsSending(true)
-  setLogs(prev => [...prev, `🚀 ${isEditMode ? 'Guardando cambios' : scheduleMode === 'now' ? 'Campaña iniciada' : 'Campaña guardada'}: ${targets.length} números · ${lineasConectadas.length} línea(s)`])
+
+  // ─── LOGS INICIALES ───
+    setLogs(prev => [...prev, `[START] ${isEditMode ? 'Editando' : scheduleMode === 'now' ? 'Disparando' : scheduleMode === 'pending' ? 'Guardando' : 'Programando'} campaña`])
+  setLogs(prev => [...prev, `[INFO] ${targets.length} contactos · ${lineasConectadas.length} línea(s)${isRoundRobin ? ' · Round-Robin' : ''}`])
+  
+  if (humanMode) {
+    setLogs(prev => [...prev, `[HUMAN] Human Mode: typing realista + delays variables`])
+  }
+  
+  setLogs(prev => [...prev, `[TIMER] Delay base: ${delayMin/1000}s - ${delayMax/1000}s${humanMode ? ' + extra humano 3-8s' : ''}`])
+  
+  if ((isPro || isDemo) && skipBlacklist) {
+    setLogs(prev => [...prev, `[BL] Blacklist ON: se omitirán contactos bloqueados`])
+  } else if (isStarter) {
+    setLogs(prev => [...prev, `[WARN] Blacklist no disponible en plan Starter`])
+  }
 
   if (proxyRotateEnabled && proxyLocation) {
-      setLogs(prev => [...prev, `🌐 Proxy Rotate: Conectando con nodo ${proxyLocation.city}...`])
-      await new Promise(r => setTimeout(r, 800))
-      setLogs(prev => [...prev, `✅ Ruta establecida via ${proxyLocation.city} (${proxyLocation.country}) · IP: ${proxyLocation.fakeIp} · Latencia: ${proxyLocation.latency}ms`])
-      await new Promise(r => setTimeout(r, 400))
-      setLogs(prev => [...prev, `🔒 IP dinámica activa · Modo anti-ban agresivo`])
-      await new Promise(r => setTimeout(r, 300))
-    }
-    if ((scheduleMode === 'pending' || scheduleMode === 'scheduled') && !proxyRotateEnabled) {
-      router.push("dashboard/reports")
-    } else if (scheduleMode === 'pending' || scheduleMode === 'scheduled') {
-      setTimeout(() => router.push("dashboard/reports"), 2000) // ← dar 2s para leer logs
-    }
+    setLogs(prev => [...prev, `[PROXY] Proxy: ${proxyLocation.city} · ${proxyLocation.fakeIp}`])
+  }
+
+  if (imageUrl) {
+    setLogs(prev => [...prev, `[IMG] Imagen adjunta`])
+  }
+
   try {
     const t = localStorage.getItem('mb_token') || ''
     const body = {
@@ -814,57 +891,52 @@ aiFeaturesRef.current = aiFeatures
       delay_min: delayMin,
       delay_max: delayMax,
       schedule: scheduleMode,
-       execute_at: scheduleMode === 'scheduled' && scheduleDate 
-        ? new Date(scheduleDate).toISOString() // ← el input datetime-local ya viene en hora local del navegador, lo convertimos a UTC ISO
+      execute_at: scheduleMode === 'scheduled' && scheduleDate 
+        ? new Date(scheduleDate).toISOString()
         : undefined,
       line_ids: lineasConectadas.map(l => l.id),
       distribution_mode: isRoundRobin ? 'round_robin' : 'single',
       human_mode: humanMode,
-      skipBlacklist: isBusiness ? skipBlacklist : false,
+      skipBlacklist: (isPro || isDemo) ? skipBlacklist : false, // ← FIX: Pro también
       proxy_node: proxyRotateEnabled ? proxyLocation?.city : undefined,
       proxy_ip: proxyRotateEnabled ? proxyLocation?.fakeIp : undefined
     }
 
     let res
     if (isEditMode && editCampaignId) {
-      // === MODO EDICIÓN: PATCH ===
       res = await fetch(`/api/campaigns/${editCampaignId}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${t}`
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` },
         body: JSON.stringify(body)
       })
     } else {
-      // === MODO CREACIÓN: POST ===
       res = await fetch("/api/campaigns/send", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${t}`
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` },
         body: JSON.stringify(body)
       })
     }
 
     const data = await res.json()
+    
     if (data.success) {
       const actionText = isEditMode ? 'Campaña actualizada' 
-        : scheduleMode === 'pending' ? 'Campaña guardada en espera' 
-        : scheduleMode === 'scheduled' ? `Campaña programada: ${targets.length} números` 
-        : `Campaña iniciada: ${targets.length} números · Modo: ${isRoundRobin ? 'Round-robin' : 'Línea única'}`
+        : scheduleMode === 'pending' ? 'Guardada en espera' 
+        : scheduleMode === 'scheduled' ? `Programada` 
+        : `Disparada: ${targets.length} mensajes`
       
       toast.success(actionText)
-      setLogs(prev => [...prev, `✅ ${isEditMode ? 'Editada' : 'Creada'} ${data.campaign?.id || ''} | ${targets.length} msgs`])
-      
+      setLogs(prev => [...prev, `${actionText} | ID: ${data.campaign?.id || ''}`])
+
+      // ─── REDIRECCIÓN ───
       if (scheduleMode === 'pending' || scheduleMode === 'scheduled') {
-        router.push("dashboard/reports")
+        // Guardadas/programadas → Reports para ver estado
+        setTimeout(() => router.push("/dashboard/reports"), 1500)
       } else {
+        // Envío inmediato → Logs para ver progreso en vivo
         setActiveTab("logs")
       }
-      
-      // Salir de modo edición
+
       if (isEditMode) {
         setIsEditMode(false)
         setEditCampaignId(null)
@@ -873,15 +945,15 @@ aiFeaturesRef.current = aiFeatures
       setLogs(prev => [...prev, `❌ Error: ${data.error}`])
       toast.error(data.error || "Error en campaña")
     }
-  } catch {
-    setLogs(prev => [...prev, `❌ Error de red`])
+  } catch (err: any) {
+    setLogs(prev => [...prev, `❌ Error de red: ${err.message || 'desconocido'}`])
     toast.error("Error de red")
   } finally {
     setIsSending(false)
   }
 }
 
-    const sendSimulation = async () => {
+  const sendSimulation = async () => {
     const lineasParaEnviar = lines.filter(l => selectedLineIds.includes(l.id))
     const lineasConectadas = lineasParaEnviar.filter(l => l.status === "CONECTADA")
 
@@ -893,8 +965,9 @@ aiFeaturesRef.current = aiFeatures
     const targets = rawNumbers.map(n => ({ phone: n.replace(/\D/g, ""), name: "" }))
     if (targets.length === 0) return toast.error("No hay números válidos")
 
-    if (simulationMode === 'lite' && !isBusiness && targets.length > 1) {
-      return toast.error("Simulacro Lite: máximo 1 número. Upgrade a Business para ilimitado.")
+    // 🔧 FIX: líneas, no números
+    if (simulationMode === 'lite' && !isBusiness && lineasConectadas.length > 1) {
+      return toast.error("Simulacro Lite: máximo 1 línea. Upgrade a Business para ilimitado.")
     }
 
     setIsSimulating(true)
@@ -922,60 +995,54 @@ aiFeaturesRef.current = aiFeatures
       const data = await res.json()
       if (!data.success) throw new Error(data.error || 'Error')
 
-      const campaignId = data.campaign.id
       const total = targets.length
 
-      setLogs(prev => [...prev, `🔥 Iniciando modo simulacro (${simulationMode})...`])
-      setLogs(prev => [...prev, `📡 Conectando con ${lineasConectadas.length} nodo(s)...`])
+      setLogs(prev => [...prev, `[SIM] Iniciando modo simulacro (${simulationMode})...`])
+setLogs(prev => [...prev, `[NET] Conectando con ${lineasConectadas.length} nodo(s)...`])
       await new Promise(r => setTimeout(r, 800))
 
       // 2. Simular pings uno por uno
       const simulatedLogs: { contact_phone: string, line_id: string, latency: number }[] = []
       
+      // Configuración de velocidad (fuera del loop)
+      const speedConfig = {
+  verySlow: { base: 2500, variance: 1500, batchPause: 6000 },  // 2.5-4s por número
+  slow:     { base: 1200, variance: 800,  batchPause: 3500 },  // 1.2-2s por número
+  normal:   { base: 500,  variance: 400,  batchPause: 1500 },   // 0.5-0.9s por número
+  fast:     { base: 150,  variance: 150,  batchPause: 800 },    // 0.15-0.3s por número
+}
+      const cfg = speedConfig[simulationSpeed as 'verySlow' | 'slow' | 'normal' | 'fast'] || speedConfig.normal
+
       for (let i = 0; i < targets.length; i++) {
         const target = targets[i]
         const line = lineasConectadas[Math.floor(Math.random() * lineasConectadas.length)]
-        const latency = Math.floor(Math.random() * 80) + 20 // 20-100ms
-        
-        // Delay progresivo: más rápido para muchos números
-              // Delay según velocidad seleccionada
-      const speedConfig = {
-        slow: { base: 150, variance: 100, batchPause: 800 },    // ~150-250ms por ping
-        normal: { base: 50, variance: 50, batchPause: 400 },   // ~50-100ms por ping
-        fast: { base: 15, variance: 20, batchPause: 200 }       // ~15-35ms por ping
-      }
-      const cfg = speedConfig[simulationSpeed]
-      
-      for (let i = 0; i < targets.length; i++) {
-        // ...
+        const latency = Math.floor(Math.random() * 80) + 20
+
+        // Delay según velocidad seleccionada
         const delay = Math.random() * cfg.variance + cfg.base
         await new Promise(r => setTimeout(r, delay))
-        
-        // Batch pause
-        if ((i + 1) % 20 === 0 && i < targets.length - 1) {
-          setLogs(prev => [...prev, `⏳ Verificando batch ${Math.ceil((i + 1) / 20)}/${Math.ceil(total / 20)}...`])
+
+        // Delay extra de "procesamiento" para que se sienta real
+        await new Promise(r => setTimeout(r, 300))
+
+        setLogs(prev => [...prev, `[OK] Handshake ${target.phone} · ${latency}ms · nodo ${line.id.slice(0, 8)}`])
+        simulatedLogs.push({ contact_phone: target.phone, line_id: line.id, latency })
+
+        // Batch pause cada 10 números (más frecuente para que se vea)
+        if ((i + 1) % 10 === 0 && i < targets.length - 1) {
+          setLogs(prev => [...prev, `[WAIT] Verificando batch ${Math.ceil((i + 1) / 10)}/${Math.ceil(total / 10)}...`])
           await new Promise(r => setTimeout(r, cfg.batchPause))
         }
       }
 
-        setLogs(prev => [...prev, `✅ Handshake ${target.phone} · ${latency}ms · nodo ${line.id.slice(0, 8)}`])
-        simulatedLogs.push({ contact_phone: target.phone, line_id: line.id, latency })
-
-        // Batch pause cada 20 números (simula verificación de bloque)
-        if ((i + 1) % 20 === 0 && i < targets.length - 1) {
-          setLogs(prev => [...prev, `⏳ Verificando batch ${Math.ceil((i + 1) / 20)}/${Math.ceil(total / 20)}...`])
-          await new Promise(r => setTimeout(r, 400))
-        }
-      }
-
-      setLogs(prev => [...prev, `✅ Simulacro EXITOSO: ${total} número(s) verificado(s)`])
+      setLogs(prev => [...prev, `[DONE] Simulacro EXITOSO: ${total} número(s) verificado(s)`])
       const avgLatency = Math.floor(simulatedLogs.reduce((a, b) => a + b.latency, 0) / simulatedLogs.length)
-      setLogs(prev => [...prev, `📊 Latencia promedio: ${avgLatency}ms`])
+      setLogs(prev => [...prev, `[INFO] Latencia promedio: ${avgLatency}ms`])
 
       toast.success(`Simulacro exitoso: ${total} pings verificados`)
     } catch (err: any) {
       toast.error(err.message || "Error en simulacro")
-      setLogs(prev => [...prev, `❌ Error: ${err.message}`])
+      setLogs(prev => [...prev, `[ERR] Error: ${err.message}`])
     } finally {
       setIsSimulating(false)
     }
@@ -1098,19 +1165,9 @@ useEffect(() => {
     }
     setIsVerifying(true)
     const t = setTimeout(() => {
-      // Usa la función estricta única (ya no existe verifyNumbers paralela)
-      const { valid, errors, numbers } = validateNumbers(numbersText)
-      setValidationErrors(errors)
-
-      // Calcular duplicados sobre los números que pasaron validación estricta
-      const seen = new Set<string>()
-      const dups: string[] = []
-      for (const n of numbers) {
-        const clean = n.replace(/\D/g, '')
-        if (seen.has(clean)) dups.push(n)
-        else seen.add(clean)
-      }
-      setDuplicateNumbers(dups)
+          const res = smartCleanNumbers(numbersText)
+      setValidationErrors(res.rejected)
+      setDuplicateNumbers(res.duplicates)
       setIsVerifying(false)
     }, 3000)
     setVerifyTimeout(t)
@@ -1153,6 +1210,32 @@ useEffect(() => {
     toast.success("Duplicados eliminados. Se conservó 1 de cada número.")
   }
 
+  const cleanNumbersNow = () => {
+    const res = smartCleanNumbers(numbersText)
+    setNumbersText(res.numbers.join('\n'))
+    setDuplicateNumbers([])
+    setValidationErrors(res.rejected)
+    const parts = [`${res.numbers.length} válidos`]
+    if (res.cleaned > 0) parts.push(`${res.cleaned} rescatados de líneas con nombre`)
+    if (res.noise > 0) parts.push(`${res.noise} nombres eliminados`)
+    if (res.duplicatesRemoved > 0) parts.push(`${res.duplicatesRemoved} duplicados`)
+    if (res.rejected.length > 0) parts.push(`${res.rejected.length} rechazados`)
+    toast.success(parts.join(' · '))
+  }
+
+  const handleNumbersPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    e.preventDefault()
+    const res = smartCleanNumbers(e.clipboardData.getData('text'))
+    if (res.numbers.length === 0) return toast.error('No se detectaron números válidos en lo pegado')
+    setNumbersText(prev => {
+      const merged = smartCleanNumbers((prev ? prev.trim() + '\n' : '') + res.numbers.join('\n'))
+      return merged.numbers.join('\n')
+    })
+    const parts = [`${res.numbers.length} números agregados`]
+    if (res.noise > 0) parts.push(`${res.noise} nombres eliminados`)
+    if (res.duplicatesRemoved > 0) parts.push(`${res.duplicatesRemoved} duplicados`)
+    toast.success(parts.join(' · '))
+  }
   const removeSpecificNumber = (numToRemove: string) => {
     if (isDemo) return
     const cleanRemove = numToRemove.replace(/\D/g, '')
@@ -1349,17 +1432,18 @@ useEffect(() => {
   
   socket.on("campaign_log", (payload: any) => {
     if (payload.isEmergencyStop) {
-      setLogs(prev => [...prev, `🚨🚨🚨 TODAS LAS LÍNEAS CAÍDAS - CAMPAÑA DETENIDA 🚨🚨🚨`])
+      setLogs(prev => [...prev, `[ERR] TODAS LAS LÍNEAS CAÍDAS - CAMPAÑA DETENIDA`])
       return
     }
-    const icon = payload.status === 'sent' ? '✅' : '❌'
-    setLogs(prev => [...prev, `${icon} ${payload.progress} → ${payload.phone} [${payload.linePhone}]`])
-  })
+    const tag = payload.status === 'sent' ? '[OK]' : '[ERR]'
+    setLogs(prev => [...prev, `${tag} ${payload.progress} → ${payload.phone} [${payload.linePhone}]`])
+})
   
   // ✅ CAMPAÑA COMPLETE: usar refs para valores actuales
   socket.on("campaign_complete", async (payload: any) => {
     console.log('📡 RECIBIDO campaign_complete:', payload)
-    setLogs(prev => [...prev, `🏁 Campaña ${payload.campaignId} finalizada · ${payload.sent} enviados · ${payload.failed} fallidos`])
+    setLogs(prev => [...prev, `[DONE] Campaña ${payload.campaignId} finalizada · ${payload.sent} enviados · ${payload.failed} fallidos`])
+
     
     // Usar refs para leer valores actuales (no stale closure)
     const keyOk = hasAiKeyRef.current
@@ -1391,7 +1475,7 @@ useEffect(() => {
         if (data.summary) {
           setCampaignSummary(data.summary)
           setShowSummaryModal(true)
-          setLogs(prev => [...prev, `🤖 Caleb: ${data.summary}`])
+          setLogs(prev => [...prev, `[AI] Caleb: ${data.summary}`])
         }
       } catch (err) {
         console.error('❌ Error en fetch summary:', err)
@@ -2479,12 +2563,7 @@ function getSaludoPorHora(): string {
                             value={numbersText}
                             readOnly={isDemo}
                             onChange={e => !isDemo && setNumbersText(e.target.value)}  // ← libre, sin bloqueo
-                            onPaste={e => {
-  e.preventDefault()
-  const pasted = e.clipboardData.getData('text')
-  const cleaned = normalizeOnPaste(pasted)   // ← solo normaliza separadores, NO mata letras
-  setNumbersText(prev => prev ? prev + '\n' + cleaned : cleaned)
-}}
+                            onPaste={handleNumbersPaste}
                             placeholder="5491123456789&#10;5491165432109&#10;..."
                             rows={6}
                             className={`w-full bg-[var(--bg-input)] border rounded-xl p-4 text-sm text-[var(--text-primary)] placeholder:text-slate-700 focus:outline-none focus:shadow-[0_0_15px_rgba(59,130,246,0.1)] transition-all resize-none font-mono ${
@@ -2830,6 +2909,8 @@ function getSaludoPorHora(): string {
                               <p className="text-xs text-amber-400 font-medium">Modo Simulacro activo</p>
                               <div className="flex items-center gap-1 bg-[var(--bg-input)] rounded-lg p-0.5">
                                 {[
+                                  { id: 'verySlow', label: 'Muy lento', icon: LucideAlarmClockOff },
+
                                   { id: 'slow', label: 'Lento', icon: Timer },
                                   { id: 'normal', label: 'Normal', icon: Gauge },
                                   { id: 'fast', label: 'Rápido', icon: Zap }
@@ -3105,7 +3186,7 @@ function getSaludoPorHora(): string {
     />
     <div className="flex-1">
       <label htmlFor="humanMode" className={`text-sm font-bold cursor-pointer flex items-center gap-2 ${humanMode ? 'text-purple-400' : 'text-[var(--text-secondary)]'}`}>
-        <UserCheck size={14} /> Modo Humano PRO
+        <UserCheck size={14} /> Modo Humano
       </label>
       <p className="text-xs text-[var(--text-muted)] mt-1 leading-relaxed">
         Simula el indicador <span className="text-purple-400 font-medium">"escribiendo..."</span> con delay proporcional al texto. 
@@ -3114,6 +3195,7 @@ function getSaludoPorHora(): string {
       {humanMode && (
         <div className="flex items-center gap-1.5 mt-2 text-[10px] text-red-400 bg-red-500/10 px-2 py-1 rounded-lg border border-red-500/20 w-fit">
           <AlertTriangle size={10} /> No recomendado para campañas masivas
+          {tierConfig.humanModeMaxLines === 1 && <span>· Máx. 1 línea en tu plan</span>}
         </div>
       )}
     </div>
@@ -3520,6 +3602,7 @@ function getSaludoPorHora(): string {
                 <textarea
                   value={numbersText}
                   onChange={e => setNumbersText(e.target.value)}
+                  onPaste={handleNumbersPaste}
                   placeholder="5491123456789&#10;5491165432109&#10;..."
                   rows={6}
                   className={`w-full bg-[var(--bg-input)] border rounded-xl p-4 text-sm text-[var(--text-primary)] placeholder:text-slate-700 focus:outline-none focus:shadow-[0_0_15px_rgba(59,130,246,0.1)] transition-all resize-none font-mono ${duplicateNumbers.length > 0 ? 'border-red-500/50 focus:border-red-500' : 'border-[var(--border-color)] focus:border-blue-500/50'}`}
@@ -3534,6 +3617,9 @@ function getSaludoPorHora(): string {
               <div className="flex flex-col gap-2 mt-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-[var(--text-muted)]">{numbersText.split("\n").filter(Boolean).length} números</span>
+<button onClick={cleanNumbersNow} className="text-[10px] px-2.5 py-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-lg font-bold transition-colors flex items-center gap-1">
+  <Wand2 size={10} /> Limpiar y formatear
+</button>
                   {duplicateNumbers.length === 0 && !isVerifying && numbersText && (
                     <span className="text-xs text-emerald-400 flex items-center gap-1"><CheckCircle2 size={10} /> Todo ok</span>
                   )}

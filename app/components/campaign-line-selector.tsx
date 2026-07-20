@@ -50,7 +50,7 @@ export function CampaignLineSelector({
   return (
     <div className="space-y-4">
       {/* Toggle modo */}
-      <div className="flex gap-2 p-1 bg-slate-800/50 rounded-xl">
+      <div style={{border:"solid 1px #2563eb;"}} className="flex gap-2 rounded-xl">
         <button
           onClick={() => {
             onModeChange("single")

@@ -20,7 +20,8 @@ import {
   Sparkles,
   Lock,
   DollarSign,
-  Book
+  Book,
+  Database
 } from "lucide-react"
 import { useTheme } from "./theme-provider"
 import { useAuth } from "@/hooks/useAuth"
@@ -128,6 +129,7 @@ export function Sidebar({ onSettings, onUpgrade }: SidebarProps) {
     { id: "reports", icon: BarChart3, label: "Reportes", path: "/dashboard/reports", tourId: "nav-reports" },
     { id: "templates", icon: RotateCcw, label: "Templates", path: "/dashboard/templates", tourId: "nav-templates" },
     { id: "tags", icon: Tag, label: "Tags", path: "/dashboard/tags", tourId: "nav-tags" },
+    { id: "database", icon: Database, label: "Bases de datos", path: "/dashboard/bases-de-datos", tourId: "nav-database" },
      
        { 
       id: "ai", 

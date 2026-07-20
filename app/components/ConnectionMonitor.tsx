@@ -21,6 +21,7 @@ export function ConnectionMonitor() {
   const [linesMap, setLinesMap] = useState<Record<string, any>>({})
   const [disconnected, setDisconnected] = useState<DisconnectedLine[]>([])
   const [showModal, setShowModal] = useState(false)
+  const [pendingDisconnect, setPendingDisconnect] = useState<string | null>(null)
 
   const loadLines = useCallback(async () => {
     try {
@@ -83,6 +84,9 @@ export function ConnectionMonitor() {
           if (exists) return prev
           return [...prev, newLine]
         })
+
+
+        
 
         setShowModal(true)
 

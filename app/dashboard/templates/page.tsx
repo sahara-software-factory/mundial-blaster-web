@@ -385,7 +385,7 @@ const handleCreate = async (form: any) => {
 }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] flex">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-white flex">
       <Sidebar onSettings={() => {}} />
       
       <div className="flex-1 min-w-0" style={{ marginLeft: 'var(--sidebar-width)', transition: 'margin-left 0.3s ease' }}>
@@ -393,14 +393,14 @@ const handleCreate = async (form: any) => {
         {/* Header */}
         <header className="h-16 bg-[var(--bg-secondary)]/60 backdrop-blur-md border-b border-[var(--border-color)] flex items-center justify-between px-6 sticky top-0 z-30">
           <div>
-            <h1 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
+            <h1 className="text-lg font-bold text-white flex items-center gap-2">
               <FileText size={20} className="text-blue-400" /> Templates
             </h1>
             <p className="text-xs text-[var(--text-muted)]">Biblioteca de mensajes reutilizables</p>
           </div>
           <button 
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] text-sm font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-sky-500/100 hover:bg-sky-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all"
           >
             <Plus size={16} /> Nuevo Template
           </button>
@@ -457,7 +457,7 @@ const handleCreate = async (form: any) => {
             <div className="flex gap-2 overflow-x-auto pb-1">
   <button
     onClick={() => setSelectedCategory("all")}
-    className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all whitespace-nowrap ${selectedCategory === "all" ? 'bg-blue-600 text-[var(--text-primary)] border-blue-500' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-[var(--border-hover)]'}`}
+    className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all whitespace-nowrap ${selectedCategory === "all" ? 'bg-blue-600 text-white border-blue-500' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-[var(--border-hover)]'}`}
   >
     Todas
   </button>
@@ -476,7 +476,7 @@ const handleCreate = async (form: any) => {
     <button
       key={cat}
       onClick={() => setSelectedCategory(selectedCategory === cat ? "all" : cat)}
-      className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all whitespace-nowrap ${selectedCategory === cat ? 'bg-blue-600 text-[var(--text-primary)] border-blue-500' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-[var(--border-hover)]'}`}
+      className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all whitespace-nowrap ${selectedCategory === cat ? 'bg-blue-600 text-white border-blue-500' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-[var(--border-hover)]'}`}
     >
       {cat}
     </button>
@@ -509,7 +509,7 @@ const handleCreate = async (form: any) => {
       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 uppercase tracking-wider">
         {template.category}
       </span>
-      <h3 className="text-sm font-bold text-[var(--text-primary)] mt-2 truncate">{template.name}</h3>
+      <h3 className="text-sm font-bold text-white mt-2 truncate">{template.name}</h3>
     </div>
     <div className="flex items-center gap-1 ml-2">
       {/* Favorito Pro */}
@@ -541,7 +541,7 @@ const handleCreate = async (form: any) => {
   </button>
 )}
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button onClick={() => setShowEdit(template)} className="p-1.5 text-[var(--text-muted)] hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors" title="Editar">
+        <button onClick={() => setShowEdit(template)} className="p-1.5 text-[var(--text-muted)] hover:text-blue-400 hover:bg-sky-500/10 rounded-lg transition-colors" title="Editar">
           <Edit3 size={14} />
         </button>
         <button onClick={() => handleClone(template.id)} className="p-1.5 text-[var(--text-muted)] hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-colors" title="Duplicar">
@@ -582,7 +582,7 @@ const handleCreate = async (form: any) => {
       </button>
       <button 
         onClick={() => setShowUse(template)}
-        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] rounded-lg shadow-lg shadow-blue-500/20 transition-all"
+        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 bg-sky-500/100 hover:bg-sky-500 text-white rounded-lg shadow-lg shadow-blue-500/20 transition-all"
       >
         <Send size={12} /> Usar
       </button>
@@ -644,7 +644,7 @@ const handleCreate = async (form: any) => {
           {(showPreview.variables || []).map((v: string) => (
             <div key={v} className="bg-[var(--bg-input)] rounded-lg p-2 border border-[var(--border-color)]">
               <span className="text-[10px] text-[var(--text-muted)]">{"{{"}{v}{"}}"}</span>
-              <p className="text-xs text-[var(--text-primary)]">
+              <p className="text-xs text-white">
                 {v === 'nombre' ? 'Juan Pérez' : v === 'telefono' ? '5491123456789' : v === 'empresa' ? 'Acme Inc' : `Valor de ${v}`}
               </p>
             </div>
@@ -665,7 +665,7 @@ const handleCreate = async (form: any) => {
         return (
           <div key={i} className="p-4 bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)] relative">
             <span className="absolute -top-2 left-3 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">Variante {i}</span>
-            <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap mt-1">{previewText}</p>
+            <p className="text-sm text-white whitespace-pre-wrap mt-1">{previewText}</p>
           </div>
         )
       })}
@@ -707,7 +707,7 @@ function TemplateMetricCard({ label, value, sub, highlight }: any) {
   return (
     <div className={`p-4 rounded-xl border ${highlight ? 'bg-amber-500/5 border-amber-500/20' : 'bg-[var(--bg-card)] border-[var(--border-color)]'}`}>
       <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-1">{label}</p>
-      <p className={`text-sm font-bold ${highlight ? 'text-amber-400' : 'text-[var(--text-primary)]'}`}>{value}</p>
+      <p className={`text-sm font-bold ${highlight ? 'text-amber-400' : 'text-white'}`}>{value}</p>
       {sub && <p className="text-[10px] text-[var(--text-muted)] mt-0.5">{sub}</p>}
     </div>
   )
@@ -745,7 +745,7 @@ function TemplateFormModal({ open, onClose, onSubmit, categories, initial, isPro
             required 
             value={form.name} 
             onChange={e => setForm({...form, name: e.target.value})} 
-            className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-sm text-[var(--text-primary)] placeholder:text-slate-700 focus:outline-none focus:border-blue-500/50 transition-all"
+            className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-sm text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500/50 transition-all"
             placeholder="Ej: Promo Black Friday"
           />
         </div>
@@ -756,10 +756,10 @@ function TemplateFormModal({ open, onClose, onSubmit, categories, initial, isPro
             <select 
               value={form.category} 
               onChange={e => setForm({...form, category: e.target.value})}
-              className="appearance-none w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 pr-10 text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500/50 transition-all cursor-pointer hover:border-slate-600"
+              className="appearance-none w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 pr-10 text-sm text-white focus:outline-none focus:border-blue-500/50 transition-all cursor-pointer hover:border-slate-600"
             >
               {categories.map((c: string) => (
-                <option key={c} value={c} className="bg-[var(--bg-card)] text-[var(--text-primary)]">{c}</option>
+                <option key={c} value={c} className="bg-[var(--bg-card)] text-white">{c}</option>
               ))}
             </select>
             <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-muted)]">
@@ -778,7 +778,7 @@ function TemplateFormModal({ open, onClose, onSubmit, categories, initial, isPro
               type="text"
               value={form.imageUrl} 
               onChange={e => setForm({...form, imageUrl: e.target.value})} 
-              className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-sm text-[var(--text-primary)] placeholder:text-slate-700 focus:outline-none focus:border-blue-500/50 transition-all"
+              className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-sm text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500/50 transition-all"
               placeholder="https://tusitio.com/imagen.jpg"
             />
           </div>
@@ -794,7 +794,7 @@ function TemplateFormModal({ open, onClose, onSubmit, categories, initial, isPro
               setForm({...form, content: e.target.value})
               detectVariables(e.target.value)
             }}
-            className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-sm text-[var(--text-primary)] placeholder:text-slate-700 focus:outline-none focus:border-blue-500/50 transition-all resize-none font-mono"
+            className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-sm text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500/50 transition-all resize-none font-mono"
             placeholder={isPro ? "Hola {{nombre}}, tenemos 50% OFF en {{producto}}. Escribí YA para reservar. {{saludo|atentamente|un abrazo}}" : "Hola, tenemos 50% OFF. Escribí YA para reservar. (Las variables {{...}} son Pro)"
             }
           />
@@ -845,8 +845,8 @@ function TemplateFormModal({ open, onClose, onSubmit, categories, initial, isPro
         </div>
 
         <div className="flex gap-3 pt-2">
-          <button type="button" onClick={onClose} className="flex-1 py-3 bg-[var(--bg-input)] hover:bg-[var(--border-hover)] text-[var(--text-primary)] rounded-xl text-sm font-medium transition-colors">Cancelar</button>
-          <button type="submit" className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-bold transition-colors shadow-lg shadow-blue-500/25">{initial ? "Guardar" : "Crear"}</button>
+          <button type="button" onClick={onClose} className="flex-1 py-3 bg-[var(--bg-input)] hover:bg-[var(--border-hover)] text-white rounded-xl text-sm font-medium transition-colors">Cancelar</button>
+          <button type="submit" className="flex-1 py-3 bg-sky-500/100 hover:bg-sky-500 text-white rounded-xl text-sm font-bold transition-colors shadow-lg shadow-blue-500/25">{initial ? "Guardar" : "Crear"}</button>
         </div>
       </form>
     </PremiumModal>
@@ -865,7 +865,7 @@ function UseTemplateModal({ open, onClose, template, onConfirm }: any) {
         </div>
 
         <div className="p-4 bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)]">
-          <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap font-mono">{template.content}</p>
+          <p className="text-sm text-white whitespace-pre-wrap font-mono">{template.content}</p>
         </div>
 
         {template.variables.length > 0 && (

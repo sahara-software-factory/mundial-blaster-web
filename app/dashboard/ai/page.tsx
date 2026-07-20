@@ -1018,24 +1018,19 @@ REGLAS:
                     <Copy className="w-3 h-3" /> Copiar
                   </button>
                   <button
-                    onClick={() => setPreviewIndex(i)}
+                    onClick={() => {
+  setPreviewText(result)  // ← AGREGAR ESTO
+  setPreviewIndex(i)
+}}
                     className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition-colors"
                   >
                     <Smartphone className="w-3 h-3" /> Preview
                   </button>
                 </div>
               </div>
-              {previewIndex === i && (
-                <div className="hidden xl:block">
-                  <WhatsAppPreview text={result} onClose={() => setPreviewIndex(null)} />
-                </div>
-              )}
+              
             </div>
-            {previewIndex === i && (
-              <div className="xl:hidden mt-3">
-                <WhatsAppPreview text={result} onClose={() => setPreviewIndex(null)} />
-              </div>
-            )}
+           
           </motion.div>
         ))}
       </div>

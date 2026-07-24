@@ -924,12 +924,12 @@ const sendCampaign = async () => {
     let res
 
           // 🛑 Traba de salud: línea roja = Meta va a filtrar, no dejar que se autolesione
-const roja = selectedLineIds.find(id => lineHealth[id]?.score === 'rojo')
-if (roja) {
-  const h = lineHealth[roja]
-  toast.error(`⛔ Línea en calentamiento: ${h.diasActivos}/7 días activos, ${h.humanOut} mensajes humanos esta semana. Usá tu WhatsApp normal unos días más — Meta filtraría esta campaña y arriesgaría tu número.`)
-  return
-}
+// const roja = selectedLineIds.find(id => lineHealth[id]?.score === 'rojo')
+// if (roja) {
+//   const h = lineHealth[roja]
+//   toast.error(`⛔ Línea en calentamiento: ${h.diasActivos}/7 días activos, ${h.humanOut} mensajes humanos esta semana. Usá tu WhatsApp normal unos días más — Meta filtraría esta campaña y arriesgaría tu número.`)
+//   return
+// }
     if (isEditMode && editCampaignId) {
 
       res = await fetch(`/api/campaigns/${editCampaignId}`, {

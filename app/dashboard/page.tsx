@@ -543,6 +543,8 @@ const [editCampaignId, setEditCampaignId] = useState<string | null>(null)
   const [distributionMode, setDistributionMode] = useState<"single" | "round_robin">("single")
   const [selectedLineIds, setSelectedLineIds] = useState<string[]>([])
 
+  const [lineHealth, setLineHealth] = useState<Record<string, any>>({})
+
   const [showBlacklistModal, setShowBlacklistModal] = useState(false)
   const DEMO_BLACKLIST = ["549115457458", "5492604500364"]
 
@@ -643,32 +645,49 @@ aiFeaturesRef.current = aiFeatures
     return numbersText.split("\n").map(n => n.trim()).filter(Boolean).includes(phone)
   }
 
+  const fetchHealth = async (lineId: string) => {
+  try {
+    const t = localStorage.getItem('mb_token') || ''
+    const res = await fetch(`/api/lineas/${lineId}/health`, {
+      headers: { Authorization: `Bearer ${t}` }
+    })
+    if (res.ok) {
+      const data = await res.json()
+      setLineHealth(prev => ({ ...prev, [lineId]: data }))
+    }
+  } catch {}
+}
+
   // ─── FETCHES ───
   const fetchLines = async () => {
-     if (isDemo) {
-      // DEMO: 5 líneas conectadas con nombres variados
-      setLines([
-        { id: "demo-line-1", phone: "5491130000001", nombre: "Línea Principal", status: "CONECTADA" },
-        { id: "demo-line-2", phone: "5491130000002", nombre: "Línea Ventas", status: "CONECTADA" },
-        { id: "demo-line-3", phone: "5491130000003", nombre: "Línea Soporte", status: "CONECTADA" },
-        { id: "demo-line-4", phone: "5491130000004", nombre: "Línea Marketing", status: "CONECTADA" },
-        { id: "demo-line-5", phone: "5491130000005", nombre: "Línea Backup", status: "CONECTADA" },
-      ])
-      setSelectedLineIds(["demo-line-1", "demo-line-2", "demo-line-3", "demo-line-4", "demo-line-5"])
-      return
-    }
-    try {
-      const t = localStorage.getItem('mb_token') || ''
-      const res = await fetch("/api/lineas", {
-        headers: { Authorization: `Bearer ${t}` },
-        cache: "no-store"
-      })
-      const data = await res.json()
-      if (data.lines) setLines(data.lines)
-    } catch {
-      toast.error("Error cargando líneas")
-    }
+  if (isDemo) {
+    // DEMO: 5 líneas conectadas (sin health, no existen en backend)
+    setLines([
+      { id: "demo-line-1", phone: "5491130000001", nombre: "Línea Principal", status: "CONECTADA" },
+      { id: "demo-line-2", phone: "5491130000002", nombre: "Línea Ventas", status: "CONECTADA" },
+      { id: "demo-line-3", phone: "5491130000003", nombre: "Línea Soporte", status: "CONECTADA" },
+      { id: "demo-line-4", phone: "5491130000004", nombre: "Línea Marketing", status: "CONECTADA" },
+      { id: "demo-line-5", phone: "5491130000005", nombre: "Línea Backup", status: "CONECTADA" },
+    ])
+    setSelectedLineIds(["demo-line-1", "demo-line-2", "demo-line-3", "demo-line-4", "demo-line-5"])
+    return
   }
+  try {
+    const t = localStorage.getItem('mb_token') || ''
+    const res = await fetch("/api/lineas", {
+      headers: { Authorization: `Bearer ${t}` },
+      cache: "no-store"
+    })
+    const data = await res.json()
+    if (data.lines) {
+      setLines(data.lines)
+      // 🩺 Traer salud de cada línea para el semáforo
+      data.lines.forEach((l: any) => fetchHealth(l.id))
+    }
+  } catch {
+    toast.error("Error cargando líneas")
+  }
+}
 
 
   const deleteLine = async (lineId: string) => {
@@ -903,7 +922,16 @@ const sendCampaign = async () => {
     }
 
     let res
+
+          // 🛑 Traba de salud: línea roja = Meta va a filtrar, no dejar que se autolesione
+const roja = selectedLineIds.find(id => lineHealth[id]?.score === 'rojo')
+if (roja) {
+  const h = lineHealth[roja]
+  toast.error(`⛔ Línea en calentamiento: ${h.diasActivos}/7 días activos, ${h.humanOut} mensajes humanos esta semana. Usá tu WhatsApp normal unos días más — Meta filtraría esta campaña y arriesgaría tu número.`)
+  return
+}
     if (isEditMode && editCampaignId) {
+
       res = await fetch(`/api/campaigns/${editCampaignId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` },
@@ -1437,12 +1465,16 @@ useEffect(() => {
     }
     const tag = payload.status === 'sent' ? '[OK]' : '[ERR]'
     setLogs(prev => [...prev, `${tag} ${payload.progress} → ${payload.phone} [${payload.linePhone}]`])
+
+     if (payload.status === 'unconfirmed') {
+  setLogs(prev => [...prev, `[WARN] ${payload.progress} → ${payload.phone} [${payload.linePhone}] ${payload.error}`])
+  return
+}
 })
   
-  // ✅ CAMPAÑA COMPLETE: usar refs para valores actuales
-  socket.on("campaign_complete", async (payload: any) => {
+   socket.on("campaign_complete", async (payload: any) => {
     console.log('📡 RECIBIDO campaign_complete:', payload)
-    setLogs(prev => [...prev, `[DONE] Campaña ${payload.campaignId} finalizada · ${payload.sent} enviados · ${payload.failed} fallidos`])
+    setLogs(prev => [...prev, `[DONE] Campaña ${payload.campaignId} finalizada · ${payload.sent} enviados · ${payload.failed} fallidos${payload.unconfirmed ? ` · ${payload.unconfirmed} retenidos por Meta` : ''}`])
 
     
     // Usar refs para leer valores actuales (no stale closure)
@@ -1486,14 +1518,16 @@ useEffect(() => {
   })
 
   socket.on("status", (data: { lineId: string, status: string, reason?: string }) => {
-    setLines(prev => prev.map(l => 
-      l.id === data.lineId ? { ...l, status: data.status } : l
-    ))
-    if (data.status === 'DESCONECTADA') {
-      setSelectedLineIds(prev => prev.filter(id => id !== data.lineId))
-      setSelectedLine(prev => prev?.id === data.lineId ? null : prev)
-    }
-  })
+  setLines(prev => prev.map(l => 
+    l.id === data.lineId ? { ...l, status: data.status } : l
+  ))
+  // 🩺 No des-seleccionar si es un conflict autosanable — la línea vuelve sola
+  if (data.status === 'DESCONECTADA' && data.reason !== 'conflict') {
+    setSelectedLineIds(prev => prev.filter(id => id !== data.lineId))
+    setSelectedLine(prev => prev?.id === data.lineId ? null : prev)
+  }
+})
+
 
   return () => {
     socket.off("connect")
@@ -2396,6 +2430,17 @@ function getSaludoPorHora(): string {
       <QrCode size={14} /> Conectar
     </button>
   )}
+
+  {lineHealth[line.id] && (
+  <span className={`text-xs font-medium ${
+    lineHealth[line.id].score === 'verde' ? 'text-emerald-400' :
+    lineHealth[line.id].score === 'amarillo' ? 'text-amber-400' : 'text-red-400'
+  }`}>
+    {lineHealth[line.id].score === 'verde' ? '🟢 Lista' :
+     lineHealth[line.id].score === 'amarillo' ? '🟡 Tibia' : '🔴 En calentamiento'}
+    {' · '}{lineHealth[line.id].diasActivos}/7 días activos · {lineHealth[line.id].humanOut} msj humanos
+  </span>
+)}
   <button 
     onClick={(e) => { e.stopPropagation(); logoutLine(line.id) }}
     disabled={line.status === "DESCONECTADA"}

@@ -2424,6 +2424,17 @@ function getSaludoPorHora(): string {
                           </div>
                           <span className={`px-2 py-0.5 text-[10px] rounded-full border ${statusColor(line.status)}`}>{line.status}</span>
                         </div>
+                        {/* 🩺 SEMÁFORO DE SALUD — fila propia */}
+                        {lineHealth[line.id] && (
+                          <div className={`text-xs font-medium mb-2 ${
+                            lineHealth[line.id].score === 'verde' ? 'text-emerald-400' :
+                            lineHealth[line.id].score === 'amarillo' ? 'text-amber-400' : 'text-red-400'
+                          }`}>
+                            {lineHealth[line.id].score === 'verde' ? '🟢 Lista' :
+                             lineHealth[line.id].score === 'amarillo' ? '🟡 Tibia' : '🔴 En calentamiento'}
+                            {' · '}{lineHealth[line.id].diasActivos}/7 días activos · {lineHealth[line.id].humanOut} msj humanos
+                          </div>
+                        )}
                         <div className="flex gap-2 mt-4">
   {line.status !== "CONECTADA" && (
     <button onClick={(e) => { e.stopPropagation(); openQrForLine(line) }} className="flex-1 flex items-center justify-center gap-1.5 text-xs py-2 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors">
@@ -2431,16 +2442,7 @@ function getSaludoPorHora(): string {
     </button>
   )}
 
-  {lineHealth[line.id] && (
-  <span className={`text-xs font-medium ${
-    lineHealth[line.id].score === 'verde' ? 'text-emerald-400' :
-    lineHealth[line.id].score === 'amarillo' ? 'text-amber-400' : 'text-red-400'
-  }`}>
-    {lineHealth[line.id].score === 'verde' ? '🟢 Lista' :
-     lineHealth[line.id].score === 'amarillo' ? '🟡 Tibia' : '🔴 En calentamiento'}
-    {' · '}{lineHealth[line.id].diasActivos}/7 días activos · {lineHealth[line.id].humanOut} msj humanos
-  </span>
-)}
+  
   <button 
     onClick={(e) => { e.stopPropagation(); logoutLine(line.id) }}
     disabled={line.status === "DESCONECTADA"}

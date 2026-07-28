@@ -923,13 +923,13 @@ const sendCampaign = async () => {
 
     let res
 
-          // 🛑 Traba de salud: línea roja = Meta va a filtrar, no dejar que se autolesione
-// const roja = selectedLineIds.find(id => lineHealth[id]?.score === 'rojo')
-// if (roja) {
-//   const h = lineHealth[roja]
-//   toast.error(`⛔ Línea en calentamiento: ${h.diasActivos}/7 días activos, ${h.humanOut} mensajes humanos esta semana. Usá tu WhatsApp normal unos días más — Meta filtraría esta campaña y arriesgaría tu número.`)
-//   return
-// }
+          
+const roja = selectedLineIds.find(id => lineHealth[id]?.score === 'rojo')
+if (roja) {
+  const h = lineHealth[roja]
+  toast.error(`⛔ Línea en calentamiento: ${h.diasActivos}/7 días activos, ${h.humanOut} mensajes humanos esta semana. Usá tu WhatsApp normal unos días más — Meta filtraría esta campaña y arriesgaría tu número.`)
+  return
+}
     if (isEditMode && editCampaignId) {
 
       res = await fetch(`/api/campaigns/${editCampaignId}`, {
@@ -3906,7 +3906,7 @@ function getSaludoPorHora(): string {
         </div>
       </PremiumModal>
 
-      <PremiumModal open={showAddModal} onClose={() => setShowAddModal(false)} title="Agregar Línea">
+       <PremiumModal open={showAddModal} onClose={() => setShowAddModal(false)} title="Agregar Línea">
         <div className="space-y-4">
           <div>
             <label className="block text-sm text-[var(--text-secondary)] mb-1">Número (con código país)</label>
@@ -3916,14 +3916,18 @@ function getSaludoPorHora(): string {
             <label className="block text-sm text-[var(--text-secondary)] mb-1">Nombre (opcional)</label>
             <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Línea Principal" className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-3 text-[var(--text-primary)] focus:outline-none focus:border-blue-500" />
           </div>
-          {!isPro && lines.length >= 1 && (
+          {lines.length >= tierConfig.maxLines && (
             <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-              <p className="text-sm text-amber-400 flex items-center gap-2"><Zap size={14} /> Tu plan Starter permite 1 línea. Upgrade a Pro para 3 líneas.</p>
+              <p className="text-sm text-amber-400 flex items-center gap-2">
+                <Zap size={14} /> Límite alcanzado: tu plan permite {tierConfig.maxLines} línea{tierConfig.maxLines > 1 ? 's' : ''}.
+                {tierConfig.maxLines === 2 && ' Upgrade a Pro para 3 líneas.'}
+                {tierConfig.maxLines === 3 && ' Upgrade a Business para líneas ilimitadas.'}
+              </p>
             </div>
           )}
           <div className="flex gap-3">
             <button onClick={() => setShowAddModal(false)} className="flex-1 py-2.5 bg-[#1E293B] hover:bg-[#334155] text-[var(--text-primary)] rounded-xl transition-colors">Cancelar</button>
-            <button onClick={addLine} disabled={!isPro && lines.length >= 1} className={`flex-1 py-2.5 rounded-xl font-bold transition-colors ${!isPro && lines.length >= 1 ? 'bg-[#1E293B] text-[var(--text-muted)] cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>Guardar</button>
+             <button onClick={addLine} disabled={lines.length >= tierConfig.maxLines} className={`flex-1 py-2.5 rounded-xl font-bold transition-colors ${lines.length >= tierConfig.maxLines ? 'bg-[#1E293B] text-[var(--text-muted)] cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>Guardar</button>
           </div>
         </div>
       </PremiumModal>
